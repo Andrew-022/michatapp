@@ -6,9 +6,10 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  PermissionsAndroid,
+  Platform,
 } from 'react-native';
-import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+import Contacts from 'react-native-contacts';
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {RootStackParamList} from '../navigation/AppNavigator';
@@ -16,39 +17,56 @@ import {RootStackParamList} from '../navigation/AppNavigator';
 type ContactListNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ContactList'>;
 
 interface User {
-  id: string;
-  phoneNumber: string;
-  lastLogin: any;
+  recordID: string;
+  givenName: string;
+  familyName: string;
+  phoneNumbers: {
+    label: string;
+    number: string;
+  }[];
 }
 
 const ContactList = () => {
   const navigation = useNavigation<ContactListNavigationProp>();
-  const [users, setUsers] = useState<User[]>([]);
+  const [contacts, setContacts] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const currentUser = auth().currentUser;
-    if (!currentUser) return;
-
-    const unsubscribe = firestore()
-      .collection('users')
-      .where('id', '!=', currentUser.uid)
-      .onSnapshot(
-        snapshot => {
-          const userList = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as User[];
-          setUsers(userList);
+    const requestContactsPermission = async () => {
+      if (Platform.OS === 'android') {
+        console.log('Solicitando permiso para acceder a los contactos');
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
+          {
+            title: 'Permiso para acceder a los contactos',
+            message: 'Esta aplicación necesita acceder a tus contactos para mostrar la lista de contactos.',
+            buttonNeutral: 'Preguntar más tarde',
+            buttonNegative: 'Cancelar',
+            buttonPositive: 'Aceptar',
+          },
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          console.log('Permiso de contactos denegado');
           setLoading(false);
-        },
-        error => {
-          console.error('Error al cargar usuarios:', error);
-          setLoading(false);
-        },
-      );
+          return;
+        }
+      }
+      loadContacts();
+    };
 
-    return () => unsubscribe();
+    const loadContacts = () => {
+      Contacts.getAll()
+        .then(contacts => {
+          setContacts(contacts);
+          setLoading(false);
+        })
+        .catch(error => {
+          console.error('Error al cargar contactos:', error);
+          setLoading(false);
+        });
+    };
+
+    requestContactsPermission();
   }, []);
 
   const handleStartChat = async (otherUser: User) => {
@@ -64,26 +82,26 @@ const ContactList = () => {
 
       const chat = existingChat.docs.find(doc => {
         const data = doc.data();
-        return data.participants.includes(otherUser.id);
+        return data.participants.includes(otherUser.recordID);
       });
 
       if (chat) {
         // Si el chat existe, navegar a él
         navigation.replace('Chat', {
           chatId: chat.id,
-          otherParticipantId: otherUser.id,
+          otherParticipantId: otherUser.recordID,
         });
       } else {
         // Si no existe, crear uno nuevo
         const newChatRef = await firestore().collection('chats').add({
-          participants: [currentUser.uid, otherUser.id],
+          participants: [currentUser.uid, otherUser.recordID],
           createdAt: firestore.FieldValue.serverTimestamp(),
           updatedAt: firestore.FieldValue.serverTimestamp(),
         });
 
         navigation.replace('Chat', {
           chatId: newChatRef.id,
-          otherParticipantId: otherUser.id,
+          otherParticipantId: otherUser.recordID,
         });
       }
     } catch (error) {
@@ -91,20 +109,20 @@ const ContactList = () => {
     }
   };
 
-  const renderUserItem = ({item}: {item: User}) => (
+  const renderContactItem = ({item}: {item: User}) => (
     <TouchableOpacity
       style={styles.userItem}
       onPress={() => handleStartChat(item)}>
       <View style={styles.avatarContainer}>
         <Text style={styles.avatarText}>
-          {item.phoneNumber?.charAt(0).toUpperCase() || '?'}
+          {item.givenName?.charAt(0).toUpperCase() || '?'}
         </Text>
       </View>
       <View style={styles.userInfo}>
-        <Text style={styles.phoneNumber}>{item.phoneNumber}</Text>
-        <Text style={styles.lastLogin}>
-          Último acceso: {item.lastLogin?.toDate().toLocaleDateString() || 'N/A'}
-        </Text>
+        <Text style={styles.phoneNumber}>{item.givenName} {item.familyName}</Text>
+        {item.phoneNumbers.map((phone, index) => (
+          <Text key={index} style={styles.phoneNumber}>{phone.number}</Text>
+        ))}
       </View>
     </TouchableOpacity>
   );
@@ -124,9 +142,9 @@ const ContactList = () => {
       </View>
 
       <FlatList
-        data={users}
-        renderItem={renderUserItem}
-        keyExtractor={item => item.id}
+        data={contacts}
+        renderItem={renderContactItem}
+        keyExtractor={item => item.recordID}
         contentContainerStyle={styles.userList}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
