@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,9 +13,11 @@ import {
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/AppNavigator';
 
+type PhoneAuthNavigationProp = NativeStackNavigationProp<RootStackParamList, 'PhoneAuth'>;
 
-const db = firestore();
 // Lista de países con sus códigos
 const countries = [
   { name: 'España', code: '+34' },
@@ -31,12 +33,23 @@ const countries = [
 ];
 
 const PhoneAuth = () => {
+  const navigation = useNavigation<PhoneAuthNavigationProp>();
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [confirm, setConfirm] = useState(null);
+  const [confirm, setConfirm] = useState<FirebaseAuthTypes.ConfirmationResult | null>(null);
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [showCountryList, setShowCountryList] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
+
+  useEffect(() => {
+    const unsubscribe = auth().onAuthStateChanged((user) => {
+      if (user) {
+        navigation.replace('Home');
+      }
+    });
+
+    return () => unsubscribe();
+  }, [navigation]);
 
   async function signInWithPhoneNumber() {
     if (!phoneNumber) {
@@ -84,7 +97,8 @@ const PhoneAuth = () => {
       setLoading(true);
       await confirm.confirm(code);
       Alert.alert('Éxito', '¡Inicio de sesión exitoso!');
-    } catch (error) {
+      navigation.replace('Home');
+    } catch (error: any) {
       Alert.alert('Error', error.message || 'Código inválido');
     } finally {
       setLoading(false);
@@ -96,6 +110,9 @@ const PhoneAuth = () => {
       setLoading(true);
       console.log('Iniciando proceso de debug login...');
       
+      // Verificar que Firestore está inicializado
+      const db = firestore();
+      console.log('Firestore inicializado');
       
       // Intentar obtener el documento
       const docRef = db.collection('debug_tokens').doc('gmaTRZUdXYW3fPE9ZP28vyx621A3');
@@ -119,7 +136,8 @@ const PhoneAuth = () => {
       await auth().signInWithCustomToken(data.token);
       console.log('Inicio de sesión exitoso');
       Alert.alert('Debug', 'Inicio de sesión exitoso');
-    } catch (error) {
+      navigation.replace('Home');
+    } catch (error: any) {
       console.error('Error completo:', error);
       Alert.alert(
         'Error Debug',
@@ -130,107 +148,95 @@ const PhoneAuth = () => {
     }
   };
 
-  const CountrySelector = () => (
-    <Modal
-      visible={showCountryList}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={() => setShowCountryList(false)}>
-      <View style={styles.modalContainer}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Selecciona tu país</Text>
-          <ScrollView style={styles.countryList}>
-            {countries.map((country, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.countryButton}
-                onPress={() => {
-                  setSelectedCountry(country);
-                  setShowCountryList(false);
-                }}>
-                <Text style={styles.countryName}>{country.name}</Text>
-                <Text style={styles.countryCode}>{country.code}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => setShowCountryList(false)}>
-            <Text style={styles.closeButtonText}>Cerrar</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-
   return (
     <View style={styles.container}>
+      <Text style={styles.title}>Iniciar Sesión</Text>
+      <Text style={styles.subtitle}>
+        Ingresa tu número de teléfono para continuar
+      </Text>
+
+      <View style={styles.inputContainer}>
+        <TouchableOpacity
+          style={styles.countryButton}
+          onPress={() => setShowCountryList(true)}>
+          <Text style={styles.countryButtonText}>{selectedCountry.code}</Text>
+        </TouchableOpacity>
+        <TextInput
+          style={styles.input}
+          placeholder="Número de teléfono"
+          keyboardType="phone-pad"
+          value={phoneNumber}
+          onChangeText={setPhoneNumber}
+        />
+      </View>
+
       {!confirm ? (
-        <>
-          <Text style={styles.title}>Ingresa tu número de teléfono</Text>
-          <View style={styles.phoneInputContainer}>
-            <TouchableOpacity
-              style={styles.countrySelector}
-              onPress={() => setShowCountryList(true)}>
-              <Text style={styles.countrySelectorText}>
-                {selectedCountry.code}
-              </Text>
-            </TouchableOpacity>
-            <TextInput
-              style={styles.phoneInput}
-              placeholder="1234567890"
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-              keyboardType="phone-pad"
-              editable={!loading}
-            />
-          </View>
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={signInWithPhoneNumber}
-            disabled={loading}>
-            {loading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text style={styles.buttonText}>Enviar código</Text>
-            )}
-          </TouchableOpacity>
-          
-          {/* Botón de Debug */}
-          <TouchableOpacity
-            style={[styles.debugButton, loading && styles.buttonDisabled]}
-            onPress={handleDebugLogin}
-            disabled={loading}>
-            <Text style={styles.debugButtonText}>Debug Login</Text>
-          </TouchableOpacity>
-        </>
+        <TouchableOpacity
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={signInWithPhoneNumber}
+          disabled={loading}>
+          <Text style={styles.buttonText}>
+            {loading ? 'Enviando...' : 'Enviar código'}
+          </Text>
+        </TouchableOpacity>
       ) : (
         <>
-          <Text style={styles.title}>Ingresa el código de verificación</Text>
-          <Text style={styles.subtitle}>
-            Te hemos enviado un código por SMS
-          </Text>
           <TextInput
             style={styles.input}
             placeholder="Código de verificación"
+            keyboardType="number-pad"
             value={code}
             onChangeText={setCode}
-            keyboardType="number-pad"
-            editable={!loading}
           />
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
             onPress={confirmCode}
             disabled={loading}>
-            {loading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text style={styles.buttonText}>Verificar código</Text>
-            )}
+            <Text style={styles.buttonText}>
+              {loading ? 'Verificando...' : 'Verificar código'}
+            </Text>
           </TouchableOpacity>
         </>
       )}
-      <CountrySelector />
+
+      <TouchableOpacity
+        style={styles.debugButton}
+        onPress={handleDebugLogin}
+        disabled={loading}>
+        <Text style={styles.debugButtonText}>Debug Login</Text>
+      </TouchableOpacity>
+
+      <Modal
+        visible={showCountryList}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCountryList(false)}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Selecciona tu país</Text>
+            <ScrollView>
+              {countries.map((country, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.countryItem}
+                  onPress={() => {
+                    setSelectedCountry(country);
+                    setShowCountryList(false);
+                  }}>
+                  <Text style={styles.countryItemText}>
+                    {country.name} ({country.code})
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowCountryList(false)}>
+              <Text style={styles.closeButtonText}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -238,7 +244,6 @@ const PhoneAuth = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
     padding: 20,
     backgroundColor: '#fff',
   },
@@ -247,126 +252,97 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 10,
     textAlign: 'center',
-    color: '#333',
   },
   subtitle: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 20,
+    marginBottom: 30,
     textAlign: 'center',
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 15,
-    fontSize: 18,
-    borderRadius: 10,
+  inputContainer: {
+    flexDirection: 'row',
     marginBottom: 20,
-    backgroundColor: '#f9f9f9',
+  },
+  countryButton: {
+    backgroundColor: '#F2F2F7',
+    padding: 15,
+    borderRadius: 8,
+    marginRight: 10,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  countryButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  input: {
+    flex: 1,
+    backgroundColor: '#F2F2F7',
+    padding: 15,
+    borderRadius: 8,
+    fontSize: 16,
   },
   button: {
     backgroundColor: '#007AFF',
     padding: 15,
-    borderRadius: 10,
+    borderRadius: 8,
     alignItems: 'center',
-    elevation: 2,
+    marginBottom: 20,
   },
   buttonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: '#B4B4B4',
   },
   buttonText: {
-    color: 'white',
-    fontSize: 18,
+    color: '#fff',
+    fontSize: 16,
     fontWeight: 'bold',
   },
-  phoneInputContainer: {
-    flexDirection: 'row',
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  countrySelector: {
-    borderWidth: 1,
-    borderColor: '#ddd',
+  debugButton: {
     padding: 15,
-    borderTopLeftRadius: 10,
-    borderBottomLeftRadius: 10,
-    backgroundColor: '#f9f9f9',
-    minWidth: 80,
+    borderRadius: 8,
     alignItems: 'center',
-  },
-  phoneInput: {
-    flex: 1,
     borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 15,
-    fontSize: 18,
-    borderTopRightRadius: 10,
-    borderBottomRightRadius: 10,
-    backgroundColor: '#f9f9f9',
+    borderColor: '#007AFF',
+  },
+  debugButtonText: {
+    color: '#007AFF',
+    fontSize: 16,
   },
   modalContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 20,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     padding: 20,
-    width: '90%',
     maxHeight: '80%',
   },
   modalTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
   },
-  countryList: {
-    maxHeight: 400,
-  },
-  countryButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  countryItem: {
     padding: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#E5E5E5',
   },
-  countryName: {
-    fontSize: 18,
-    color: '#333',
-  },
-  countryCode: {
-    fontSize: 18,
-    color: '#666',
+  countryItemText: {
+    fontSize: 16,
   },
   closeButton: {
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
     marginTop: 20,
+    padding: 15,
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+    alignItems: 'center',
   },
   closeButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  countrySelectorText: {
-    fontSize: 18,
-    color: '#333',
-  },
-  debugButton: {
-    backgroundColor: '#FF9500',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  debugButtonText: {
-    color: 'white',
+    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },
