@@ -15,7 +15,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import {Colors} from 'react-native/Libraries/NewAppScreen';
-import auth, {FirebaseAuthTypes} from '@react-native-firebase/auth';
+import auth, {firebase, FirebaseAuthTypes} from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
 import PhoneAuth from './src/screens/PhoneAuth';
 import Home from './src/screens/Home';
 
@@ -30,7 +31,21 @@ function App(): React.JSX.Element {
     if (initializing) setInitializing(false);
   }
 
+  const prueba = async () => {
+    try {
+      const snapshot = await firestore().collection("users").get();
+      snapshot.forEach(doc => {
+        console.log("Doc ID:", doc.id, "Data:", doc.data());
+      });
+    } catch (error) {
+      console.error("Error al obtener la colección 'users':", error);
+    }
+  };
+  
+  
+
   useEffect(() => {
+    prueba();
     const subscriber = auth().onAuthStateChanged(onAuthStateChanged);
     return subscriber; // unsubscribe on unmount
   }, []);

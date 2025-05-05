@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
 
+
+const db = firestore();
 // Lista de países con sus códigos
 const countries = [
   { name: 'España', code: '+34' },
@@ -94,9 +96,6 @@ const PhoneAuth = () => {
       setLoading(true);
       console.log('Iniciando proceso de debug login...');
       
-      // Verificar que Firestore está inicializado
-      const db = firestore();
-      console.log('Firestore inicializado');
       
       // Intentar obtener el documento
       const docRef = db.collection('debug_tokens').doc('gmaTRZUdXYW3fPE9ZP28vyx621A3');

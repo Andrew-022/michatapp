@@ -1,8 +1,31 @@
-import React from 'react';
-import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
+import React, {useEffect, useState} from 'react';
+import {View, Text, StyleSheet, TouchableOpacity, FlatList} from 'react-native';
 import auth from '@react-native-firebase/auth';
+import {createUser, getUser} from '../services/firestore';
 
 const Home = () => {
+  const [userData, setUserData] = useState<any>(null);
+
+  useEffect(() => {
+    const loadUserData = async () => {
+      const currentUser = auth().currentUser;
+      if (currentUser) {
+        // Intentar obtener datos del usuario
+        const data = await getUser(currentUser.uid);
+        if (!data) {
+          // Si no existe, crear el usuario
+          await createUser(currentUser.uid, {
+            phoneNumber: currentUser.phoneNumber,
+            lastLogin: new Date(),
+          });
+        }
+        setUserData(data);
+      }
+    };
+
+    loadUserData();
+  }, []);
+
   const handleSignOut = async () => {
     try {
       await auth().signOut();
@@ -13,9 +36,9 @@ const Home = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>¡Hola Mundo!</Text>
+      <Text style={styles.title}>¡Bienvenido!</Text>
       <Text style={styles.subtitle}>
-        Bienvenido {auth().currentUser?.phoneNumber}
+        {userData?.phoneNumber || auth().currentUser?.phoneNumber}
       </Text>
       <TouchableOpacity style={styles.button} onPress={handleSignOut}>
         <Text style={styles.buttonText}>Cerrar Sesión</Text>
@@ -27,32 +50,29 @@ const Home = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     padding: 20,
-    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 10,
-    color: '#333',
   },
   subtitle: {
-    fontSize: 18,
-    color: '#666',
-    marginBottom: 30,
+    fontSize: 16,
+    marginBottom: 20,
   },
   button: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#007AFF',
     padding: 15,
-    borderRadius: 10,
+    borderRadius: 8,
     width: '100%',
     alignItems: 'center',
   },
   buttonText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
 });
