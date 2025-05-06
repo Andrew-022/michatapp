@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
+  Modal,
+  Animated,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import { useNavigation } from '@react-navigation/native';
@@ -13,6 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { observer } from 'mobx-react-lite';
 import { HomeViewModel } from '../../viewmodels/HomeViewModel';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 
 type HomeNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -52,6 +55,17 @@ const ChatItem = ({ item, onPress }: { item: any; onPress: () => void }) => {
 const Home = observer(() => {
   const navigation = useNavigation<HomeNavigationProp>();
   const viewModel = React.useMemo(() => new HomeViewModel(), []);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const slideAnim = React.useRef(new Animated.Value(-300)).current;
+
+  const toggleMenu = () => {
+    setMenuVisible(!menuVisible);
+    Animated.timing(slideAnim, {
+      toValue: menuVisible ? -300 : 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
 
   useEffect(() => {
     const unsubscribe = auth().onAuthStateChanged((user) => {
@@ -96,6 +110,9 @@ const Home = observer(() => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
+          <Icon name="menu" size={24} color="#007AFF" />
+        </TouchableOpacity>
         <Text style={styles.title}>Chats</Text>
         <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
           <Text style={styles.signOutText}>Cerrar Sesión</Text>
@@ -119,6 +136,49 @@ const Home = observer(() => {
         onPress={() => navigation.navigate('ContactList')}>
         <Text style={styles.newChatButtonText}>+</Text>
       </TouchableOpacity>
+
+      <Modal
+        visible={menuVisible}
+        transparent
+        animationType="none"
+        onRequestClose={toggleMenu}>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={toggleMenu}>
+          <Animated.View
+            style={[
+              styles.menuContainer,
+              {
+                transform: [{translateX: slideAnim}],
+              },
+            ]}>
+            <View style={styles.menuHeader}>
+              <Text style={styles.menuTitle}>Menú</Text>
+              <TouchableOpacity onPress={toggleMenu}>
+                <Icon name="close" size={24} color="#000" />
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={styles.menuItem} onPress={() => {
+              navigation.navigate('Profile');
+              toggleMenu();
+            }}>
+              <Icon name="person" size={24} color="#007AFF" />
+              <Text style={styles.menuItemText}>Perfil</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={() => {}}>
+              <Icon name="settings" size={24} color="#007AFF" />
+              <Text style={styles.menuItemText}>Configuración</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={handleSignOut}>
+              <Icon name="exit-to-app" size={24} color="#FF3B30" />
+              <Text style={[styles.menuItemText, { color: '#FF3B30' }]}>
+                Cerrar Sesión
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 });
@@ -140,6 +200,9 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
+  },
+  menuButton: {
+    padding: 8,
   },
   title: {
     fontSize: 24,
@@ -221,6 +284,41 @@ const styles = StyleSheet.create({
     fontSize: 30,
     color: '#fff',
     fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  menuContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 300,
+    height: '100%',
+    backgroundColor: '#fff',
+    padding: 16,
+  },
+  menuHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+    paddingTop: 40,
+  },
+  menuTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+  menuItemText: {
+    fontSize: 16,
+    marginLeft: 16,
   },
 });
 
