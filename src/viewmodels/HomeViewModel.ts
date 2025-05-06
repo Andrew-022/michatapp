@@ -87,4 +87,32 @@ export class HomeViewModel {
     if (!currentUserId) return undefined;
     return chat.participants.find(id => id !== currentUserId);
   }
+
+  async getOtherParticipantName(chat: Chat): Promise<string> {
+    const otherParticipantId = this.getOtherParticipantId(chat);
+    if (!otherParticipantId) return '';
+
+    try {
+      const userDoc = await firestore()
+        .collection('users')
+        .doc(otherParticipantId)
+        .get();
+
+      if (!userDoc.exists) {
+        return 'Usuario';
+      }
+
+      const userData = userDoc.data();
+      if (!userData) {
+        return 'Usuario';
+      }
+
+      const user = UserModel.fromFirestore(userDoc.id, userData);
+      return user.name || user.phoneNumber || 'Usuario';
+    } catch (error) {
+      console.error('Error al obtener nombre del participante:', error);
+      return 'Usuario';
+    }
+  }
+  
 } 

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,39 @@ import { observer } from 'mobx-react-lite';
 import { HomeViewModel } from '../../viewmodels/HomeViewModel';
 
 type HomeNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
+
+const ChatItem = ({ item, onPress }: { item: any; onPress: () => void }) => {
+  const viewModel = React.useMemo(() => new HomeViewModel(), []);
+  const [otherParticipantName, setOtherParticipantName] = useState('');
+
+  useEffect(() => {
+    const loadName = async () => {
+      const name = await viewModel.getOtherParticipantName(item);
+      setOtherParticipantName(name);
+    };
+    loadName();
+  }, [item]);
+
+  return (
+    <TouchableOpacity
+      style={styles.chatItem}
+      onPress={onPress}>
+      <View style={styles.avatarContainer}>
+        <Text style={styles.avatarText}>
+          {otherParticipantName.charAt(0).toUpperCase() || '?'}
+        </Text>
+      </View>
+      <View style={styles.chatInfo}>
+        <Text style={styles.chatName}>
+          {otherParticipantName || 'Usuario desconocido'}
+        </Text>
+        <Text style={styles.lastMessage} numberOfLines={1}>
+          {item.lastMessage?.text || 'No hay mensajes'}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 const Home = observer(() => {
   const navigation = useNavigation<HomeNavigationProp>();
@@ -49,27 +82,7 @@ const Home = observer(() => {
   };
 
   const renderChatItem = ({item}: {item: any}) => {
-    const otherParticipantId = viewModel.getOtherParticipantId(item);
-
-    return (
-      <TouchableOpacity
-        style={styles.chatItem}
-        onPress={() => handleChatPress(item)}>
-        <View style={styles.avatarContainer}>
-          <Text style={styles.avatarText}>
-            {otherParticipantId?.charAt(0).toUpperCase() || '?'}
-          </Text>
-        </View>
-        <View style={styles.chatInfo}>
-          <Text style={styles.chatName}>
-            {otherParticipantId || 'Usuario desconocido'}
-          </Text>
-          <Text style={styles.lastMessage} numberOfLines={1}>
-            {item.lastMessage?.text || 'No hay mensajes'}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    );
+    return <ChatItem item={item} onPress={() => handleChatPress(item)} />;
   };
 
   if (viewModel.loading) {
