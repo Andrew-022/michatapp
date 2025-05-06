@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  TextInput,
   Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -19,6 +20,18 @@ type ContactListNavigationProp = NativeStackNavigationProp<RootStackParamList, '
 const ContactList = observer(() => {
   const navigation = useNavigation<ContactListNavigationProp>();
   const viewModel = React.useMemo(() => new ContactListViewModel(), []);
+
+  const [searchText, setSearchText] = React.useState('');
+
+  const filteredContacts = React.useMemo(() => {
+    if (!searchText.trim()) return viewModel.contacts;
+    const lower = searchText.toLowerCase();
+    return viewModel.contacts.filter(contact =>
+      contact.getFullName().toLowerCase().includes(lower) ||
+      (Array.isArray(contact.phoneNumbers) &&
+        contact.phoneNumbers.some((p: any) => p.number.includes(lower)))
+    );
+  }, [searchText, viewModel.contacts]);
 
   const handleStartChat = async (contact: any) => {
     try {
@@ -71,8 +84,18 @@ const ContactList = observer(() => {
         <Text style={styles.title}>Contactos</Text>
       </View>
 
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Buscar contacto o número..."
+          value={searchText}
+          onChangeText={setSearchText}
+          placeholderTextColor="#000"
+        />
+      </View>
+
       <FlatList
-        data={viewModel.contacts}
+        data={filteredContacts}
         renderItem={renderContactItem}
         keyExtractor={item => item.recordID}
         contentContainerStyle={styles.userList}
@@ -151,6 +174,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
+  },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+  },
+  searchInput: {
+    backgroundColor: '#F2F2F7',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    fontSize: 16,
   },
 });
 
