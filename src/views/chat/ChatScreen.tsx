@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, {useRef, useEffect} from 'react';
 import {
   View,
   Text,
@@ -10,15 +10,8 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
-
-interface Message {
-  id: string;
-  text: string;
-  senderId: string;
-  createdAt: any;
-}
+import {observer} from 'mobx-react-lite';
+import {ChatViewModel} from '../../viewmodels/ChatViewModel';
 
 interface ChatScreenProps {
   route: {
@@ -29,71 +22,16 @@ interface ChatScreenProps {
   };
 }
 
-const ChatScreen = ({route}: ChatScreenProps) => {
+const ChatScreen = observer(({route}: ChatScreenProps) => {
   const {chatId, otherParticipantId} = route.params;
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [loading, setLoading] = useState(true);
+  const viewModel = React.useMemo(
+    () => new ChatViewModel(chatId, otherParticipantId),
+    [chatId, otherParticipantId],
+  );
   const flatListRef = useRef<FlatList>(null);
 
-  useEffect(() => {
-    const unsubscribe = firestore()
-      .collection('chats')
-      .doc(chatId)
-      .collection('messages')
-      .orderBy('createdAt', 'desc')
-      .onSnapshot(
-        snapshot => {
-          const messageList = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as Message[];
-          setMessages(messageList);
-          setLoading(false);
-        },
-        error => {
-          console.error('Error al cargar mensajes:', error);
-          setLoading(false);
-        },
-      );
-
-    return () => unsubscribe();
-  }, [chatId]);
-
-  const sendMessage = async () => {
-    if (!newMessage.trim()) return;
-
-    const currentUser = auth().currentUser;
-    if (!currentUser) return;
-
-    try {
-      await firestore()
-        .collection('chats')
-        .doc(chatId)
-        .collection('messages')
-        .add({
-          text: newMessage.trim(),
-          senderId: currentUser.uid,
-          createdAt: firestore.FieldValue.serverTimestamp(),
-        });
-
-      // Actualizar el último mensaje en el chat
-      await firestore().collection('chats').doc(chatId).update({
-        lastMessage: {
-          text: newMessage.trim(),
-          createdAt: firestore.FieldValue.serverTimestamp(),
-        },
-        updatedAt: firestore.FieldValue.serverTimestamp(),
-      });
-
-      setNewMessage('');
-    } catch (error) {
-      console.error('Error al enviar mensaje:', error);
-    }
-  };
-
-  const renderMessage = ({item}: {item: Message}) => {
-    const isOwnMessage = item.senderId === auth().currentUser?.uid;
+  const renderMessage = ({item}: {item: any}) => {
+    const isOwnMessage = viewModel.isOwnMessage(item);
 
     return (
       <View
@@ -103,13 +41,13 @@ const ChatScreen = ({route}: ChatScreenProps) => {
         ]}>
         <Text style={styles.messageText}>{item.text}</Text>
         <Text style={styles.messageTime}>
-          {item.createdAt?.toDate().toLocaleTimeString() || 'Enviando...'}
+          {item.createdAt?.toLocaleTimeString() || 'Enviando...'}
         </Text>
       </View>
     );
   };
 
-  if (loading) {
+  if (viewModel.loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
@@ -124,7 +62,7 @@ const ChatScreen = ({route}: ChatScreenProps) => {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
       <FlatList
         ref={flatListRef}
-        data={messages}
+        data={viewModel.messages}
         renderItem={renderMessage}
         keyExtractor={item => item.id}
         inverted
@@ -133,24 +71,24 @@ const ChatScreen = ({route}: ChatScreenProps) => {
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
-          value={newMessage}
-          onChangeText={setNewMessage}
+          value={viewModel.newMessage}
+          onChangeText={viewModel.setNewMessage}
           placeholder="Escribe un mensaje..."
           multiline
         />
         <TouchableOpacity
           style={[
             styles.sendButton,
-            !newMessage.trim() && styles.sendButtonDisabled,
+            !viewModel.newMessage.trim() && styles.sendButtonDisabled,
           ]}
-          onPress={sendMessage}
-          disabled={!newMessage.trim()}>
+          onPress={() => viewModel.sendMessage()}
+          disabled={!viewModel.newMessage.trim()}>
           <Text style={styles.sendButtonText}>Enviar</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,29 +8,17 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
-import {createUser, getUser} from '../services/firestore';
-import {useNavigation} from '@react-navigation/native';
-import {NativeStackNavigationProp} from '@react-navigation/native-stack';
-import {RootStackParamList} from '../navigation/AppNavigator';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../navigation/AppNavigator';
+import { observer } from 'mobx-react-lite';
+import { HomeViewModel } from '../../viewmodels/HomeViewModel';
 
 type HomeNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
-interface Chat {
-  id: string;
-  participants: string[];
-  updatedAt?: any;
-  lastMessage?: {
-    text: string;
-    createdAt: any;
-  };
-}
-
-const Home = () => {
+const Home = observer(() => {
   const navigation = useNavigation<HomeNavigationProp>();
-  const [userData, setUserData] = useState<any>(null);
-  const [chats, setChats] = useState<Chat[]>([]);
-  const [loading, setLoading] = useState(true);
+  const viewModel = React.useMemo(() => new HomeViewModel(), []);
 
   useEffect(() => {
     const unsubscribe = auth().onAuthStateChanged((user) => {
@@ -42,68 +30,16 @@ const Home = () => {
     return () => unsubscribe();
   }, [navigation]);
 
-  useEffect(() => {
-    const loadUserData = async () => {
-      const currentUser = auth().currentUser;
-      if (currentUser) {
-        const data = await getUser(currentUser.uid);
-        if (!data) {
-          await createUser(currentUser.uid, {
-            phoneNumber: currentUser.phoneNumber,
-            lastLogin: new Date(),
-          });
-        }
-        setUserData(data);
-      }
-    };
-
-    loadUserData();
-  }, []);
-
-  useEffect(() => {
-    const currentUser = auth().currentUser;
-    if (!currentUser) return;
-
-    // Suscribirse a los chats del usuario
-    const unsubscribe = firestore()
-      .collection('chats')
-      .where('participants', 'array-contains', currentUser.uid)
-      .onSnapshot(
-        snapshot => {
-          const chatList = snapshot.docs
-            .map(doc => ({
-              id: doc.id,
-              ...doc.data(),
-            }))
-            .sort((a, b) => {
-              const dateA = a.updatedAt?.toDate?.() || new Date(0);
-              const dateB = b.updatedAt?.toDate?.() || new Date(0);
-              return dateB.getTime() - dateA.getTime();
-            }) as Chat[];
-          setChats(chatList);
-          setLoading(false);
-        },
-        error => {
-          console.error('Error al cargar chats:', error);
-          setLoading(false);
-        },
-      );
-
-    return () => unsubscribe();
-  }, []);
-
   const handleSignOut = async () => {
     try {
-      await auth().signOut();
+      await viewModel.signOut();
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
     }
   };
 
-  const handleChatPress = (chat: Chat) => {
-    const otherParticipantId = chat.participants.find(
-      id => id !== auth().currentUser?.uid,
-    );
+  const handleChatPress = (chat: any) => {
+    const otherParticipantId = viewModel.getOtherParticipantId(chat);
     if (otherParticipantId) {
       navigation.navigate('Chat', {
         chatId: chat.id,
@@ -112,10 +48,8 @@ const Home = () => {
     }
   };
 
-  const renderChatItem = ({item}: {item: Chat}) => {
-    const otherParticipantId = item.participants.find(
-      id => id !== auth().currentUser?.uid,
-    );
+  const renderChatItem = ({item}: {item: any}) => {
+    const otherParticipantId = viewModel.getOtherParticipantId(item);
 
     return (
       <TouchableOpacity
@@ -138,7 +72,7 @@ const Home = () => {
     );
   };
 
-  if (loading) {
+  if (viewModel.loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
@@ -156,7 +90,7 @@ const Home = () => {
       </View>
 
       <FlatList
-        data={chats}
+        data={viewModel.chats}
         renderItem={renderChatItem}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.chatList}
@@ -174,7 +108,7 @@ const Home = () => {
       </TouchableOpacity>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -250,7 +184,6 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: '#666',
-    textAlign: 'center',
   },
   newChatButton: {
     position: 'absolute',
