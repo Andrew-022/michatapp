@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -22,6 +23,13 @@ const ContactList = observer(() => {
   const handleStartChat = async (contact: any) => {
     try {
       const { chatId, otherParticipantId } = await viewModel.startChat(contact);
+      if (!otherParticipantId) {
+        Alert.alert(
+          'Usuario no registrado',
+          'Este contacto no está registrado en la aplicación. Solo puedes chatear con usuarios que tengan cuenta.'
+        );
+        return;
+      }
       navigation.replace('Chat', {
         chatId,
         otherParticipantId,

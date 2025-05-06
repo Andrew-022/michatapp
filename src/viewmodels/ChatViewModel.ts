@@ -17,7 +17,7 @@ export class ChatViewModel {
     this.loadMessages();
   }
 
-  setNewMessage(text: string) {
+  setNewMessage = (text: string) => {
     this.newMessage = text;
   }
 

@@ -64,10 +64,36 @@ export class ContactListViewModel {
       });
   }
 
-  async startChat(otherUser: Contact): Promise<{ chatId: string; otherParticipantId: string }> {
+  async startChat(otherUser: Contact): Promise<{ chatId: string; otherParticipantId: string | null }> {
     const currentUser = auth().currentUser;
     if (!currentUser) {
       throw new Error('Usuario no autenticado');
+    }
+
+    // Buscar si el contacto está registrado en la app (por número de teléfono)
+    let registeredUserId: string | null = null;
+
+    if (Array.isArray(otherUser.phoneNumbers) && otherUser.phoneNumbers.length > 0) {
+      // Normalizar los números para comparar (puedes ajustar la lógica según formato)
+      const phoneNumbers = otherUser.phoneNumbers.map(p => p.number.replace(/\D/g, ''));
+      const usersSnapshot = await firestore()
+        .collection('users')
+        .where('phoneNumber', 'in', phoneNumbers)
+        .get();
+
+      if (!usersSnapshot.empty) {
+        // Tomamos el primer usuario encontrado
+        const userDoc = usersSnapshot.docs[0];
+        registeredUserId = userDoc.id;
+      }
+    }
+
+    if (!registeredUserId) {
+      // No se encontró usuario registrado con ese número
+      return {
+        chatId: '',
+        otherParticipantId: null,
+      };
     }
 
     // Verificar si ya existe un chat entre estos usuarios
@@ -78,26 +104,26 @@ export class ContactListViewModel {
 
     const chat = existingChat.docs.find(doc => {
       const data = doc.data();
-      return data.participants.includes(otherUser.recordID);
+      return data.participants.includes(registeredUserId);
     });
 
     if (chat) {
       return {
         chatId: chat.id,
-        otherParticipantId: otherUser.recordID,
+        otherParticipantId: registeredUserId,
       };
     }
 
     // Si no existe, crear uno nuevo
     const newChatRef = await firestore().collection('chats').add({
-      participants: [currentUser.uid, otherUser.recordID],
+      participants: [currentUser.uid, registeredUserId],
       createdAt: firestore.FieldValue.serverTimestamp(),
       updatedAt: firestore.FieldValue.serverTimestamp(),
     });
 
     return {
       chatId: newChatRef.id,
-      otherParticipantId: otherUser.recordID,
+      otherParticipantId: registeredUserId,
     };
   }
 } 
