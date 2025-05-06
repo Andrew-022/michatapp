@@ -74,6 +74,7 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
           value={viewModel.newMessage}
           onChangeText={viewModel.setNewMessage}
           placeholder="Escribe un mensaje..."
+          placeholderTextColor='rgba(54, 54, 54, 0.7)'
           multiline
         />
         <TouchableOpacity
@@ -119,11 +120,11 @@ const styles = StyleSheet.create({
   },
   messageText: {
     fontSize: 16,
-    color: '#fff',
+    color: 'black',
   },
   messageTime: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: 'rgba(0, 0, 0, 0.7)',
     marginTop: 4,
   },
   inputContainer: {
