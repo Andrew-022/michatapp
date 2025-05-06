@@ -60,6 +60,9 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>{viewModel.otherParticipantName}</Text>
+      </View>
       <FlatList
         ref={flatListRef}
         data={viewModel.messages}
@@ -95,6 +98,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  header: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+    backgroundColor: '#fff',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#000',
+    textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,

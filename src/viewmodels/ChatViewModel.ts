@@ -9,18 +9,32 @@ export class ChatViewModel {
   loading: boolean = true;
   chatId: string;
   otherParticipantId: string;
+  otherParticipantName: string = '';
 
   constructor(chatId: string, otherParticipantId: string) {
     this.chatId = chatId;
     this.otherParticipantId = otherParticipantId;
     makeAutoObservable(this);
     this.loadMessages();
+    this.loadOtherParticipantName();
+  }
+
+  private async loadOtherParticipantName() {
+    try {
+      const userDoc = await firestore().collection('users').doc(this.otherParticipantId).get();
+      const userData = userDoc.data();
+      this.otherParticipantName = userData?.name || 'Usuario';
+    } catch (error) {
+      console.error('Error al cargar nombre del participante:', error);
+      this.otherParticipantName = 'Usuario';
+    }
   }
 
   setNewMessage = (text: string) => {
     this.newMessage = text;
   }
 
+  
   private loadMessages() {
     const unsubscribe = firestore()
       .collection('chats')
