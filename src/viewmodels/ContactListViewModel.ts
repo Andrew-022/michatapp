@@ -1,5 +1,5 @@
 import { makeAutoObservable } from 'mobx';
-import Contacts from 'react-native-contacts';
+import Contacts from '@s77rt/react-native-contacts';
 import { Platform, PermissionsAndroid } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
@@ -43,9 +43,19 @@ export class ContactListViewModel {
   }
 
   private loadContacts() {
-    Contacts.getAll()
+    Contacts.getAll(["firstName", "lastName", "phoneNumbers"])
       .then(contacts => {
-        this.contacts = contacts.map(contact => new ContactModel(contact));
+        this.contacts = contacts.map((c: any, idx: number) => new ContactModel({
+          recordID: c.recordID || `${c.firstName || ''}_${c.lastName || ''}_${c.phoneNumbers?.[0]?.value || idx}`,
+          firstName: c.firstName || '',
+          lastName: c.lastName || '',
+          phoneNumbers: Array.isArray(c.phoneNumbers)
+            ? c.phoneNumbers.map((p: any) => ({
+                label: p.label,
+                number: p.value,
+              }))
+            : [],
+        }));
         this.loading = false;
       })
       .catch(error => {

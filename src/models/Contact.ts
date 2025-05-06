@@ -1,7 +1,7 @@
 export interface Contact {
   recordID: string;
-  givenName: string;
-  familyName: string;
+  firstName: string;
+  lastName: string;
   phoneNumbers: {
     label: string;
     number: string;
@@ -10,8 +10,8 @@ export interface Contact {
 
 export class ContactModel implements Contact {
   recordID: string;
-  givenName: string;
-  familyName: string;
+  firstName: string;
+  lastName: string;
   phoneNumbers: {
     label: string;
     number: string;
@@ -19,18 +19,18 @@ export class ContactModel implements Contact {
 
   constructor(data: Contact) {
     this.recordID = data.recordID;
-    this.givenName = data.givenName;
-    this.familyName = data.familyName;
+    this.firstName = data.firstName;
+    this.lastName = data.lastName;
     this.phoneNumbers = data.phoneNumbers;
   }
 
   getFullName(): string {
-    return `${this.givenName} ${this.familyName}`.trim();
+    return `${this.firstName} ${this.lastName}`.trim();
   }
 
   getInitials(): string {
-    const firstInitial = this.givenName?.charAt(0) || '';
-    const lastInitial = this.familyName?.charAt(0) || '';
+    const firstInitial = this.firstName?.charAt(0) || '';
+    const lastInitial = this.lastName?.charAt(0) || '';
     return (firstInitial + lastInitial).toUpperCase() || '?';
   }
 } 

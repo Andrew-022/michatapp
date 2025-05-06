@@ -40,7 +40,7 @@ const ContactList = observer(() => {
       </View>
       <View style={styles.userInfo}>
         <Text style={styles.phoneNumber}>{item.getFullName()}</Text>
-        {item.phoneNumbers.map((phone: any, index: number) => (
+        {Array.isArray(item.phoneNumbers) && item.phoneNumbers.map((phone: any, index: number) => (
           <Text key={index} style={styles.phoneNumber}>
             {phone.number}
           </Text>
