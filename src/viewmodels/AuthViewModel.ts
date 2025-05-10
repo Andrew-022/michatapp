@@ -95,6 +95,7 @@ export class AuthViewModel {
       await createUser(currentUser.uid, {
         phoneNumber: currentUser.phoneNumber?.replace('+', '') || '',
         name: "Usuario Nuevo",
+        createdAt: new Date(),
         lastLogin: new Date(),
         photoURL: "https://i.pinimg.com/222x/57/70/f0/5770f01a32c3c53e90ecda61483ccb08.jpg"
       });

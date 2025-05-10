@@ -1,7 +1,7 @@
-import {makeAutoObservable} from 'mobx';
-import {User} from '../models/User';
-import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+import { makeAutoObservable, runInAction } from 'mobx';
+import { User } from '../models/User';
+import { getAuth } from '@react-native-firebase/auth';
+import { getFirestore, doc, getDoc, updateDoc } from '@react-native-firebase/firestore';
 
 export class ProfileViewModel {
   userData: User | null = null;
@@ -14,37 +14,48 @@ export class ProfileViewModel {
 
   async loadUserData() {
     try {
-      const currentUser = auth().currentUser;
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
       if (currentUser) {
-        const userDoc = await firestore().collection('users').doc(currentUser.uid).get();
+        const db = getFirestore();
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        const userDoc = await getDoc(userDocRef);
         const userData = userDoc.data();
         
-        this.userData = {
-          id: currentUser.uid,
-          phoneNumber: currentUser.phoneNumber || '',
-          name: userData?.name || 'Usuario',
-          lastLogin: new Date(),
-        };
+        runInAction(() => {
+          this.userData = {
+            id: currentUser.uid,
+            phoneNumber: currentUser.phoneNumber || '',
+            name: userData?.name || 'Usuario',
+            lastLogin: new Date(),
+          };
+          this.loading = false;
+        });
       }
     } catch (error) {
       console.error('Error loading user data:', error);
-    } finally {
-      this.loading = false;
+      runInAction(() => {
+        this.loading = false;
+      });
     }
   }
 
   async updateName(newName: string) {
     try {
-      const currentUser = auth().currentUser;
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
       if (currentUser) {
-        const userRef = firestore().collection('users').doc(currentUser.uid);
-        await userRef.update({
+        const db = getFirestore();
+        const userRef = doc(db, 'users', currentUser.uid);
+        await updateDoc(userRef, {
           name: newName,
         });
         
-        if (this.userData) {
-          this.userData.name = newName;
-        }
+        runInAction(() => {
+          if (this.userData) {
+            this.userData.name = newName;
+          }
+        });
       }
     } catch (error) {
       console.error('Error updating name:', error);
