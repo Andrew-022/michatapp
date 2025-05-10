@@ -17,7 +17,9 @@ import { RootStackParamList } from '../../navigation/AppNavigator';
 import { observer } from 'mobx-react-lite';
 import { HomeViewModel } from '../../viewmodels/HomeViewModel';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import 'react-native-get-random-values';
 import CryptoJS from 'crypto-js';
+import { globalStyles } from '../../styles/globalStyles';
 
 type HomeNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -53,15 +55,15 @@ const ChatItem = ({ item, onPress }: { item: any; onPress: () => void }) => {
       style={styles.chatItem}
       onPress={onPress}>
       <View style={styles.avatarContainer}>
-        <Text style={styles.avatarText}>
+        <Text style={[styles.avatarText, globalStyles.textWhite]}>
           {otherParticipantName.charAt(0).toUpperCase() || '?'}
         </Text>
       </View>
       <View style={styles.chatInfo}>
-        <Text style={styles.chatName}>
+        <Text style={[styles.chatName, globalStyles.text]}>
           {otherParticipantName || 'Usuario desconocido'}
         </Text>
-        <Text style={styles.lastMessage} numberOfLines={1}>
+        <Text style={[styles.lastMessage, globalStyles.textSecondary]} numberOfLines={1}>
           {decryptedLastMessage || 'No hay mensajes'}
         </Text>
       </View>
@@ -131,9 +133,9 @@ const Home = observer(() => {
         <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
           <Icon name="menu" size={24} color="#007AFF" />
         </TouchableOpacity>
-        <Text style={styles.title}>Chats</Text>
+        <Text style={[styles.title, globalStyles.text]}>Chats</Text>
         <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-          <Text style={styles.signOutText}>Cerrar Sesión</Text>
+          <Text style={[styles.signOutText, globalStyles.textBlue]}>Cerrar Sesión</Text>
         </TouchableOpacity>
       </View>
 
@@ -144,7 +146,7 @@ const Home = observer(() => {
         contentContainerStyle={styles.chatList}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No tienes chats aún</Text>
+            <Text style={[styles.emptyText, globalStyles.textSecondary]}>No tienes chats aún</Text>
           </View>
         }
       />
@@ -152,7 +154,7 @@ const Home = observer(() => {
       <TouchableOpacity
         style={styles.newChatButton}
         onPress={() => navigation.navigate('ContactList')}>
-        <Text style={styles.newChatButtonText}>+</Text>
+        <Text style={[styles.newChatButtonText, globalStyles.textWhite]}>+</Text>
       </TouchableOpacity>
 
       <Modal
@@ -172,7 +174,7 @@ const Home = observer(() => {
               },
             ]}>
             <View style={styles.menuHeader}>
-              <Text style={styles.menuTitle}>Menú</Text>
+              <Text style={[styles.menuTitle, globalStyles.text]}>Menú</Text>
               <TouchableOpacity onPress={toggleMenu}>
                 <Icon name="close" size={24} color="#000" />
               </TouchableOpacity>
@@ -182,11 +184,11 @@ const Home = observer(() => {
               toggleMenu();
             }}>
               <Icon name="person" size={24} color="#007AFF" />
-              <Text style={styles.menuItemText}>Perfil</Text>
+              <Text style={[styles.menuItemText, globalStyles.text]}>Perfil</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={() => {}}>
               <Icon name="settings" size={24} color="#007AFF" />
-              <Text style={styles.menuItemText}>Configuración</Text>
+              <Text style={[styles.menuItemText, globalStyles.text]}>Configuración</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.menuItem} 
@@ -200,11 +202,11 @@ const Home = observer(() => {
                 toggleMenu();
               }}>
               <Icon name="add-circle" size={24} color="#007AFF" />
-              <Text style={styles.menuItemText}>Crear Usuario Test</Text>
+              <Text style={[styles.menuItemText, globalStyles.text]}>Crear Usuario Test</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={handleSignOut}>
               <Icon name="exit-to-app" size={24} color="#FF3B30" />
-              <Text style={[styles.menuItemText, { color: '#FF3B30' }]}>
+              <Text style={[styles.menuItemText, globalStyles.textRed]}>
                 Cerrar Sesión
               </Text>
             </TouchableOpacity>
@@ -218,7 +220,7 @@ const Home = observer(() => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F5F5F5',
   },
   loadingContainer: {
     flex: 1,
@@ -232,6 +234,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
+    backgroundColor: '#fff',
   },
   menuButton: {
     padding: 8,
@@ -244,7 +247,6 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   signOutText: {
-    color: '#007AFF',
     fontSize: 16,
   },
   chatList: {
@@ -255,6 +257,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
+    backgroundColor: '#fff',
   },
   avatarContainer: {
     width: 50,
@@ -266,7 +269,6 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   avatarText: {
-    color: '#fff',
     fontSize: 20,
     fontWeight: 'bold',
   },
@@ -281,7 +283,6 @@ const styles = StyleSheet.create({
   },
   lastMessage: {
     fontSize: 14,
-    color: '#666',
   },
   emptyContainer: {
     flex: 1,
@@ -291,7 +292,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#666',
   },
   newChatButton: {
     position: 'absolute',
@@ -314,7 +314,6 @@ const styles = StyleSheet.create({
   },
   newChatButtonText: {
     fontSize: 30,
-    color: '#fff',
     fontWeight: 'bold',
   },
   modalOverlay: {

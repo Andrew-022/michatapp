@@ -145,6 +145,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginRight: 8,
+    color: '#000',
   },
   editIcon: {
     padding: 4,

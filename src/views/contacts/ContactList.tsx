@@ -14,6 +14,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { observer } from 'mobx-react-lite';
 import { ContactListViewModel } from '../../viewmodels/ContactListViewModel';
+import { globalStyles } from '../../styles/globalStyles';
 
 type ContactListNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ContactList'>;
 
@@ -54,15 +55,17 @@ const ContactList = observer(() => {
 
   const renderContactItem = ({item}: {item: any}) => (
     <TouchableOpacity
-      style={styles.userItem}
+      style={styles.contactItem}
       onPress={() => handleStartChat(item)}>
       <View style={styles.avatarContainer}>
         <Text style={styles.avatarText}>{item.getInitials()}</Text>
       </View>
-      <View style={styles.userInfo}>
-        <Text style={styles.phoneNumber}>{item.getFullName()}</Text>
+      <View style={styles.contactInfo}>
+        <Text style={[styles.contactName, globalStyles.text]}>
+          {item.getFullName()}
+        </Text>
         {Array.isArray(item.phoneNumbers) && item.phoneNumbers.map((phone: any, index: number) => (
-          <Text key={index} style={styles.phoneNumber}>
+          <Text key={index} style={[styles.contactPhone, globalStyles.textSecondary]}>
             {phone.number}
           </Text>
         ))}
@@ -81,16 +84,16 @@ const ContactList = observer(() => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Contactos</Text>
+        <Text style={[styles.title, globalStyles.text]}>Contactos</Text>
       </View>
 
       <View style={styles.searchContainer}>
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, globalStyles.text]}
           placeholder="Buscar contacto o número..."
           value={searchText}
           onChangeText={setSearchText}
-          placeholderTextColor="#000"
+          placeholderTextColor="#666"
         />
       </View>
 
@@ -98,10 +101,12 @@ const ContactList = observer(() => {
         data={filteredContacts}
         renderItem={renderContactItem}
         keyExtractor={item => item.recordID}
-        contentContainerStyle={styles.userList}
+        contentContainerStyle={styles.contactList}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No hay contactos disponibles</Text>
+            <Text style={[styles.emptyText, globalStyles.textSecondary]}>
+              No se encontraron contactos
+            </Text>
           </View>
         }
       />
@@ -112,7 +117,7 @@ const ContactList = observer(() => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F5F5F5',
   },
   loadingContainer: {
     flex: 1,
@@ -123,19 +128,33 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
+    backgroundColor: '#fff',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
-  userList: {
+  searchContainer: {
+    padding: 16,
+    backgroundColor: '#fff',
+  },
+  searchInput: {
+    backgroundColor: '#F2F2F7',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+  contactList: {
     flexGrow: 1,
   },
-  userItem: {
+  contactItem: {
     flexDirection: 'row',
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
+    backgroundColor: '#fff',
   },
   avatarContainer: {
     width: 50,
@@ -151,18 +170,16 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
   },
-  userInfo: {
+  contactInfo: {
     flex: 1,
-    justifyContent: 'center',
   },
-  phoneNumber: {
+  contactName: {
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 4,
   },
-  lastLogin: {
+  contactPhone: {
     fontSize: 14,
-    color: '#666',
   },
   emptyContainer: {
     flex: 1,
@@ -171,20 +188,6 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   emptyText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-  },
-  searchContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#fff',
-  },
-  searchInput: {
-    backgroundColor: '#F2F2F7',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
     fontSize: 16,
   },
 });

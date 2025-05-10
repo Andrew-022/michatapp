@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import {observer} from 'mobx-react-lite';
 import {ChatViewModel} from '../../viewmodels/ChatViewModel';
+import {globalStyles} from '../../styles/globalStyles';
 
 interface ChatScreenProps {
   route: {
@@ -42,13 +43,15 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
         <View style={styles.messageContent}>
           <Text style={[
             styles.messageText,
-            isOwnMessage ? styles.ownMessageText : styles.otherMessageText
+            isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
+            isOwnMessage ? globalStyles.textWhite : globalStyles.text
           ]}>
             {item.text}
           </Text>
           <Text style={[
             styles.messageTime,
-            isOwnMessage ? styles.ownMessageTime : styles.otherMessageTime
+            isOwnMessage ? styles.ownMessageTime : styles.otherMessageTime,
+            isOwnMessage ? globalStyles.textWhite : globalStyles.textSecondary
           ]}>
             {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
           </Text>
@@ -107,7 +110,7 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F5F5F5',
   },
   header: {
     padding: 16,
@@ -118,8 +121,8 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#000',
     textAlign: 'center',
+    color: '#000',
   },
   loadingContainer: {
     flex: 1,
@@ -153,20 +156,20 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   ownMessageText: {
-    color: '#FFFFFF',
+    opacity: 1,
   },
   otherMessageText: {
-    color: '#000000',
+    opacity: 1,
   },
   messageTime: {
     fontSize: 10,
     marginLeft: 4,
   },
   ownMessageTime: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    opacity: 0.7,
   },
   otherMessageTime: {
-    color: 'rgba(0, 0, 0, 0.7)',
+    opacity: 0.7,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -183,6 +186,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginRight: 8,
     maxHeight: 100,
+    color: '#000',
   },
   sendButton: {
     backgroundColor: '#007AFF',
@@ -194,7 +198,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#B4B4B4',
   },
   sendButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },

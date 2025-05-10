@@ -16,6 +16,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { observer } from 'mobx-react-lite';
 import { AuthViewModel } from '../../viewmodels/AuthViewModel';
+import { globalStyles } from '../../styles/globalStyles';
 
 type PhoneAuthNavigationProp = NativeStackNavigationProp<RootStackParamList, 'PhoneAuth'>;
 
@@ -68,12 +69,20 @@ const PhoneAuth = observer(() => {
     }
   };
 
+  if (viewModel.loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>
+      <Text style={[styles.title, globalStyles.text]}>
         {viewModel.confirmation ? 'Verificar Código' : 'Iniciar Sesión'}
       </Text>
-      <Text style={styles.subtitle}>
+      <Text style={[styles.subtitle, globalStyles.textSecondary]}>
         {viewModel.confirmation
           ? 'Ingresa el código de verificación enviado a tu teléfono'
           : 'Ingresa tu número de teléfono para continuar'}
@@ -85,10 +94,12 @@ const PhoneAuth = observer(() => {
             <TouchableOpacity
               style={styles.countryButton}
               onPress={() => viewModel.setShowCountryList(true)}>
-              <Text style={styles.countryButtonText}>{viewModel.selectedCountry.code}</Text>
+              <Text style={[styles.countryButtonText, globalStyles.text]}>
+                {viewModel.selectedCountry.code}
+              </Text>
             </TouchableOpacity>
             <TextInput
-              style={styles.input}
+              style={[styles.input, globalStyles.text]}
               placeholder="Número de teléfono"
               keyboardType="phone-pad"
               value={viewModel.phoneNumber}
@@ -100,16 +111,16 @@ const PhoneAuth = observer(() => {
             style={[styles.button, viewModel.loading && styles.buttonDisabled]}
             onPress={handleSignIn}
             disabled={viewModel.loading}>
-            <Text style={styles.buttonText}>
+            <Text style={[styles.buttonText, globalStyles.textWhite]}>
               {viewModel.loading ? 'Enviando...' : 'Enviar código'}
             </Text>
           </TouchableOpacity>
         </>
       ) : (
         <>
-        <View style={styles.inputContainer}>
+          <View style={styles.inputContainer}>
             <TextInput
-              style={styles.input}
+              style={[styles.input, globalStyles.text]}
               placeholder="Código de verificación"
               keyboardType="number-pad"
               value={viewModel.verificationCode}
@@ -121,7 +132,7 @@ const PhoneAuth = observer(() => {
             style={[styles.button, viewModel.loading && styles.buttonDisabled]}
             onPress={handleConfirmCode}
             disabled={viewModel.loading}>
-            <Text style={styles.buttonText}>
+            <Text style={[styles.buttonText, globalStyles.textWhite]}>
               {viewModel.loading ? 'Verificando...' : 'Verificar código'}
             </Text>
           </TouchableOpacity>
@@ -132,7 +143,7 @@ const PhoneAuth = observer(() => {
         style={styles.debugButton}
         onPress={handleDebugLogin}
         disabled={viewModel.loading}>
-        <Text style={styles.debugButtonText}>Debug Login</Text>
+        <Text style={[styles.debugButtonText, globalStyles.textWhite]}>Debug Login</Text>
       </TouchableOpacity>
 
       <Modal
@@ -142,7 +153,7 @@ const PhoneAuth = observer(() => {
         onRequestClose={() => viewModel.setShowCountryList(false)}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Selecciona tu país</Text>
+            <Text style={[styles.modalTitle, globalStyles.text]}>Selecciona tu país</Text>
             <ScrollView>
               {viewModel.countries.map((country, index) => (
                 <TouchableOpacity
@@ -152,7 +163,7 @@ const PhoneAuth = observer(() => {
                     viewModel.setSelectedCountry(country);
                     viewModel.setShowCountryList(false);
                   }}>
-                  <Text style={styles.countryItemText}>
+                  <Text style={[styles.countryItemText, globalStyles.text]}>
                     {country.name} ({country.code})
                   </Text>
                 </TouchableOpacity>
@@ -161,7 +172,7 @@ const PhoneAuth = observer(() => {
             <TouchableOpacity
               style={styles.closeButton}
               onPress={() => viewModel.setShowCountryList(false)}>
-              <Text style={styles.closeButtonText}>Cerrar</Text>
+              <Text style={[styles.closeButtonText, globalStyles.textWhite]}>Cerrar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -174,7 +185,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: '#F5F5F5',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
     fontSize: 24,
@@ -184,7 +200,6 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -230,10 +245,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#ccc',
   },
   buttonText: {
-    color: '#fff',
-    textAlign: 'center',
     fontSize: 16,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   debugButton: {
     backgroundColor: '#FF9500',
@@ -242,10 +256,9 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   debugButtonText: {
-    color: '#fff',
-    textAlign: 'center',
     fontSize: 16,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   modalContainer: {
     flex: 1,
@@ -281,10 +294,9 @@ const styles = StyleSheet.create({
     marginTop: 15,
   },
   closeButtonText: {
-    color: '#fff',
-    textAlign: 'center',
     fontSize: 16,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
 
