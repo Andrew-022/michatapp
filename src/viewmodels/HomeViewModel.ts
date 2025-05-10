@@ -4,16 +4,18 @@ import { getFirestore, collection, doc, getDoc, setDoc, query, where, onSnapshot
 import { Chat, ChatModel } from '../models/Chat';
 import { User, UserModel } from '../models/User';
 import { createUser } from '../services/firestore';
+import { GroupChatModel } from '../models/GroupChat';
+import CryptoJS from 'crypto-js';
 
 export class HomeViewModel {
   userData: User | null = null;
-  chats: Chat[] = [];
+  chats: (Chat | GroupChatModel)[] = [];
   loading: boolean = true;
 
   constructor() {
     makeAutoObservable(this);
     this.loadUserData();
-    this.loadChats();
+    this.loadAllChats();
   }
 
   private async loadUserData() {
@@ -47,40 +49,96 @@ export class HomeViewModel {
     }
   }
 
-  private loadChats() {
+  private async loadAllChats() {
     const auth = getAuth();
     const currentUser = auth.currentUser;
     if (!currentUser) return;
 
     const db = getFirestore();
+
+    // Cargar chats normales
     const chatsQuery = query(
       collection(db, 'chats'),
       where('participants', 'array-contains', currentUser.uid)
     );
 
-    const unsubscribe = onSnapshot(
+    // Cargar grupos
+    const groupsQuery = query(
+      collection(db, 'groupChats'),
+      where('participants', 'array-contains', currentUser.uid)
+    );
+
+    // Escuchar ambos
+    const unsubscribeChats = onSnapshot(
       chatsQuery,
-      snapshot => {
-        runInAction(() => {
-          this.chats = snapshot.docs
-            .map(doc => ChatModel.fromFirestore(doc.id, doc.data()))
-            .sort((a, b) => {
-              const dateA = a.updatedAt || new Date(0);
-              const dateB = b.updatedAt || new Date(0);
-              return dateB.getTime() - dateA.getTime();
-            });
-          this.loading = false;
-        });
-      },
-      error => {
-        console.error('Error al cargar chats:', error);
-        runInAction(() => {
-          this.loading = false;
-        });
+      async snapshot => {
+        const chats = await Promise.all(snapshot.docs.map(async docSnap => {
+          const chat = ChatModel.fromFirestore(docSnap.id, docSnap.data());
+          const otherParticipantId = this.getOtherParticipantId(chat);
+          let otherParticipantName = 'Usuario desconocido';
+          if (otherParticipantId) {
+            try {
+              const userDocRef = doc(db, 'users', otherParticipantId);
+              const userDoc = await getDoc(userDocRef);
+              if (userDoc.exists()) {
+                const userData = userDoc.data();
+                otherParticipantName = userData?.name || userData?.phoneNumber || 'Usuario';
+              }
+            } catch (e) {}
+          }
+          // Desencriptar el último mensaje si existe
+          let lastMessage = chat.lastMessage;
+          if (lastMessage && lastMessage.text) {
+            lastMessage = {
+              ...lastMessage,
+              text: this.decryptMessage(lastMessage.text, chat.id)
+            };
+          }
+          return { ...chat, otherParticipantName, lastMessage };
+        }));
+        this.updateCombinedChats(chats, null);
       }
     );
 
-    return unsubscribe;
+    const unsubscribeGroups = onSnapshot(
+      groupsQuery,
+      snapshot => {
+        const groups = snapshot.docs.map(doc => {
+          const group = GroupChatModel.fromFirestore(doc.id, doc.data());
+          // Desencriptar el último mensaje si existe
+          let lastMessage = group.lastMessage;
+          if (lastMessage && lastMessage.text) {
+            lastMessage = {
+              ...lastMessage,
+              text: this.decryptMessage(lastMessage.text, group.id)
+            };
+          }
+          return { ...group, lastMessage };
+        });
+        this.updateCombinedChats(null, groups);
+      }
+    );
+
+    this._unsubscribes = [unsubscribeChats, unsubscribeGroups];
+  }
+
+  // Combina y ordena los chats y grupos
+  private _chats: Chat[] = [];
+  private _groups: GroupChatModel[] = [];
+  private _unsubscribes: any[] = [];
+
+  private updateCombinedChats(chats: Chat[] | null, groups: GroupChatModel[] | null) {
+    if (chats !== null) this._chats = chats;
+    if (groups !== null) this._groups = groups;
+
+    runInAction(() => {
+      this.chats = [...this._chats, ...this._groups].sort((a, b) => {
+        const dateA = a.updatedAt || new Date(0);
+        const dateB = b.updatedAt || new Date(0);
+        return dateB.getTime() - dateA.getTime();
+      });
+      this.loading = false;
+    });
   }
 
   async signOut(): Promise<void> {
@@ -144,6 +202,17 @@ export class HomeViewModel {
     } catch (error) {
       console.error('Error al crear usuario de prueba:', error);
       throw error;
+    }
+  }
+
+  private decryptMessage(encryptedText: string, key: string): string {
+    try {
+      const decrypted = CryptoJS.AES.decrypt(encryptedText, key);
+      const text = decrypted.toString(CryptoJS.enc.Utf8);
+      return text || 'Mensaje cifrado';
+    } catch (error) {
+      console.error('Error al descifrar mensaje:', error);
+      return 'Mensaje cifrado';
     }
   }
 } 

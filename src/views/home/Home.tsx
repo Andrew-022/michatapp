@@ -116,7 +116,46 @@ const Home = observer(() => {
   };
 
   const renderChatItem = ({item}: {item: any}) => {
-    return <ChatItem item={item} onPress={() => handleChatPress(item)} />;
+    // Es grupo si tiene propiedad 'adminId'
+    const isGroup = !!item.adminId;
+
+    return (
+      <TouchableOpacity
+        style={styles.chatItem}
+        onPress={() => {
+          if (isGroup) {
+            navigation.navigate('GroupChat', { groupId: item.id });
+          } else {
+            const otherParticipantId = viewModel.getOtherParticipantId(item);
+            if (otherParticipantId) {
+              navigation.navigate('Chat', {
+                chatId: item.id,
+                otherParticipantId,
+              });
+            }
+          }
+        }}>
+        <View style={styles.avatarContainer}>
+          <Text style={[styles.avatarText, globalStyles.textWhite]}>
+            {isGroup
+              ? (item.name?.charAt(0).toUpperCase() || 'G')
+              : (item.otherParticipantName?.charAt(0).toUpperCase() || '?')}
+          </Text>
+        </View>
+        <View style={styles.chatInfo}>
+          <Text style={[styles.chatName, globalStyles.text]}>
+            {isGroup
+              ? item.name
+              : item.otherParticipantName || 'Usuario desconocido'}
+          </Text>
+          <Text style={[styles.lastMessage, globalStyles.textSecondary]} numberOfLines={1}>
+            {item.lastMessage?.text
+              ? item.lastMessage.text
+              : 'No hay mensajes'}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
   };
 
   if (viewModel.loading) {
@@ -203,6 +242,15 @@ const Home = observer(() => {
               }}>
               <Icon name="add-circle" size={24} color="#007AFF" />
               <Text style={[styles.menuItemText, globalStyles.text]}>Crear Usuario Test</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.menuItem} 
+              onPress={() => {
+                navigation.navigate('CreateGroup');
+                toggleMenu();
+              }}>
+              <Icon name="group-add" size={24} color="#007AFF" />
+              <Text style={[styles.menuItemText, globalStyles.text]}>Crear Grupo</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={handleSignOut}>
               <Icon name="exit-to-app" size={24} color="#FF3B30" />

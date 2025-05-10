@@ -1,4 +1,3 @@
-import 'react-native-get-random-values';  // Importar primero
 import { makeAutoObservable, runInAction } from 'mobx';
 import { getAuth } from '@react-native-firebase/auth';
 import { 
@@ -14,30 +13,28 @@ import {
   query
 } from '@react-native-firebase/firestore';
 import { Message, MessageModel } from '../models/Message';
+import { GroupChat, GroupChatModel } from '../models/GroupChat';
 import CryptoJS from 'crypto-js';
-import { Platform } from 'react-native';
 
-export class ChatViewModel {
+export class GroupChatViewModel {
   messages: Message[] = [];
   newMessage: string = '';
   loading: boolean = true;
-  chatId: string;
-  otherParticipantId: string;
-  otherParticipantName: string = '';
+  groupId: string;
+  groupName: string = '';
+  participants: { id: string; name: string }[] = [];
   private readonly encryptionKey: string;
 
-  constructor(chatId: string, otherParticipantId: string) {
-    this.chatId = chatId;
-    this.otherParticipantId = otherParticipantId;
-    this.encryptionKey = this.generateChatKey(chatId);
+  constructor(groupId: string) {
+    this.groupId = groupId;
+    this.encryptionKey = this.generateGroupKey(groupId);
     makeAutoObservable(this);
     this.loadMessages();
-    this.loadOtherParticipantName();
+    this.loadGroupInfo();
   }
 
-  private generateChatKey(chatId: string): string {
-    // Usamos solo el chatId como clave, así ambos usuarios tendrán la misma
-    return chatId;
+  private generateGroupKey(groupId: string): string {
+    return groupId;
   }
 
   private encryptMessage(text: string): string {
@@ -63,25 +60,42 @@ export class ChatViewModel {
     }
   }
 
-  private async loadOtherParticipantName() {
+  private async loadGroupInfo() {
     try {
       const db = getFirestore();
-      const userDocRef = doc(db, 'users', this.otherParticipantId);
-      const userDoc = await getDoc(userDocRef);
-      const userData = userDoc.data();
+      const groupDocRef = doc(db, 'groupChats', this.groupId);
+      const groupDoc = await getDoc(groupDocRef);
+      const groupData = groupDoc.data() as GroupChat;
       
       runInAction(() => {
-        if (Platform.OS === 'ios') {
-          // Configuraciones específicas de iOS
-        }
-        this.otherParticipantName = userData?.name || 'Usuario';
+        this.groupName = groupData?.name || 'Grupo';
+        this.loadParticipantsInfo(groupData?.participants || []);
       });
     } catch (error) {
-      console.error('Error al cargar nombre del participante:', error);
-      runInAction(() => {
-        this.otherParticipantName = 'Usuario';
-      });
+      console.error('Error al cargar información del grupo:', error);
     }
+  }
+
+  private async loadParticipantsInfo(participantIds: string[]) {
+    const db = getFirestore();
+    const participantsInfo: { id: string; name: string }[] = [];
+
+    for (const participantId of participantIds) {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', participantId));
+        const userData = userDoc.data();
+        participantsInfo.push({
+          id: participantId,
+          name: userData?.name || 'Usuario'
+        });
+      } catch (error) {
+        console.error('Error al cargar información del participante:', error);
+      }
+    }
+
+    runInAction(() => {
+      this.participants = participantsInfo;
+    });
   }
 
   setNewMessage = (text: string) => {
@@ -90,7 +104,7 @@ export class ChatViewModel {
 
   private loadMessages() {
     const db = getFirestore();
-    const messagesRef = collection(db, 'chats', this.chatId, 'messages');
+    const messagesRef = collection(db, 'groupChats', this.groupId, 'messages');
     const q = query(messagesRef, orderBy('createdAt', 'desc'));
 
     const unsubscribe = onSnapshot(
@@ -136,14 +150,15 @@ export class ChatViewModel {
         createdAt: serverTimestamp(),
       };
 
-      const messagesRef = collection(db, 'chats', this.chatId, 'messages');
+      const messagesRef = collection(db, 'groupChats', this.groupId, 'messages');
       await addDoc(messagesRef, messageData);
 
-      const chatRef = doc(db, 'chats', this.chatId);
-      await updateDoc(chatRef, {
+      const groupRef = doc(db, 'groupChats', this.groupId);
+      await updateDoc(groupRef, {
         lastMessage: {
           text: encryptedText,
           createdAt: serverTimestamp(),
+          senderId: currentUser.uid,
         },
         updatedAt: serverTimestamp(),
       });
@@ -160,4 +175,9 @@ export class ChatViewModel {
     const auth = getAuth();
     return message.senderId === auth.currentUser?.uid;
   }
-} 
+
+  getParticipantName(senderId: string): string {
+    const participant = this.participants.find(p => p.id === senderId);
+    return participant?.name || 'Usuario';
+  }
+}

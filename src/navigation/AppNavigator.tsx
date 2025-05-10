@@ -6,6 +6,8 @@ import ChatScreen from '../views/chat/ChatScreen';
 import PhoneAuth from '../views/auth/PhoneAuth';
 import ContactList from '../views/contacts/ContactList';
 import ProfileScreen from '../views/profile/ProfileScreen';
+import CreateGroupScreen from '../views/group/CreateGroupScreen';
+import GroupChatScreen from '../views/group/GroupChatScreen';
 
 export type RootStackParamList = {
   Home: undefined;
@@ -16,6 +18,10 @@ export type RootStackParamList = {
   PhoneAuth: undefined;
   ContactList: undefined;
   Profile: undefined;
+  CreateGroup: undefined;
+  GroupChat: {
+    groupId: string;
+  };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -33,6 +39,8 @@ const AppNavigator = () => {
         <Stack.Screen name="Chat" component={ChatScreen} />
         <Stack.Screen name="ContactList" component={ContactList} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
+        <Stack.Screen name="CreateGroup" component={CreateGroupScreen} />
+        <Stack.Screen name="GroupChat" component={GroupChatScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
