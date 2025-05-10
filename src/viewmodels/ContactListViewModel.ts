@@ -58,7 +58,8 @@ export class ContactListViewModel {
     Contacts.getAll(["firstName", "lastName", "phoneNumbers"])
       .then(contacts => {
         runInAction(() => {
-          this.contacts = contacts.map((c: any, idx: number) => new ContactModel({
+          // Primero mapeamos los contactos
+          const mappedContacts = contacts.map((c: any, idx: number) => new ContactModel({
             recordID: c.recordID || `${c.firstName || ''}_${c.lastName || ''}_${c.phoneNumbers?.[0]?.value || idx}`,
             firstName: c.firstName || '',
             lastName: c.lastName || '',
@@ -69,6 +70,24 @@ export class ContactListViewModel {
                 }))
               : [],
           }));
+
+          // Luego ordenamos los contactos alfabéticamente
+          this.contacts = mappedContacts.sort((a, b) => {
+            // Si alguno de los contactos no tiene nombre ni apellido, lo movemos al final
+            const aHasName = (a.firstName || a.lastName).trim().length > 0;
+            const bHasName = (b.firstName || b.lastName).trim().length > 0;
+            
+            if (aHasName && !bHasName) return -1;
+            if (!aHasName && bHasName) return 1;
+            if (!aHasName && !bHasName) return 0;
+
+            // Si ambos tienen nombre, comparamos normalmente
+            const lastNameCompare = (a.lastName || '').localeCompare(b.lastName || '');
+            if (lastNameCompare !== 0) return lastNameCompare;
+            
+            return (a.firstName || '').localeCompare(b.firstName || '');
+          });
+
           this.loading = false;
         });
       })
