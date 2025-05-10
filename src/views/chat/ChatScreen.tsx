@@ -39,10 +39,20 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
           styles.messageContainer,
           isOwnMessage ? styles.ownMessage : styles.otherMessage,
         ]}>
-        <Text style={styles.messageText}>{item.text}</Text>
-        <Text style={styles.messageTime}>
-          {item.createdAt?.toLocaleTimeString() || 'Enviando...'}
-        </Text>
+        <View style={styles.messageContent}>
+          <Text style={[
+            styles.messageText,
+            isOwnMessage ? styles.ownMessageText : styles.otherMessageText
+          ]}>
+            {item.text}
+          </Text>
+          <Text style={[
+            styles.messageTime,
+            isOwnMessage ? styles.ownMessageTime : styles.otherMessageTime
+          ]}>
+            {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
+          </Text>
+        </View>
       </View>
     );
   };
@@ -122,8 +132,13 @@ const styles = StyleSheet.create({
   messageContainer: {
     maxWidth: '80%',
     marginVertical: 4,
-    padding: 12,
+    padding: 8,
     borderRadius: 16,
+  },
+  messageContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 4,
   },
   ownMessage: {
     alignSelf: 'flex-end',
@@ -135,12 +150,23 @@ const styles = StyleSheet.create({
   },
   messageText: {
     fontSize: 16,
-    color: 'black',
+    flexShrink: 1,
+  },
+  ownMessageText: {
+    color: '#FFFFFF',
+  },
+  otherMessageText: {
+    color: '#000000',
   },
   messageTime: {
-    fontSize: 12,
+    fontSize: 10,
+    marginLeft: 4,
+  },
+  ownMessageTime: {
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  otherMessageTime: {
     color: 'rgba(0, 0, 0, 0.7)',
-    marginTop: 4,
   },
   inputContainer: {
     flexDirection: 'row',

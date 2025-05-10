@@ -1,6 +1,17 @@
-import { makeAutoObservable } from 'mobx';
-import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+import { makeAutoObservable, runInAction } from 'mobx';
+import { getAuth } from '@react-native-firebase/auth';
+import { 
+  getFirestore, 
+  collection, 
+  doc, 
+  getDoc, 
+  onSnapshot, 
+  orderBy, 
+  addDoc, 
+  updateDoc, 
+  serverTimestamp,
+  query
+} from '@react-native-firebase/firestore';
 import { Message, MessageModel } from '../models/Message';
 
 export class ChatViewModel {
@@ -21,12 +32,19 @@ export class ChatViewModel {
 
   private async loadOtherParticipantName() {
     try {
-      const userDoc = await firestore().collection('users').doc(this.otherParticipantId).get();
+      const db = getFirestore();
+      const userDocRef = doc(db, 'users', this.otherParticipantId);
+      const userDoc = await getDoc(userDocRef);
       const userData = userDoc.data();
-      this.otherParticipantName = userData?.name || 'Usuario';
+      
+      runInAction(() => {
+        this.otherParticipantName = userData?.name || 'Usuario';
+      });
     } catch (error) {
       console.error('Error al cargar nombre del participante:', error);
-      this.otherParticipantName = 'Usuario';
+      runInAction(() => {
+        this.otherParticipantName = 'Usuario';
+      });
     }
   }
 
@@ -34,25 +52,28 @@ export class ChatViewModel {
     this.newMessage = text;
   }
 
-  
   private loadMessages() {
-    const unsubscribe = firestore()
-      .collection('chats')
-      .doc(this.chatId)
-      .collection('messages')
-      .orderBy('createdAt', 'desc')
-      .onSnapshot(
-        snapshot => {
+    const db = getFirestore();
+    const messagesRef = collection(db, 'chats', this.chatId, 'messages');
+    const q = query(messagesRef, orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(
+      q,
+      snapshot => {
+        runInAction(() => {
           this.messages = snapshot.docs.map(doc =>
             MessageModel.fromFirestore(doc.id, doc.data()),
           );
           this.loading = false;
-        },
-        error => {
-          console.error('Error al cargar mensajes:', error);
+        });
+      },
+      error => {
+        console.error('Error al cargar mensajes:', error);
+        runInAction(() => {
           this.loading = false;
-        },
-      );
+        });
+      },
+    );
 
     return unsubscribe;
   }
@@ -60,37 +81,40 @@ export class ChatViewModel {
   async sendMessage() {
     if (!this.newMessage.trim()) return;
 
-    const currentUser = auth().currentUser;
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
     if (!currentUser) return;
 
     try {
+      const db = getFirestore();
       const messageData = {
         text: this.newMessage.trim(),
         senderId: currentUser.uid,
-        createdAt: firestore.FieldValue.serverTimestamp(),
+        createdAt: serverTimestamp(),
       };
 
-      await firestore()
-        .collection('chats')
-        .doc(this.chatId)
-        .collection('messages')
-        .add(messageData);
+      const messagesRef = collection(db, 'chats', this.chatId, 'messages');
+      await addDoc(messagesRef, messageData);
 
-      await firestore().collection('chats').doc(this.chatId).update({
+      const chatRef = doc(db, 'chats', this.chatId);
+      await updateDoc(chatRef, {
         lastMessage: {
           text: this.newMessage.trim(),
-          createdAt: firestore.FieldValue.serverTimestamp(),
+          createdAt: serverTimestamp(),
         },
-        updatedAt: firestore.FieldValue.serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
 
-      this.newMessage = '';
+      runInAction(() => {
+        this.newMessage = '';
+      });
     } catch (error) {
       console.error('Error al enviar mensaje:', error);
     }
   }
 
   isOwnMessage(message: Message): boolean {
-    return message.senderId === auth().currentUser?.uid;
+    const auth = getAuth();
+    return message.senderId === auth.currentUser?.uid;
   }
 } 
