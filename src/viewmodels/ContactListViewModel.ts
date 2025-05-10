@@ -87,22 +87,33 @@ export class ContactListViewModel {
       throw new Error('Usuario no autenticado');
     }
 
-    const db = getFirestore();
-    let registeredUserId: string | null = null;
-
     if (Array.isArray(otherUser.phoneNumbers) && otherUser.phoneNumbers.length > 0) {
-      const phoneNumbers = otherUser.phoneNumbers.map(p => p.number.replace(/\D/g, ''));
+      // Obtenemos los números limpios del contacto
+      const contactNumbers = otherUser.phoneNumbers.map(p => p.number.replace(/\D/g, ''));
+      
+      const db = getFirestore();
       const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('phoneNumber', 'in', phoneNumbers));
-      const usersSnapshot = await getDocs(q);
+      
+      // Realizamos la búsqueda para cada número del contacto
+      for (const contactNumber of contactNumbers) {
+        // Obtenemos todos los usuarios y filtramos en memoria
+        const usersSnapshot = await getDocs(usersRef);
+        
+        // Filtramos los resultados para encontrar coincidencias exactas al final
+        const matchingUser = usersSnapshot.docs.find(doc => {
+          const dbNumber = doc.data().phoneNumber;
+          return dbNumber.endsWith(contactNumber);
+        });
 
-      if (!usersSnapshot.empty) {
-        const userDoc = usersSnapshot.docs[0];
-        registeredUserId = userDoc.id;
+        if (matchingUser) {
+          return {
+            chatId: matchingUser.id,
+            otherParticipantId: matchingUser.id,
+          };
+        }
       }
-    }
 
-    if (!registeredUserId) {
+      // Si no se encontró ninguna coincidencia
       return {
         chatId: '',
         otherParticipantId: null,
