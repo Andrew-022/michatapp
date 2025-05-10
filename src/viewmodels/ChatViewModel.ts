@@ -1,3 +1,4 @@
+import 'react-native-get-random-values';  // Importar primero
 import { makeAutoObservable, runInAction } from 'mobx';
 import { getAuth } from '@react-native-firebase/auth';
 import { 
@@ -13,6 +14,7 @@ import {
   query
 } from '@react-native-firebase/firestore';
 import { Message, MessageModel } from '../models/Message';
+import CryptoJS from 'crypto-js';
 
 export class ChatViewModel {
   messages: Message[] = [];
@@ -21,13 +23,43 @@ export class ChatViewModel {
   chatId: string;
   otherParticipantId: string;
   otherParticipantName: string = '';
+  private readonly encryptionKey: string;
 
   constructor(chatId: string, otherParticipantId: string) {
     this.chatId = chatId;
     this.otherParticipantId = otherParticipantId;
+    this.encryptionKey = this.generateChatKey(chatId);
     makeAutoObservable(this);
     this.loadMessages();
     this.loadOtherParticipantName();
+  }
+
+  private generateChatKey(chatId: string): string {
+    // Usamos solo el chatId como clave, así ambos usuarios tendrán la misma
+    return chatId;
+  }
+
+  private encryptMessage(text: string): string {
+    try {
+      const key = this.encryptionKey;
+      const encrypted = CryptoJS.AES.encrypt(text, key).toString();
+      return encrypted;
+    } catch (error) {
+      console.error('Error al cifrar mensaje:', error);
+      return text;
+    }
+  }
+
+  private decryptMessage(encryptedText: string): string {
+    try {
+      const key = this.encryptionKey;
+      const decrypted = CryptoJS.AES.decrypt(encryptedText, key);
+      const text = decrypted.toString(CryptoJS.enc.Utf8);
+      return text || 'Mensaje cifrado';
+    } catch (error) {
+      console.error('Error al descifrar mensaje:', error);
+      return 'Mensaje cifrado';
+    }
   }
 
   private async loadOtherParticipantName() {
@@ -61,9 +93,14 @@ export class ChatViewModel {
       q,
       snapshot => {
         runInAction(() => {
-          this.messages = snapshot.docs.map(doc =>
-            MessageModel.fromFirestore(doc.id, doc.data()),
-          );
+          this.messages = snapshot.docs.map(doc => {
+            const data = doc.data();
+            const decryptedText = this.decryptMessage(data.text);
+            return MessageModel.fromFirestore(doc.id, {
+              ...data,
+              text: decryptedText
+            });
+          });
           this.loading = false;
         });
       },
@@ -87,8 +124,10 @@ export class ChatViewModel {
 
     try {
       const db = getFirestore();
+      const encryptedText = this.encryptMessage(this.newMessage.trim());
+      
       const messageData = {
-        text: this.newMessage.trim(),
+        text: encryptedText,
         senderId: currentUser.uid,
         createdAt: serverTimestamp(),
       };
@@ -99,7 +138,7 @@ export class ChatViewModel {
       const chatRef = doc(db, 'chats', this.chatId);
       await updateDoc(chatRef, {
         lastMessage: {
-          text: this.newMessage.trim(),
+          text: encryptedText,
           createdAt: serverTimestamp(),
         },
         updatedAt: serverTimestamp(),

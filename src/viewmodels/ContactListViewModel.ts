@@ -106,33 +106,31 @@ export class ContactListViewModel {
       throw new Error('Usuario no autenticado');
     }
 
+    const db = getFirestore();
+    const usersRef = collection(db, 'users');
+    let matchingUserId: string | null = null;
+
     if (Array.isArray(otherUser.phoneNumbers) && otherUser.phoneNumbers.length > 0) {
       // Obtenemos los números limpios del contacto
       const contactNumbers = otherUser.phoneNumbers.map(p => p.number.replace(/\D/g, ''));
       
-      const db = getFirestore();
-      const usersRef = collection(db, 'users');
-      
       // Realizamos la búsqueda para cada número del contacto
       for (const contactNumber of contactNumbers) {
-        // Obtenemos todos los usuarios y filtramos en memoria
         const usersSnapshot = await getDocs(usersRef);
         
-        // Filtramos los resultados para encontrar coincidencias exactas al final
         const matchingUser = usersSnapshot.docs.find(doc => {
           const dbNumber = doc.data().phoneNumber;
           return dbNumber.endsWith(contactNumber);
         });
 
         if (matchingUser) {
-          return {
-            chatId: matchingUser.id,
-            otherParticipantId: matchingUser.id,
-          };
+          matchingUserId = matchingUser.id;
+          break;
         }
       }
+    }
 
-      // Si no se encontró ninguna coincidencia
+    if (!matchingUserId) {
       return {
         chatId: '',
         otherParticipantId: null,
@@ -149,26 +147,30 @@ export class ContactListViewModel {
 
     const chat = existingChat.docs.find(doc => {
       const data = doc.data();
-      return data.participants.includes(registeredUserId);
+      return data.participants.includes(matchingUserId);
     });
 
     if (chat) {
       return {
         chatId: chat.id,
-        otherParticipantId: registeredUserId,
+        otherParticipantId: matchingUserId,
       };
     }
 
     // Si no existe, crear uno nuevo
     const newChatRef = await addDoc(collection(db, 'chats'), {
-      participants: [currentUser.uid, registeredUserId],
+      participants: [currentUser.uid, matchingUserId],
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
+      lastMessage: {
+        text: '',
+        createdAt: serverTimestamp(),
+      }
     });
 
     return {
       chatId: newChatRef.id,
-      otherParticipantId: registeredUserId,
+      otherParticipantId: matchingUserId,
     };
   }
 } 
