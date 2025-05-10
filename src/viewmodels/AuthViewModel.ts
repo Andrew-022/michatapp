@@ -2,6 +2,7 @@ import { makeAutoObservable, runInAction, action } from 'mobx';
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import { CountryModel } from '../models/Country';
+import { createUser, COLLECTIONS } from '../services/firestore';
 
 export class AuthViewModel {
   phoneNumber: string = '';
@@ -79,6 +80,28 @@ export class AuthViewModel {
     }
   }
 
+  private async createUserIfNotExists(currentUser: FirebaseAuthTypes.User): Promise<void> {
+    console.log('Iniciando createUserIfNotExists para:', currentUser.uid);
+    const userDoc = await firestore()
+      .collection(COLLECTIONS.USERS)
+      .doc(currentUser.uid)
+      .get();
+    
+    console.log('Usuario existe en Firestore:', userDoc.exists);
+    
+    if (!userDoc.exists) {
+      console.log('Creando nuevo usuario...');
+      // Si el usuario no existe, lo creamos
+      await createUser(currentUser.uid, {
+        phoneNumber: currentUser.phoneNumber?.replace('+', '') || '',
+        name: "Usuario Nuevo",
+        lastLogin: new Date(),
+        photoURL: "https://i.pinimg.com/222x/57/70/f0/5770f01a32c3c53e90ecda61483ccb08.jpg"
+      });
+      console.log('Usuario creado exitosamente');
+    }
+  }
+
   async confirmCode(): Promise<{ success: boolean; message: string }> {
     if (!this.verificationCode) {
       return { success: false, message: 'Por favor ingresa el código de verificación' };
@@ -92,9 +115,40 @@ export class AuthViewModel {
       runInAction(() => {
         this.loading = true;
       });
+      
+      console.log('Iniciando confirmación de código...');
+      // Confirmar el código
       await this.confirmation.confirm(this.verificationCode);
+      console.log('Código confirmado exitosamente');
+      
+      // Esperar a que el usuario esté disponible
+      let currentUser = auth().currentUser;
+      let attempts = 0;
+      console.log('Esperando usuario...');
+      while (!currentUser && attempts < 5) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        currentUser = auth().currentUser;
+        attempts++;
+        console.log('Intento', attempts, 'de obtener usuario');
+      }
+
+      console.log('Usuario obtenido:', currentUser?.uid);
+      if (!currentUser) {
+        return { success: false, message: 'Error al obtener el usuario actual' };
+      }
+
+      // Crear usuario si no existe
+      await this.createUserIfNotExists(currentUser);
+
+      // Limpiar el estado de confirmación
+      runInAction(() => {
+        this.confirmation = null;
+        this.verificationCode = '';
+      });
+
       return { success: true, message: '¡Inicio de sesión exitoso!' };
     } catch (error: any) {
+      console.error('Error en confirmCode:', error);
       return { success: false, message: error.message || 'Código inválido' };
     } finally {
       runInAction(() => {

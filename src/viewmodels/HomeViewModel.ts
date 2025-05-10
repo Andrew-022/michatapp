@@ -1,8 +1,9 @@
-import { makeAutoObservable } from 'mobx';
-import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+import { makeAutoObservable, runInAction } from 'mobx';
+import { getAuth, signOut } from '@react-native-firebase/auth';
+import { getFirestore, collection, doc, getDoc, setDoc, query, where, onSnapshot } from '@react-native-firebase/firestore';
 import { Chat, ChatModel } from '../models/Chat';
 import { User, UserModel } from '../models/User';
+import { createUser } from '../services/firestore';
 
 export class HomeViewModel {
   userData: User | null = null;
@@ -16,30 +17,30 @@ export class HomeViewModel {
   }
 
   private async loadUserData() {
-    const currentUser = auth().currentUser;
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
     if (!currentUser) return;
 
     try {
-      const userDoc = await firestore()
-        .collection('users')
-        .doc(currentUser.uid)
-        .get();
+      const db = getFirestore();
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
 
-      if (!userDoc.exists) {
+      if (!userDoc.exists()) {
         const newUser = new UserModel({
           id: currentUser.uid,
           phoneNumber: currentUser.phoneNumber,
           lastLogin: new Date(),
         });
 
-        await firestore()
-          .collection('users')
-          .doc(currentUser.uid)
-          .set(newUser.toFirestore());
-
-        this.userData = newUser;
+        await setDoc(userDocRef, newUser.toFirestore());
+        runInAction(() => {
+          this.userData = newUser;
+        });
       } else {
-        this.userData = UserModel.fromFirestore(userDoc.id, userDoc.data());
+        runInAction(() => {
+          this.userData = UserModel.fromFirestore(userDoc.id, userDoc.data());
+        });
       }
     } catch (error) {
       console.error('Error al cargar datos del usuario:', error);
@@ -47,14 +48,20 @@ export class HomeViewModel {
   }
 
   private loadChats() {
-    const currentUser = auth().currentUser;
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
     if (!currentUser) return;
 
-    const unsubscribe = firestore()
-      .collection('chats')
-      .where('participants', 'array-contains', currentUser.uid)
-      .onSnapshot(
-        snapshot => {
+    const db = getFirestore();
+    const chatsQuery = query(
+      collection(db, 'chats'),
+      where('participants', 'array-contains', currentUser.uid)
+    );
+
+    const unsubscribe = onSnapshot(
+      chatsQuery,
+      snapshot => {
+        runInAction(() => {
           this.chats = snapshot.docs
             .map(doc => ChatModel.fromFirestore(doc.id, doc.data()))
             .sort((a, b) => {
@@ -63,19 +70,23 @@ export class HomeViewModel {
               return dateB.getTime() - dateA.getTime();
             });
           this.loading = false;
-        },
-        error => {
-          console.error('Error al cargar chats:', error);
+        });
+      },
+      error => {
+        console.error('Error al cargar chats:', error);
+        runInAction(() => {
           this.loading = false;
-        },
-      );
+        });
+      }
+    );
 
     return unsubscribe;
   }
 
   async signOut(): Promise<void> {
     try {
-      await auth().signOut();
+      const auth = getAuth();
+      await signOut(auth);
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
       throw error;
@@ -83,7 +94,8 @@ export class HomeViewModel {
   }
 
   getOtherParticipantId(chat: Chat): string | undefined {
-    const currentUserId = auth().currentUser?.uid;
+    const auth = getAuth();
+    const currentUserId = auth.currentUser?.uid;
     if (!currentUserId) return undefined;
     return chat.participants.find(id => id !== currentUserId);
   }
@@ -93,12 +105,11 @@ export class HomeViewModel {
     if (!otherParticipantId) return '';
 
     try {
-      const userDoc = await firestore()
-        .collection('users')
-        .doc(otherParticipantId)
-        .get();
+      const db = getFirestore();
+      const userDocRef = doc(db, 'users', otherParticipantId);
+      const userDoc = await getDoc(userDocRef);
 
-      if (!userDoc.exists) {
+      if (!userDoc.exists()) {
         return 'Usuario';
       }
 
@@ -114,5 +125,25 @@ export class HomeViewModel {
       return 'Usuario';
     }
   }
-  
+
+  async createTestUser(): Promise<void> {
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+
+    try {
+      await createUser(currentUser.uid, {
+        phoneNumber: currentUser.phoneNumber?.replace('+', '') || '',
+        name: "Usuario Nuevo",
+        lastLogin: new Date(),
+        photoURL: "https://i.pinimg.com/222x/57/70/f0/5770f01a32c3c53e90ecda61483ccb08.jpg"
+      });
+      
+      // Recargar los datos del usuario
+      await this.loadUserData();
+    } catch (error) {
+      console.error('Error al crear usuario de prueba:', error);
+      throw error;
+    }
+  }
 } 

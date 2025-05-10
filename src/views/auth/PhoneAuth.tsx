@@ -10,7 +10,7 @@ import {
   ScrollView,
   Modal,
 } from 'react-native';
-import auth from '@react-native-firebase/auth';
+import { getAuth, onAuthStateChanged } from '@react-native-firebase/auth';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
@@ -24,14 +24,17 @@ const PhoneAuth = observer(() => {
   const viewModel = React.useMemo(() => new AuthViewModel(), []);
 
   useEffect(() => {
-    const unsubscribe = auth().onAuthStateChanged((user) => {
-      if (user) {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log('Auth state changed:', user?.uid);
+      // Solo redirigimos si hay usuario y no estamos en proceso de confirmación
+      if (user && !viewModel.confirmation) {
         navigation.replace('Home');
       }
     });
 
     return () => unsubscribe();
-  }, [navigation]);
+  }, [navigation, viewModel.confirmation]);
 
   const handleSignIn = async () => {
     const result = await viewModel.signInWithPhoneNumber();
@@ -39,12 +42,19 @@ const PhoneAuth = observer(() => {
   };
 
   const handleConfirmCode = async () => {
-    const result = await viewModel.confirmCode();
-    if (result.success) {
-      Alert.alert('Éxito', result.message);
-      navigation.replace('Home');
-    } else {
-      Alert.alert('Error', result.message);
+    try {
+      const result = await viewModel.confirmCode();
+      if (result.success) {
+        // Esperamos un momento para asegurarnos de que se complete la creación del usuario
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        Alert.alert('Éxito', result.message);
+        navigation.replace('Home');
+      } else {
+        Alert.alert('Error', result.message);
+      }
+    } catch (error) {
+      console.error('Error en confirmación:', error);
+      Alert.alert('Error', 'Ocurrió un error durante la confirmación');
     }
   };
 

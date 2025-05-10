@@ -8,8 +8,9 @@ import {
   ActivityIndicator,
   Modal,
   Animated,
+  Alert,
 } from 'react-native';
-import auth from '@react-native-firebase/auth';
+import { getAuth, onAuthStateChanged } from '@react-native-firebase/auth';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
@@ -68,7 +69,8 @@ const Home = observer(() => {
   };
 
   useEffect(() => {
-    const unsubscribe = auth().onAuthStateChanged((user) => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!user) {
         navigation.replace('PhoneAuth');
       }
@@ -169,6 +171,20 @@ const Home = observer(() => {
             <TouchableOpacity style={styles.menuItem} onPress={() => {}}>
               <Icon name="settings" size={24} color="#007AFF" />
               <Text style={styles.menuItemText}>Configuración</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.menuItem} 
+              onPress={async () => {
+                try {
+                  await viewModel.createTestUser();
+                  Alert.alert('Éxito', 'Usuario creado exitosamente');
+                } catch (error) {
+                  Alert.alert('Error', 'Error al crear usuario: ' + error);
+                }
+                toggleMenu();
+              }}>
+              <Icon name="add-circle" size={24} color="#007AFF" />
+              <Text style={styles.menuItemText}>Crear Usuario Test</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={handleSignOut}>
               <Icon name="exit-to-app" size={24} color="#FF3B30" />
