@@ -17,7 +17,7 @@ export interface GroupMember {
 export interface GroupData {
   name: string;
   photoURL?: string;
-  adminId: string;
+  adminIds: string[];
   participants: string[];
   description?: string;
   createdAt: Date;
@@ -48,7 +48,7 @@ export class GroupDetailsViewModel {
     this.groupData = data;
     if (data) {
       const auth = getAuth();
-      this.isAdmin = data.adminId === auth.currentUser?.uid;
+      this.isAdmin = data.adminIds.includes(auth.currentUser?.uid || '');
     }
   });
 
@@ -175,7 +175,7 @@ export class GroupDetailsViewModel {
                 name: userData.name || 'Usuario',
                 photoURL: userData.photoURL,
                 phoneNumber: userData.phoneNumber || 'Sin número',
-                isAdmin: participantId === this.groupData?.adminId
+                isAdmin: this.groupData?.adminIds.includes(participantId) || false
               });
             }
           }
@@ -184,10 +184,10 @@ export class GroupDetailsViewModel {
         }
       }
 
-      // Ordenar miembros: admin primero, luego el resto alfabéticamente
+      // Ordenar miembros: admins primero, luego el resto alfabéticamente
       members.sort((a, b) => {
-        if (a.isAdmin) return -1;
-        if (b.isAdmin) return 1;
+        if (a.isAdmin && !b.isAdmin) return -1;
+        if (!a.isAdmin && b.isAdmin) return 1;
         return a.name.localeCompare(b.name);
       });
 
@@ -366,7 +366,7 @@ export class GroupDetailsViewModel {
       return;
     }
 
-    if (userId === this.groupData?.adminId) {
+    if (userId === this.groupData?.adminIds[0]) {
       Alert.alert(
         'Error',
         'No puedes eliminar al administrador del grupo',
@@ -432,6 +432,127 @@ export class GroupDetailsViewModel {
     } catch (error) {
       console.error('Error al cargar contactos:', error);
       return [];
+    }
+  }
+
+  async leaveGroup() {
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+    if (!currentUser) return false;
+
+    if (this.groupData?.adminIds.includes(currentUser.uid)) {
+      Alert.alert(
+        'Error',
+        'El administrador no puede salir del grupo. Debe transferir la administración o eliminar el grupo.',
+        [{ text: 'OK' }]
+      );
+      return false;
+    }
+
+    try {
+      this.setLoading(true);
+      const db = getFirestore();
+      const groupRef = doc(db, 'groupChats', this.groupId);
+      
+      await updateDoc(groupRef, {
+        participants: arrayRemove(currentUser.uid)
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error al salir del grupo:', error);
+      Alert.alert(
+        'Error',
+        'No se pudo salir del grupo',
+        [{ text: 'OK' }]
+      );
+      return false;
+    } finally {
+      this.setLoading(false);
+    }
+  }
+
+  async makeAdmin(userId: string) {
+    if (!this.isAdmin) {
+      Alert.alert(
+        'Acceso denegado',
+        'Solo los administradores pueden asignar nuevos administradores',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    if (this.groupData?.adminIds.includes(userId)) {
+      Alert.alert(
+        'Error',
+        'Este usuario ya es administrador',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    try {
+      this.setLoading(true);
+      const db = getFirestore();
+      const groupRef = doc(db, 'groupChats', this.groupId);
+      
+      await updateDoc(groupRef, {
+        adminIds: arrayUnion(userId)
+      });
+
+      // Recargar los datos del grupo
+      await this.loadGroupData();
+    } catch (error) {
+      console.error('Error al hacer administrador:', error);
+      Alert.alert(
+        'Error',
+        'No se pudo hacer administrador al miembro',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      this.setLoading(false);
+    }
+  }
+
+  async removeAdmin(userId: string) {
+    if (!this.isAdmin) {
+      Alert.alert(
+        'Acceso denegado',
+        'Solo los administradores pueden quitar administradores',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    if (this.groupData?.adminIds.length === 1) {
+      Alert.alert(
+        'Error',
+        'No se puede quitar el último administrador del grupo',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    try {
+      this.setLoading(true);
+      const db = getFirestore();
+      const groupRef = doc(db, 'groupChats', this.groupId);
+      
+      await updateDoc(groupRef, {
+        adminIds: arrayRemove(userId)
+      });
+
+      // Recargar los datos del grupo
+      await this.loadGroupData();
+    } catch (error) {
+      console.error('Error al quitar administrador:', error);
+      Alert.alert(
+        'Error',
+        'No se pudo quitar al administrador',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      this.setLoading(false);
     }
   }
 } 

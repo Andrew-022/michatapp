@@ -10,6 +10,8 @@ import {
   TextInput,
   Alert,
   ScrollView,
+  Modal,
+  Dimensions,
 } from 'react-native';
 import {useNavigation, useRoute, useFocusEffect} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -19,6 +21,7 @@ import {GroupDetailsViewModel} from '../../viewmodels/GroupDetailsViewModel';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { globalStyles } from '../../styles/globalStyles';
+import MemberOptionsMenu from './MemberOptionsMenu';
 
 type GroupDetailsNavigationProp = NativeStackNavigationProp<RootStackParamList, 'GroupDetails'>;
 
@@ -38,6 +41,9 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [newDescription, setNewDescription] = useState('');
   const [newName, setNewName] = useState('');
+  const [selectedMember, setSelectedMember] = useState<any>(null);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [isPhotoExpanded, setIsPhotoExpanded] = useState(false);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -104,6 +110,81 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
     navigation.navigate('AddMembers', { groupId });
   };
 
+  const handleLeaveGroup = () => {
+    Alert.alert(
+      'Salir del Grupo',
+      '¿Estás seguro de que quieres salir de este grupo?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Salir',
+          style: 'destructive',
+          onPress: async () => {
+            const success = await viewModel.leaveGroup();
+            if (success) {
+              navigation.goBack();
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleMemberOptions = (member: any) => {
+    if (!viewModel.isAdmin) return;
+    setSelectedMember(member);
+    setShowOptionsMenu(true);
+  };
+
+  const handleMakeAdmin = async (userId: string) => {
+    Alert.alert(
+      'Hacer administrador',
+      '¿Estás seguro de que quieres hacer administrador a este miembro? Ya no podrás eliminarlo del grupo.',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Confirmar',
+          onPress: async () => {
+            try {
+              await viewModel.makeAdmin(userId);
+            } catch (error) {
+              console.error('Error al hacer administrador:', error);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleRemoveAdmin = async (userId: string) => {
+    Alert.alert(
+      'Quitar administrador',
+      '¿Estás seguro de que quieres quitar los privilegios de administrador a este miembro?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Confirmar',
+          onPress: async () => {
+            try {
+              await viewModel.removeAdmin(userId);
+            } catch (error) {
+              console.error('Error al quitar administrador:', error);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const renderMember = ({item}: {item: any}) => (
     <TouchableOpacity
       style={styles.memberItem}
@@ -128,11 +209,11 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
         </View>
         <Text style={[styles.memberPhone, globalStyles.textSecondary]}>{item.phoneNumber}</Text>
       </View>
-      {viewModel.isAdmin && item.id !== viewModel.groupData?.adminId && (
+      {viewModel.isAdmin && (
         <TouchableOpacity
-          style={styles.removeMemberButton}
-          onPress={() => handleRemoveMember(item.id)}>
-          <MaterialIcons name="remove-circle" size={24} color="#FF3B30" />
+          style={styles.memberOptionsButton}
+          onPress={() => handleMemberOptions(item)}>
+          <MaterialIcons name="more-vert" size={24} color="#666" />
         </TouchableOpacity>
       )}
     </TouchableOpacity>
@@ -169,7 +250,7 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
         <View style={styles.groupInfo}>
           <TouchableOpacity 
             style={styles.groupPhotoContainer}
-            onPress={() => viewModel.pickAndUploadPhoto()}
+            onPress={() => setIsPhotoExpanded(true)}
           >
             {viewModel.groupData.photoURL ? (
               <Image
@@ -181,11 +262,6 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
                 <Text style={[styles.groupPhotoText, globalStyles.textWhite]}>
                   {viewModel.groupData.name.charAt(0).toUpperCase()}
                 </Text>
-              </View>
-            )}
-            {viewModel.isAdmin && (
-              <View style={styles.editPhotoButton}>
-                <MaterialIcons name="camera-alt" size={20} color="#fff" />
               </View>
             )}
           </TouchableOpacity>
@@ -310,15 +386,69 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
           />
         </View>
 
-        {viewModel.isAdmin && (
+        {viewModel.isAdmin ? (
           <TouchableOpacity
             style={styles.deleteButton}
             onPress={handleDeleteGroup}>
             <MaterialIcons name="delete" size={24} color="#FF3B30" />
             <Text style={styles.deleteButtonText}>Eliminar Grupo</Text>
           </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.leaveButton}
+            onPress={handleLeaveGroup}>
+            <MaterialIcons name="exit-to-app" size={24} color="#FF3B30" />
+            <Text style={styles.leaveButtonText}>Salir del Grupo</Text>
+          </TouchableOpacity>
         )}
       </ScrollView>
+
+      <MemberOptionsMenu
+        visible={showOptionsMenu}
+        onClose={() => setShowOptionsMenu(false)}
+        onMakeAdmin={() => selectedMember && handleMakeAdmin(selectedMember.id)}
+        onRemoveAdmin={() => selectedMember && handleRemoveAdmin(selectedMember.id)}
+        onRemove={() => selectedMember && handleRemoveMember(selectedMember.id)}
+        memberName={selectedMember?.name || ''}
+        isAdmin={selectedMember?.isAdmin || false}
+      />
+
+      <Modal
+        visible={isPhotoExpanded}
+        transparent={true}
+        onRequestClose={() => setIsPhotoExpanded(false)}>
+        <TouchableOpacity
+          style={styles.modalContainer}
+          activeOpacity={1}
+          onPress={() => setIsPhotoExpanded(false)}>
+          <View style={styles.expandedPhotoContainer}>
+            {viewModel.isAdmin && (
+              <TouchableOpacity 
+                style={styles.expandedEditPhotoButton}
+                onPress={() => {
+                  setIsPhotoExpanded(false);
+                  viewModel.pickAndUploadPhoto();
+                }}>
+                <MaterialIcons name="camera-alt" size={24} color="#fff" />
+                <Text style={styles.expandedEditPhotoText}>Cambiar foto del grupo</Text>
+              </TouchableOpacity>
+            )}
+            {viewModel.groupData?.photoURL ? (
+              <Image
+                source={{uri: viewModel.groupData.photoURL}}
+                style={styles.expandedPhoto}
+                resizeMode="contain"
+              />
+            ) : (
+              <View style={styles.expandedPhotoPlaceholder}>
+                <Text style={styles.expandedPhotoText}>
+                  {viewModel.groupData?.name.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 });
@@ -599,6 +729,76 @@ const styles = StyleSheet.create({
   adminText: {
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  leaveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    margin: 16,
+    backgroundColor: '#FFE5E5',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FF3B30',
+  },
+  leaveButtonText: {
+    color: '#FF3B30',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  memberOptionsButton: {
+    padding: 8,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  expandedPhotoContainer: {
+    width: Dimensions.get('window').width * 0.9,
+    alignItems: 'flex-end',
+  },
+  expandedPhoto: {
+    width: Dimensions.get('window').width * 0.9,
+    height: Dimensions.get('window').width * 0.9,
+    borderRadius: 10,
+  },
+  expandedPhotoPlaceholder: {
+    width: Dimensions.get('window').width * 0.9,
+    height: Dimensions.get('window').width * 0.9,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  expandedPhotoText: {
+    fontSize: 120,
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  expandedEditPhotoButton: {
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    padding: 12,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: "center",
+    marginBottom: 16,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  expandedEditPhotoText: {
+    color: '#fff',
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
 

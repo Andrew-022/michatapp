@@ -1,7 +1,7 @@
 export interface GroupChat {
   id: string;
   name: string;
-  adminId: string;
+  adminIds: string[];
   participants: string[];
   photoURL?: string;
   description?: string;
@@ -17,7 +17,7 @@ export interface GroupChat {
 export class GroupChatModel implements GroupChat {
   id: string;
   name: string;
-  adminId: string;
+  adminIds: string[];
   participants: string[];
   photoURL?: string;
   description?: string;
@@ -32,7 +32,7 @@ export class GroupChatModel implements GroupChat {
   constructor(data: Partial<GroupChat>) {
     this.id = data.id || '';
     this.name = data.name || '';
-    this.adminId = data.adminId || '';
+    this.adminIds = data.adminIds || [];
     this.participants = data.participants || [];
     this.photoURL = data.photoURL || '';
     this.description = data.description || '';
@@ -44,7 +44,7 @@ export class GroupChatModel implements GroupChat {
   toFirestore() {
     return {
       name: this.name,
-      adminId: this.adminId,
+      adminIds: this.adminIds,
       participants: this.participants,
       photoURL: this.photoURL,
       description: this.description,
@@ -58,7 +58,7 @@ export class GroupChatModel implements GroupChat {
     return new GroupChatModel({
       id,
       name: data.name,
-      adminId: data.adminId,
+      adminIds: data.adminIds || [],
       participants: data.participants,
       photoURL: data.photoURL,
       description: data.description,
@@ -75,7 +75,7 @@ export class GroupChatModel implements GroupChat {
   }
 
   isAdmin(userId: string): boolean {
-    return this.adminId === userId;
+    return this.adminIds.includes(userId);
   }
 
   isParticipant(userId: string): boolean {

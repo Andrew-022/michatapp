@@ -125,8 +125,8 @@ const Home = observer(() => {
   };
 
   const renderChatItem = ({item}: {item: any}) => {
-    // Es grupo si tiene propiedad 'adminId'
-    const isGroup = !!item.adminId;
+    // Es grupo si tiene propiedad 'adminIds'
+    const isGroup = !!item.adminIds;
 
     return (
       <TouchableOpacity

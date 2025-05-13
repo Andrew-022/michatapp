@@ -69,7 +69,7 @@ const CreateGroupScreen = observer(() => {
       const db = getFirestore();
       const groupData = {
         name: viewModel.groupName.trim(),
-        adminId: currentUser.uid,
+        adminIds: [currentUser.uid],
         participants: [currentUser.uid, ...viewModel.selectedUserIds],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
