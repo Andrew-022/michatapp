@@ -98,14 +98,17 @@ export class HomeViewModel {
               text: this.decryptMessage(lastMessage.text, chat.id)
             };
           }
+          
           const chatWithData = { 
             ...chat, 
             otherParticipantName, 
             otherParticipantPhoto, 
             lastMessage,
+            lastMessageTime: lastMessage?.createdAt,
             unreadCount: data.unreadCount?.[currentUser.uid] || 0
           };
           
+          console.log('Chat with data:', chatWithData.lastMessageTime);
           return chatWithData;
         }));
         this.updateCombinedChats(chats, null);
@@ -123,16 +126,19 @@ export class HomeViewModel {
           if (lastMessage && lastMessage.text) {
             lastMessage = {
               ...lastMessage,
-              text: this.decryptMessage(lastMessage.text, group.id)
+              text: this.decryptMessage(lastMessage.text, group.id),
             };
           }
+          console.log('Last message:', lastMessage?.createdAt);
           return { 
             ...group, 
             lastMessage,
+            lastMessageTime: lastMessage?.createdAt,
             photoURL: group.photoURL,
             unreadCount: data.unreadCount?.[currentUser.uid] || 0
           };
         });
+        
         this.updateCombinedChats(null, groups);
       }
     );
@@ -235,22 +241,40 @@ export class HomeViewModel {
   }
 
   formatLastMessageTime(timestamp: any): string {
-    if (!timestamp || !timestamp.toDate) return '';
+    if (!timestamp) return '';
     
-    const date = timestamp.toDate();
-    const now = new Date();
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
+    let date: Date;
+    try {
+      // Si es un Timestamp de Firestore
+      if (timestamp.toDate) {
+        date = timestamp.toDate();
+      } 
+      // Si es un objeto Date
+      else if (timestamp instanceof Date) {
+        date = timestamp;
+      }
+      // Si es un string o número
+      else {
+        date = new Date(timestamp);
+      }
 
-    if (date.toDateString() === now.toDateString()) {
-      // Hoy: mostrar solo la hora
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      // Ayer
-      return 'Ayer';
-    } else {
-      // Otros días: mostrar fecha
-      return date.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+      const now = new Date();
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      if (date.toDateString() === now.toDateString()) {
+        // Hoy: mostrar solo la hora
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      } else if (date.toDateString() === yesterday.toDateString()) {
+        // Ayer
+        return 'Ayer';
+      } else {
+        // Otros días: mostrar fecha
+        return date.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+      }
+    } catch (error) {
+      console.error('Error al formatear fecha:', error);
+      return '';
     }
   }
 

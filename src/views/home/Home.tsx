@@ -181,11 +181,18 @@ const Home = observer(() => {
                 ? item.name
                 : item.otherParticipantName || 'Usuario desconocido'}
             </Text>
-            {item.unreadCount > 0 && (
-              <View style={styles.unreadBadge}>
-                <Text style={styles.unreadCount}>{item.unreadCount}</Text>
-              </View>
-            )}
+            <View style={styles.headerRight}>
+              {item.lastMessageTime && (
+                <Text style={[styles.lastMessageTime, globalStyles.textSecondary]}>
+                  {viewModel.formatLastMessageTime(item.lastMessageTime)}
+                </Text>
+              )}
+              {item.unreadCount > 0 && (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadCount}>{item.unreadCount}</Text>
+                </View>
+              )}
+            </View>
           </View>
           <Text style={[styles.lastMessage, globalStyles.textSecondary]} numberOfLines={1}>
             {item.lastMessage?.text
@@ -461,6 +468,14 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  lastMessageTime: {
+    fontSize: 12,
   },
 });
 
