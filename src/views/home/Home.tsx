@@ -9,8 +9,10 @@ import {
   Modal,
   Animated,
   Alert,
+  Image,
 } from 'react-native';
 import { getAuth, onAuthStateChanged } from '@react-native-firebase/auth';
+import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
@@ -29,17 +31,17 @@ const ChatItem = ({ item, onPress }: { item: any; onPress: () => void }) => {
   const [decryptedLastMessage, setDecryptedLastMessage] = useState('');
 
   useEffect(() => {
-    const loadName = async () => {
+    const loadParticipantInfo = async () => {
       const name = await viewModel.getOtherParticipantName(item);
       setOtherParticipantName(name);
     };
-    loadName();
+    loadParticipantInfo();
   }, [item]);
 
   useEffect(() => {
     if (item.lastMessage?.text) {
       try {
-        const key = item.id; // Usamos el chatId como clave, igual que en ChatViewModel
+        const key = item.id;
         const decrypted = CryptoJS.AES.decrypt(item.lastMessage.text, key);
         const text = decrypted.toString(CryptoJS.enc.Utf8);
         setDecryptedLastMessage(text || 'Mensaje cifrado');
@@ -55,9 +57,16 @@ const ChatItem = ({ item, onPress }: { item: any; onPress: () => void }) => {
       style={styles.chatItem}
       onPress={onPress}>
       <View style={styles.avatarContainer}>
-        <Text style={[styles.avatarText, globalStyles.textWhite]}>
-          {otherParticipantName.charAt(0).toUpperCase() || '?'}
-        </Text>
+        {item.otherParticipantPhoto ? (
+          <Image 
+            source={{ uri: item.otherParticipantPhoto }} 
+            style={styles.avatarImage}
+          />
+        ) : (
+          <Text style={[styles.avatarText, globalStyles.textWhite]}>
+            {otherParticipantName.charAt(0).toUpperCase() || '?'}
+          </Text>
+        )}
       </View>
       <View style={styles.chatInfo}>
         <Text style={[styles.chatName, globalStyles.text]}>
@@ -136,11 +145,20 @@ const Home = observer(() => {
           }
         }}>
         <View style={styles.avatarContainer}>
-          <Text style={[styles.avatarText, globalStyles.textWhite]}>
-            {isGroup
-              ? (item.name?.charAt(0).toUpperCase() || 'G')
-              : (item.otherParticipantName?.charAt(0).toUpperCase() || '?')}
-          </Text>
+          {isGroup ? (
+            <Text style={[styles.avatarText, globalStyles.textWhite]}>
+              {item.name?.charAt(0).toUpperCase() || 'G'}
+            </Text>
+          ) : item.otherParticipantPhoto ? (
+            <Image 
+              source={{ uri: item.otherParticipantPhoto }} 
+              style={styles.avatarImage}
+            />
+          ) : (
+            <Text style={[styles.avatarText, globalStyles.textWhite]}>
+              {item.otherParticipantName?.charAt(0).toUpperCase() || '?'}
+            </Text>
+          )}
         </View>
         <View style={styles.chatInfo}>
           <Text style={[styles.chatName, globalStyles.text]}>
@@ -315,6 +333,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: {
     fontSize: 20,

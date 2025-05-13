@@ -6,12 +6,20 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import {observer} from 'mobx-react-lite';
 import {ProfileViewModel} from '../../viewmodels/ProfileViewModel';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import {useNavigation} from '@react-navigation/native';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {RootStackParamList} from '../../navigation/AppNavigator';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+
+type ProfileNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Profile'>;
 
 const ProfileScreen = observer(() => {
+  const navigation = useNavigation<ProfileNavigationProp>();
   const viewModel = React.useMemo(() => new ProfileViewModel(), []);
   const [isEditing, setIsEditing] = useState(false);
   const [newName, setNewName] = useState('');
@@ -35,15 +43,39 @@ const ProfileScreen = observer(() => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="#007AFF" />
+        </TouchableOpacity>
         <Text style={styles.title}>Perfil</Text>
       </View>
 
       <View style={styles.profileContainer}>
-        <View style={styles.avatarContainer}>
-          <Text style={styles.avatarText}>
-            {viewModel.userData?.name?.charAt(0).toUpperCase() || '?'}
-          </Text>
-        </View>
+        <TouchableOpacity 
+          style={styles.avatarContainer}
+          onPress={() => viewModel.pickAndUploadPhoto()}
+        >
+          {viewModel.userData?.photoURL ? (
+            <Image 
+              source={{ uri: viewModel.userData.photoURL }} 
+              style={styles.avatarImage}
+            />
+          ) : (
+            <Text style={styles.avatarText}>
+              {viewModel.userData?.name?.charAt(0).toUpperCase() || '?'}
+            </Text>
+          )}
+          <View style={styles.editPhotoButton}>
+            <Icon name="camera-alt" size={20} color="#fff" />
+          </View>
+        </TouchableOpacity>
+
+        {viewModel.uploadingPhoto && (
+          <View style={styles.uploadingOverlay}>
+            <ActivityIndicator size="large" color="#fff" />
+          </View>
+        )}
 
         <View style={styles.infoContainer}>
           {isEditing ? (
@@ -109,10 +141,17 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
+    flex: 1,
   },
   profileContainer: {
     padding: 20,
@@ -126,11 +165,34 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: {
     color: '#fff',
     fontSize: 40,
     fontWeight: 'bold',
+  },
+  editPhotoButton: {
+    position: 'absolute',
+    bottom: 3,
+    right: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 8,
+    borderRadius: 20,
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   infoContainer: {
     width: '100%',

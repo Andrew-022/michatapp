@@ -24,6 +24,7 @@ export class ChatViewModel {
   chatId: string;
   otherParticipantId: string;
   otherParticipantName: string = '';
+  otherParticipantPhoto: string | undefined;
   private readonly encryptionKey: string;
 
   constructor(chatId: string, otherParticipantId: string) {
@@ -32,7 +33,7 @@ export class ChatViewModel {
     this.encryptionKey = this.generateChatKey(chatId);
     makeAutoObservable(this);
     this.loadMessages();
-    this.loadOtherParticipantName();
+    this.loadOtherParticipantInfo();
   }
 
   private generateChatKey(chatId: string): string {
@@ -63,7 +64,7 @@ export class ChatViewModel {
     }
   }
 
-  private async loadOtherParticipantName() {
+  private async loadOtherParticipantInfo() {
     try {
       const db = getFirestore();
       const userDocRef = doc(db, 'users', this.otherParticipantId);
@@ -75,9 +76,10 @@ export class ChatViewModel {
           // Configuraciones específicas de iOS
         }
         this.otherParticipantName = userData?.name || 'Usuario';
+        this.otherParticipantPhoto = userData?.photoURL;
       });
     } catch (error) {
-      console.error('Error al cargar nombre del participante:', error);
+      console.error('Error al cargar información del participante:', error);
       runInAction(() => {
         this.otherParticipantName = 'Usuario';
       });
@@ -126,9 +128,14 @@ export class ChatViewModel {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
 
+    const messageToSend = this.newMessage.trim();
+    runInAction(() => {
+      this.newMessage = '';
+    });
+
     try {
       const db = getFirestore();
-      const encryptedText = this.encryptMessage(this.newMessage.trim());
+      const encryptedText = this.encryptMessage(messageToSend);
       
       const messageData = {
         text: encryptedText,
@@ -146,10 +153,6 @@ export class ChatViewModel {
           createdAt: serverTimestamp(),
         },
         updatedAt: serverTimestamp(),
-      });
-
-      runInAction(() => {
-        this.newMessage = '';
       });
     } catch (error) {
       console.error('Error al enviar mensaje:', error);

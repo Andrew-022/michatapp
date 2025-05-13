@@ -76,6 +76,8 @@ export class HomeViewModel {
           const chat = ChatModel.fromFirestore(docSnap.id, docSnap.data());
           const otherParticipantId = this.getOtherParticipantId(chat);
           let otherParticipantName = 'Usuario desconocido';
+          let otherParticipantPhoto: string | undefined;
+          
           if (otherParticipantId) {
             try {
               const userDocRef = doc(db, 'users', otherParticipantId);
@@ -83,6 +85,7 @@ export class HomeViewModel {
               if (userDoc.exists()) {
                 const userData = userDoc.data();
                 otherParticipantName = userData?.name || userData?.phoneNumber || 'Usuario';
+                otherParticipantPhoto = userData?.photoURL;
               }
             } catch (e) {}
           }
@@ -94,7 +97,7 @@ export class HomeViewModel {
               text: this.decryptMessage(lastMessage.text, chat.id)
             };
           }
-          return { ...chat, otherParticipantName, lastMessage };
+          return { ...chat, otherParticipantName, otherParticipantPhoto, lastMessage };
         }));
         this.updateCombinedChats(chats, null);
       }

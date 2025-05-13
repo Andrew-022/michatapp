@@ -29,8 +29,7 @@ export class GroupChatViewModel {
     this.groupId = groupId;
     this.encryptionKey = this.generateGroupKey(groupId);
     makeAutoObservable(this);
-    this.loadMessages();
-    this.loadGroupInfo();
+    this.initialize();
   }
 
   private generateGroupKey(groupId: string): string {
@@ -60,6 +59,18 @@ export class GroupChatViewModel {
     }
   }
 
+  private async initialize() {
+    try {
+      await this.loadGroupInfo();
+      this.loadMessages();
+    } catch (error) {
+      console.error('Error al inicializar el chat grupal:', error);
+      runInAction(() => {
+        this.loading = false;
+      });
+    }
+  }
+
   private async loadGroupInfo() {
     try {
       const db = getFirestore();
@@ -67,12 +78,18 @@ export class GroupChatViewModel {
       const groupDoc = await getDoc(groupDocRef);
       const groupData = groupDoc.data() as GroupChat;
       
+      if (!groupData) {
+        throw new Error('No se encontró información del grupo');
+      }
+
+      await this.loadParticipantsInfo(groupData.participants || []);
+      
       runInAction(() => {
-        this.groupName = groupData?.name || 'Grupo';
-        this.loadParticipantsInfo(groupData?.participants || []);
+        this.groupName = groupData.name || 'Grupo';
       });
     } catch (error) {
       console.error('Error al cargar información del grupo:', error);
+      throw error;
     }
   }
 
@@ -140,9 +157,14 @@ export class GroupChatViewModel {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
 
+    const messageToSend = this.newMessage.trim();
+    runInAction(() => {
+      this.newMessage = '';
+    });
+
     try {
       const db = getFirestore();
-      const encryptedText = this.encryptMessage(this.newMessage.trim());
+      const encryptedText = this.encryptMessage(messageToSend);
       
       const messageData = {
         text: encryptedText,
@@ -161,10 +183,6 @@ export class GroupChatViewModel {
           senderId: currentUser.uid,
         },
         updatedAt: serverTimestamp(),
-      });
-
-      runInAction(() => {
-        this.newMessage = '';
       });
     } catch (error) {
       console.error('Error al enviar mensaje:', error);

@@ -93,7 +93,7 @@ export class AuthViewModel {
       console.log('Creando nuevo usuario...');
       // Si el usuario no existe, lo creamos
       await createUser(currentUser.uid, {
-        phoneNumber: currentUser.phoneNumber?.replace('+', '') || '',
+        phoneNumber: currentUser.phoneNumber || '',
         name: "Usuario Nuevo",
         createdAt: new Date(),
         lastLogin: new Date(),

@@ -1,28 +1,32 @@
 export interface User {
   id: string;
-  phoneNumber: string | null;
-  lastLogin: Date;
+  phoneNumber: string;
   name: string;
+  photoURL?: string;
+  lastLogin: Date;
 }
 
 export class UserModel implements User {
   id: string;
-  phoneNumber: string | null;
-  lastLogin: Date;
+  phoneNumber: string;
   name: string;
+  photoURL?: string;
+  lastLogin: Date;
 
   constructor(data: Partial<User>) {
     this.id = data.id || '';
-    this.phoneNumber = data.phoneNumber || null;
+    this.phoneNumber = data.phoneNumber || '';
+    this.name = data.name || 'Usuario';
+    this.photoURL = data.photoURL;
     this.lastLogin = data.lastLogin || new Date();
-    this.name = data.name || '';
   }
 
   toFirestore() {
     return {
       phoneNumber: this.phoneNumber,
-      lastLogin: this.lastLogin,
       name: this.name,
+      photoURL: this.photoURL,
+      lastLogin: this.lastLogin,
     };
   }
 
@@ -30,8 +34,9 @@ export class UserModel implements User {
     return new UserModel({
       id,
       phoneNumber: data.phoneNumber,
-      lastLogin: data.lastLogin?.toDate() || new Date(),
-      name: data.name || '',
+      name: data.name,
+      photoURL: data.photoURL,
+      lastLogin: data.lastLogin?.toDate(),
     });
   }
 } 

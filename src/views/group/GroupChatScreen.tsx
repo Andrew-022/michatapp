@@ -11,8 +11,14 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { observer } from 'mobx-react-lite';
-import { GroupChatViewModel } from '../../viewmodels/GroupChatViewModel'; // Debes crear este ViewModel si no existe
+import { GroupChatViewModel } from '../../viewmodels/GroupChatViewModel';
 import { globalStyles } from '../../styles/globalStyles';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../navigation/AppNavigator';
+import Icon from 'react-native-vector-icons/Ionicons';
+
+type GroupChatNavigationProp = NativeStackNavigationProp<RootStackParamList, 'GroupChat'>;
 
 interface GroupChatScreenProps {
   route: {
@@ -24,6 +30,7 @@ interface GroupChatScreenProps {
 
 const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
   const { groupId } = route.params;
+  const navigation = useNavigation<GroupChatNavigationProp>();
   const viewModel = React.useMemo(
     () => new GroupChatViewModel(groupId),
     [groupId]
@@ -85,6 +92,11 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}>
+          <Icon name="arrow-back" size={24} color="#007AFF" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>{viewModel.groupName}</Text>
       </View>
       <FlatList
@@ -129,12 +141,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
     backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    textAlign: 'center',
     color: '#000',
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,

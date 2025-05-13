@@ -9,10 +9,17 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import {observer} from 'mobx-react-lite';
 import {ChatViewModel} from '../../viewmodels/ChatViewModel';
 import {globalStyles} from '../../styles/globalStyles';
+import {useNavigation} from '@react-navigation/native';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {RootStackParamList} from '../../navigation/AppNavigator';
+import Icon from 'react-native-vector-icons/Ionicons';
+
+type ChatNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Chat'>;
 
 interface ChatScreenProps {
   route: {
@@ -25,6 +32,7 @@ interface ChatScreenProps {
 
 const ChatScreen = observer(({route}: ChatScreenProps) => {
   const {chatId, otherParticipantId} = route.params;
+  const navigation = useNavigation<ChatNavigationProp>();
   const viewModel = React.useMemo(
     () => new ChatViewModel(chatId, otherParticipantId),
     [chatId, otherParticipantId],
@@ -41,7 +49,9 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
           isOwnMessage ? styles.ownMessage : styles.otherMessage,
         ]}>
         <View style={styles.messageContent}>
-          <Text style={[
+          <Text 
+            selectable={true}
+            style={[
             styles.messageText,
             isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
             isOwnMessage ? globalStyles.textWhite : globalStyles.text
@@ -74,7 +84,30 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{viewModel.otherParticipantName}</Text>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}>
+          <Icon name="arrow-back" size={24} color="#007AFF" />
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          {viewModel.otherParticipantPhoto ? (
+            <Image 
+              source={{ uri: viewModel.otherParticipantPhoto }} 
+              style={styles.headerPhoto}
+            />
+          ) : (
+            <View style={styles.headerPhotoPlaceholder}>
+              <Text style={styles.headerPhotoText}>
+                {viewModel.otherParticipantName?.charAt(0).toUpperCase() || '?'}
+              </Text>
+            </View>
+          )}
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('UserProfile', { userId: otherParticipantId })}
+            style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle}>{viewModel.otherParticipantName}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       <FlatList
         ref={flatListRef}
@@ -117,11 +150,44 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
     backgroundColor: '#fff',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerPhoto: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  headerPhotoPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  headerPhotoText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  headerTitleContainer: {
+    flex: 1,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    textAlign: 'center',
     color: '#000',
   },
   loadingContainer: {
