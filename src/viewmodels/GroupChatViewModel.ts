@@ -22,6 +22,7 @@ export class GroupChatViewModel {
   loading: boolean = true;
   groupId: string;
   groupName: string = '';
+  groupPhotoURL: string | undefined;
   participants: { id: string; name: string }[] = [];
   private readonly encryptionKey: string;
 
@@ -86,6 +87,7 @@ export class GroupChatViewModel {
       
       runInAction(() => {
         this.groupName = groupData.name || 'Grupo';
+        this.groupPhotoURL = groupData.photoURL;
       });
     } catch (error) {
       console.error('Error al cargar información del grupo:', error);

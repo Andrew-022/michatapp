@@ -146,9 +146,16 @@ const Home = observer(() => {
         }}>
         <View style={styles.avatarContainer}>
           {isGroup ? (
-            <Text style={[styles.avatarText, globalStyles.textWhite]}>
-              {item.name?.charAt(0).toUpperCase() || 'G'}
-            </Text>
+            item.photoURL ? (
+              <Image 
+                source={{ uri: item.photoURL }} 
+                style={styles.avatarImage}
+              />
+            ) : (
+              <Text style={[styles.avatarText, globalStyles.textWhite]}>
+                {item.name?.charAt(0).toUpperCase() || 'G'}
+              </Text>
+            )
           ) : item.otherParticipantPhoto ? (
             <Image 
               source={{ uri: item.otherParticipantPhoto }} 

@@ -226,6 +226,7 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     marginBottom: 12,
+    color: '#000',
   },
   editButtons: {
     flexDirection: 'row',

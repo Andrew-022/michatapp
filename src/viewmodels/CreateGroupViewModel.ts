@@ -2,6 +2,7 @@ import { makeAutoObservable, runInAction } from 'mobx';
 import Contacts from '@s77rt/react-native-contacts';
 import { Platform, PermissionsAndroid } from 'react-native';
 import { getFirestore, collection, getDocs } from '@react-native-firebase/firestore';
+import { getAuth } from '@react-native-firebase/auth';
 
 export interface GroupContact {
   recordID: string;
@@ -16,9 +17,11 @@ export class CreateGroupViewModel {
   contacts: GroupContact[] = [];
   loading: boolean = true;
   groupName: string = '';
+  currentUserId: string;
 
   constructor() {
     makeAutoObservable(this);
+    this.currentUserId = getAuth().currentUser?.uid || '';
     this.requestContactsPermission();
   }
 
@@ -107,7 +110,7 @@ export class CreateGroupViewModel {
   toggleContactSelection(recordID: string) {
     runInAction(() => {
       this.contacts = this.contacts.map(contact =>
-        contact.recordID === recordID && contact.userId
+        contact.recordID === recordID && contact.userId && contact.userId !== this.currentUserId
           ? { ...contact, selected: !contact.selected }
           : contact
       );
@@ -115,7 +118,15 @@ export class CreateGroupViewModel {
   }
 
   get selectedContacts(): GroupContact[] {
-    return this.contacts.filter(c => c.selected && c.userId);
+    const uniqueContacts = new Map<string, GroupContact>();
+    this.contacts
+      .filter(c => c.selected && c.userId && c.userId !== this.currentUserId)
+      .forEach(contact => {
+        if (contact.userId && !uniqueContacts.has(contact.userId)) {
+          uniqueContacts.set(contact.userId, contact);
+        }
+      });
+    return Array.from(uniqueContacts.values());
   }
 
   get selectedUserIds(): string[] {

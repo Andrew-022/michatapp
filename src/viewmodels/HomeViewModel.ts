@@ -116,7 +116,11 @@ export class HomeViewModel {
               text: this.decryptMessage(lastMessage.text, group.id)
             };
           }
-          return { ...group, lastMessage };
+          return { 
+            ...group, 
+            lastMessage,
+            photoURL: group.photoURL // Aseguramos que se incluya la foto del grupo
+          };
         });
         this.updateCombinedChats(null, groups);
       }

@@ -3,6 +3,9 @@ export interface GroupChat {
   name: string;
   adminId: string;
   participants: string[];
+  photoURL?: string;
+  description?: string;
+  createdAt?: Date;
   updatedAt?: Date;
   lastMessage?: {
     text: string;
@@ -16,6 +19,9 @@ export class GroupChatModel implements GroupChat {
   name: string;
   adminId: string;
   participants: string[];
+  photoURL?: string;
+  description?: string;
+  createdAt?: Date;
   updatedAt?: Date;
   lastMessage?: {
     text: string;
@@ -28,7 +34,10 @@ export class GroupChatModel implements GroupChat {
     this.name = data.name || '';
     this.adminId = data.adminId || '';
     this.participants = data.participants || [];
-    this.updatedAt = data.updatedAt;
+    this.photoURL = data.photoURL || '';
+    this.description = data.description || '';
+    this.createdAt = data.createdAt || new Date();
+    this.updatedAt = data.updatedAt || new Date();
     this.lastMessage = data.lastMessage;
   }
 
@@ -37,6 +46,9 @@ export class GroupChatModel implements GroupChat {
       name: this.name,
       adminId: this.adminId,
       participants: this.participants,
+      photoURL: this.photoURL,
+      description: this.description,
+      createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       lastMessage: this.lastMessage,
     };
@@ -48,6 +60,9 @@ export class GroupChatModel implements GroupChat {
       name: data.name,
       adminId: data.adminId,
       participants: data.participants,
+      photoURL: data.photoURL,
+      description: data.description,
+      createdAt: data.createdAt?.toDate(),
       updatedAt: data.updatedAt?.toDate(),
       lastMessage: data.lastMessage
         ? {

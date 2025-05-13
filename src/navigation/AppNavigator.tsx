@@ -9,6 +9,8 @@ import ProfileScreen from '../views/profile/ProfileScreen';
 import CreateGroupScreen from '../views/group/CreateGroupScreen';
 import GroupChatScreen from '../views/group/GroupChatScreen';
 import UserProfileScreen from '../views/profile/UserProfileScreen';
+import GroupDetailsScreen from '../views/group/GroupDetailsScreen';
+import AddMembersScreen from '../views/group/AddMembersScreen';
 
 export type RootStackParamList = {
   Home: undefined;
@@ -25,6 +27,12 @@ export type RootStackParamList = {
   };
   UserProfile: {
     userId: string;
+  };
+  GroupDetails: {
+    groupId: string;
+  };
+  AddMembers: {
+    groupId: string;
   };
 };
 
@@ -46,6 +54,8 @@ const AppNavigator = () => {
         <Stack.Screen name="CreateGroup" component={CreateGroupScreen} />
         <Stack.Screen name="GroupChat" component={GroupChatScreen} />
         <Stack.Screen name="UserProfile" component={UserProfileScreen} />
+        <Stack.Screen name="GroupDetails" component={GroupDetailsScreen} />
+        <Stack.Screen name="AddMembers" component={AddMembersScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

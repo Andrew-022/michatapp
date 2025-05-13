@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { GroupChatViewModel } from '../../viewmodels/GroupChatViewModel';
@@ -97,7 +98,23 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
           onPress={() => navigation.goBack()}>
           <Icon name="arrow-back" size={24} color="#007AFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{viewModel.groupName}</Text>
+        <TouchableOpacity 
+          style={styles.headerContent}
+          onPress={() => navigation.navigate('GroupDetails', { groupId })}>
+          {viewModel.groupPhotoURL ? (
+            <Image 
+              source={{ uri: viewModel.groupPhotoURL }} 
+              style={styles.headerPhoto}
+            />
+          ) : (
+            <View style={styles.headerPhotoPlaceholder}>
+              <Text style={styles.headerPhotoText}>
+                {viewModel.groupName?.charAt(0).toUpperCase() || '?'}
+              </Text>
+            </View>
+          )}
+          <Text style={styles.headerTitle}>{viewModel.groupName}</Text>
+        </TouchableOpacity>
       </View>
       <FlatList
         ref={flatListRef}
@@ -147,6 +164,31 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
     marginRight: 8,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerPhoto: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  headerPhotoPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  headerPhotoText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
   },
   headerTitle: {
     fontSize: 18,
