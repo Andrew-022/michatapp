@@ -73,7 +73,8 @@ export class HomeViewModel {
       chatsQuery,
       async snapshot => {
         const chats = await Promise.all(snapshot.docs.map(async docSnap => {
-          const chat = ChatModel.fromFirestore(docSnap.id, docSnap.data());
+          const data = docSnap.data();
+          const chat = ChatModel.fromFirestore(docSnap.id, data);
           const otherParticipantId = this.getOtherParticipantId(chat);
           let otherParticipantName = 'Usuario desconocido';
           let otherParticipantPhoto: string | undefined;
@@ -97,7 +98,15 @@ export class HomeViewModel {
               text: this.decryptMessage(lastMessage.text, chat.id)
             };
           }
-          return { ...chat, otherParticipantName, otherParticipantPhoto, lastMessage };
+          const chatWithData = { 
+            ...chat, 
+            otherParticipantName, 
+            otherParticipantPhoto, 
+            lastMessage,
+            unreadCount: data.unreadCount?.[currentUser.uid] || 0
+          };
+          
+          return chatWithData;
         }));
         this.updateCombinedChats(chats, null);
       }
@@ -107,7 +116,8 @@ export class HomeViewModel {
       groupsQuery,
       snapshot => {
         const groups = snapshot.docs.map(doc => {
-          const group = GroupChatModel.fromFirestore(doc.id, doc.data());
+          const data = doc.data();
+          const group = GroupChatModel.fromFirestore(doc.id, data);
           // Desencriptar el último mensaje si existe
           let lastMessage = group.lastMessage;
           if (lastMessage && lastMessage.text) {
@@ -119,7 +129,8 @@ export class HomeViewModel {
           return { 
             ...group, 
             lastMessage,
-            photoURL: group.photoURL // Aseguramos que se incluya la foto del grupo
+            photoURL: group.photoURL,
+            unreadCount: data.unreadCount?.[currentUser.uid] || 0
           };
         });
         this.updateCombinedChats(null, groups);
@@ -220,6 +231,56 @@ export class HomeViewModel {
     } catch (error) {
       console.error('Error al descifrar mensaje:', error);
       return 'Mensaje cifrado';
+    }
+  }
+
+  // Método para marcar mensajes como leídos
+  async markMessagesAsRead(chatId: string, isGroup: boolean = false): Promise<void> {
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+
+    const db = getFirestore();
+    const collectionName = isGroup ? 'groupChats' : 'chats';
+    const chatRef = doc(db, collectionName, chatId);
+
+    try {
+      await setDoc(chatRef, {
+        unreadCount: {
+          [currentUser.uid]: 0
+        }
+      }, { merge: true });
+    } catch (error) {
+      console.error('Error al marcar mensajes como leídos:', error);
+      throw error;
+    }
+  }
+
+  // Método para incrementar el contador de mensajes no leídos
+  async incrementUnreadCount(chatId: string, isGroup: boolean = false): Promise<void> {
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+
+    const db = getFirestore();
+    const collectionName = isGroup ? 'groupChats' : 'chats';
+    const chatRef = doc(db, collectionName, chatId);
+
+    try {
+      const chatDoc = await getDoc(chatRef);
+      if (chatDoc.exists()) {
+        const data = chatDoc.data();
+        const currentCount = data.unreadCount?.[currentUser.uid] || 0;
+        
+        await setDoc(chatRef, {
+          unreadCount: {
+            [currentUser.uid]: currentCount + 1
+          }
+        }, { merge: true });
+      }
+    } catch (error) {
+      console.error('Error al incrementar contador de mensajes no leídos:', error);
+      throw error;
     }
   }
 } 

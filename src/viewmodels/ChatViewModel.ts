@@ -11,7 +11,8 @@ import {
   addDoc, 
   updateDoc, 
   serverTimestamp,
-  query
+  query,
+  increment
 } from '@react-native-firebase/firestore';
 import { Message, MessageModel } from '../models/Message';
 import CryptoJS from 'crypto-js';
@@ -26,6 +27,7 @@ export class ChatViewModel {
   otherParticipantName: string = '';
   otherParticipantPhoto: string | undefined;
   private readonly encryptionKey: string;
+  private unsubscribe: (() => void) | null = null;
 
   constructor(chatId: string, otherParticipantId: string) {
     this.chatId = chatId;
@@ -34,6 +36,7 @@ export class ChatViewModel {
     makeAutoObservable(this);
     this.loadMessages();
     this.loadOtherParticipantInfo();
+    this.resetUnreadCount();
   }
 
   private generateChatKey(chatId: string): string {
@@ -90,12 +93,28 @@ export class ChatViewModel {
     this.newMessage = text;
   }
 
+  private async resetUnreadCount() {
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+
+    try {
+      const db = getFirestore();
+      const chatRef = doc(db, 'chats', this.chatId);
+      await updateDoc(chatRef, {
+        [`unreadCount.${currentUser.uid}`]: 0
+      });
+    } catch (error) {
+      console.error('Error al reiniciar contador de mensajes no leídos:', error);
+    }
+  }
+
   private loadMessages() {
     const db = getFirestore();
     const messagesRef = collection(db, 'chats', this.chatId, 'messages');
     const q = query(messagesRef, orderBy('createdAt', 'desc'));
 
-    const unsubscribe = onSnapshot(
+    this.unsubscribe = onSnapshot(
       q,
       snapshot => {
         runInAction(() => {
@@ -118,7 +137,7 @@ export class ChatViewModel {
       },
     );
 
-    return unsubscribe;
+    return this.unsubscribe;
   }
 
   async sendMessage() {
@@ -153,10 +172,18 @@ export class ChatViewModel {
           createdAt: serverTimestamp(),
         },
         updatedAt: serverTimestamp(),
+        [`unreadCount.${this.otherParticipantId}`]: increment(1)
       });
     } catch (error) {
       console.error('Error al enviar mensaje:', error);
     }
+  }
+
+  cleanup() {
+    if (this.unsubscribe) {
+      this.unsubscribe();
+    }
+    this.resetUnreadCount();
   }
 
   isOwnMessage(message: Message): boolean {

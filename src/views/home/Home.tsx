@@ -69,9 +69,16 @@ const ChatItem = ({ item, onPress }: { item: any; onPress: () => void }) => {
         )}
       </View>
       <View style={styles.chatInfo}>
-        <Text style={[styles.chatName, globalStyles.text]}>
-          {otherParticipantName || 'Usuario desconocido'}
-        </Text>
+        <View style={styles.chatHeader}>
+          <Text style={[styles.chatName, globalStyles.text]}>
+            {otherParticipantName || 'Usuario desconocido'}
+          </Text>
+          {item.unreadCount > 0 && (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadCount}>{item.unreadCount}</Text>
+            </View>
+          )}
+        </View>
         <Text style={[styles.lastMessage, globalStyles.textSecondary]} numberOfLines={1}>
           {decryptedLastMessage || 'No hay mensajes'}
         </Text>
@@ -168,11 +175,18 @@ const Home = observer(() => {
           )}
         </View>
         <View style={styles.chatInfo}>
-          <Text style={[styles.chatName, globalStyles.text]}>
-            {isGroup
-              ? item.name
-              : item.otherParticipantName || 'Usuario desconocido'}
-          </Text>
+          <View style={styles.chatHeader}>
+            <Text style={[styles.chatName, globalStyles.text]}>
+              {isGroup
+                ? item.name
+                : item.otherParticipantName || 'Usuario desconocido'}
+            </Text>
+            {item.unreadCount > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadCount}>{item.unreadCount}</Text>
+              </View>
+            )}
+          </View>
           <Text style={[styles.lastMessage, globalStyles.textSecondary]} numberOfLines={1}>
             {item.lastMessage?.text
               ? item.lastMessage.text
@@ -354,10 +368,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
+  chatHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   chatName: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 4,
   },
   lastMessage: {
     fontSize: 14,
@@ -428,6 +447,20 @@ const styles = StyleSheet.create({
   menuItemText: {
     fontSize: 16,
     marginLeft: 16,
+  },
+  unreadBadge: {
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  unreadCount: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });
 

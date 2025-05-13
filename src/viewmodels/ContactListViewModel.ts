@@ -165,6 +165,10 @@ export class ContactListViewModel {
       lastMessage: {
         text: '',
         createdAt: serverTimestamp(),
+      },
+      unreadCount: {
+        [currentUser.uid]: 0,
+        [matchingUserId]: 0
       }
     });
 

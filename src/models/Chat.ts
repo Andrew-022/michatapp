@@ -6,6 +6,7 @@ export interface Chat {
     text: string;
     createdAt: Date;
   };
+  unreadCount?: { [userId: string]: number };
 }
 
 export class ChatModel implements Chat {
@@ -16,12 +17,14 @@ export class ChatModel implements Chat {
     text: string;
     createdAt: Date;
   };
+  unreadCount?: { [userId: string]: number };
 
   constructor(data: Partial<Chat>) {
     this.id = data.id || '';
     this.participants = data.participants || [];
     this.updatedAt = data.updatedAt;
     this.lastMessage = data.lastMessage;
+    this.unreadCount = data.unreadCount || {};
   }
 
   toFirestore() {
@@ -29,6 +32,7 @@ export class ChatModel implements Chat {
       participants: this.participants,
       updatedAt: this.updatedAt,
       lastMessage: this.lastMessage,
+      unreadCount: this.unreadCount,
     };
   }
 
@@ -43,10 +47,15 @@ export class ChatModel implements Chat {
             createdAt: data.lastMessage.createdAt?.toDate(),
           }
         : undefined,
+      unreadCount: data.unreadCount || {},
     });
   }
 
   getOtherParticipantId(currentUserId: string): string | undefined {
     return this.participants.find(id => id !== currentUserId);
+  }
+
+  getUnreadCount(userId: string): number {
+    return this.unreadCount?.[userId] || 0;
   }
 } 

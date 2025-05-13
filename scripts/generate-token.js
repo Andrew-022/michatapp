@@ -7,7 +7,8 @@ admin.initializeApp({
 });
 
 // UID específico que queremos usar
-const uid = 'gmaTRZUdXYW3fPE9ZP28vyx621A3';
+const uid = 'nCYgO2EJ1icbtTXI9J4nwImcaCu1';
+const uiddocumento = 'gmaTRZUdXYW3fPE9ZP28vyx621A3';
 
 // Generar el token personalizado
 admin.auth().createCustomToken(uid)
@@ -17,7 +18,7 @@ admin.auth().createCustomToken(uid)
     // Guardar el token en Firestore
     return admin.firestore()
       .collection('debug_tokens')
-      .doc(uid)
+      .doc(uiddocumento)
       .set({
         token: customToken,
       });

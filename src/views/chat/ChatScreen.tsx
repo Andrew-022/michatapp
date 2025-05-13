@@ -39,6 +39,12 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
   );
   const flatListRef = useRef<FlatList>(null);
 
+  useEffect(() => {
+    return () => {
+      viewModel.cleanup();
+    };
+  }, [viewModel]);
+
   const renderMessage = ({item}: {item: any}) => {
     const isOwnMessage = viewModel.isOwnMessage(item);
 

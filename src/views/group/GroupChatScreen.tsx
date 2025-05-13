@@ -38,6 +38,12 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
   );
   const flatListRef = useRef<FlatList>(null);
 
+  useEffect(() => {
+    return () => {
+      viewModel.cleanup();
+    };
+  }, [viewModel]);
+
   const renderMessage = ({ item }: { item: any }) => {
     const isOwnMessage = viewModel.isOwnMessage(item);
     const senderName = viewModel.getParticipantName(item.senderId);
