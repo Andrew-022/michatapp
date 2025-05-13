@@ -234,6 +234,26 @@ export class HomeViewModel {
     }
   }
 
+  formatLastMessageTime(timestamp: any): string {
+    if (!timestamp || !timestamp.toDate) return '';
+    
+    const date = timestamp.toDate();
+    const now = new Date();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === now.toDateString()) {
+      // Hoy: mostrar solo la hora
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      // Ayer
+      return 'Ayer';
+    } else {
+      // Otros días: mostrar fecha
+      return date.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+    }
+  }
+
   // Método para marcar mensajes como leídos
   async markMessagesAsRead(chatId: string, isGroup: boolean = false): Promise<void> {
     const auth = getAuth();

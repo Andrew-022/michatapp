@@ -1,8 +1,9 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import Contacts from '@s77rt/react-native-contacts';
 import { Platform, PermissionsAndroid } from 'react-native';
-import { getFirestore, collection, getDocs } from '@react-native-firebase/firestore';
+import { getFirestore, collection, getDocs, addDoc } from '@react-native-firebase/firestore';
 import { getAuth } from '@react-native-firebase/auth';
+import { serverTimestamp } from '@react-native-firebase/firestore';
 
 export interface GroupContact {
   recordID: string;
@@ -131,5 +132,44 @@ export class CreateGroupViewModel {
 
   get selectedUserIds(): string[] {
     return this.selectedContacts.map(c => c.userId!);
+  }
+
+  async createGroup(): Promise<string | null> {
+    if (!this.groupName.trim() || this.selectedUserIds.length === 0) {
+      return null;
+    }
+
+    try {
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      if (!currentUser) return null;
+
+      const db = getFirestore();
+      const groupData = {
+        name: this.groupName.trim(),
+        adminIds: [currentUser.uid],
+        participants: [currentUser.uid, ...this.selectedUserIds],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        lastMessage: {
+          text: '',
+          createdAt: serverTimestamp(),
+          senderId: currentUser.uid,
+        },
+        unreadCount: {
+          [currentUser.uid]: 0,
+          ...this.selectedUserIds.reduce((acc, userId) => ({
+            ...acc,
+            [userId]: 1
+          }), {})
+        }
+      };
+
+      const groupRef = await addDoc(collection(db, 'groupChats'), groupData);
+      return groupRef.id;
+    } catch (error) {
+      console.error('Error al crear grupo:', error);
+      return null;
+    }
   }
 }

@@ -62,26 +62,10 @@ const CreateGroupScreen = observer(() => {
 
     setLoading(true);
     try {
-      const auth = getAuth();
-      const currentUser = auth.currentUser;
-      if (!currentUser) return;
-
-      const db = getFirestore();
-      const groupData = {
-        name: viewModel.groupName.trim(),
-        adminIds: [currentUser.uid],
-        participants: [currentUser.uid, ...viewModel.selectedUserIds],
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        lastMessage: {
-          text: '',
-          createdAt: serverTimestamp(),
-          senderId: currentUser.uid,
-        }
-      };
-
-      const groupRef = await addDoc(collection(db, 'groupChats'), groupData);
-      navigation.navigate('GroupChat', { groupId: groupRef.id });
+      const groupId = await viewModel.createGroup();
+      if (groupId) {
+        navigation.navigate('GroupChat', { groupId });
+      }
     } catch (error) {
       console.error('Error al crear grupo:', error);
     } finally {
