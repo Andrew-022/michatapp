@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { globalStyles } from '../../styles/globalStyles';
+import { useTheme } from '../../context/ThemeContext';
+import { lightTheme, darkTheme } from '../../constants/theme';
 
 interface MemberOptionsMenuProps {
   visible: boolean;
@@ -30,6 +32,9 @@ const MemberOptionsMenu = ({
   memberName,
   isAdmin,
 }: MemberOptionsMenuProps) => {
+  const { isDark } = useTheme();
+  const currentTheme = isDark ? darkTheme : lightTheme;
+
   return (
     <Modal
       visible={visible}
@@ -39,13 +44,13 @@ const MemberOptionsMenu = ({
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.overlay}>
           <TouchableWithoutFeedback>
-            <View style={styles.menuContainer}>
-              <View style={styles.header}>
-                <Text style={[styles.title, globalStyles.text]}>
+            <View style={[styles.menuContainer, { backgroundColor: currentTheme.card }]}>
+              <View style={[styles.header, { borderBottomColor: currentTheme.border }]}>
+                <Text style={[styles.title, { color: currentTheme.text }]}>
                   Opciones para {memberName}
                 </Text>
                 <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                  <MaterialIcons name="close" size={24} color="#666" />
+                  <MaterialIcons name="close" size={24} color={currentTheme.secondary} />
                 </TouchableOpacity>
               </View>
 
@@ -56,8 +61,8 @@ const MemberOptionsMenu = ({
                     onMakeAdmin();
                     onClose();
                   }}>
-                  <MaterialIcons name="admin-panel-settings" size={24} color="#007AFF" />
-                  <Text style={[styles.optionText, globalStyles.text]}>
+                  <MaterialIcons name="admin-panel-settings" size={24} color={currentTheme.primary} />
+                  <Text style={[styles.optionText, { color: currentTheme.text }]}>
                     Hacer administrador
                   </Text>
                 </TouchableOpacity>
@@ -68,8 +73,8 @@ const MemberOptionsMenu = ({
                     onRemoveAdmin();
                     onClose();
                   }}>
-                  <MaterialIcons name="admin-panel-settings" size={24} color="#FF9500" />
-                  <Text style={[styles.optionText, styles.removeAdminText]}>
+                  <MaterialIcons name="admin-panel-settings" size={24} color={currentTheme.secondary} />
+                  <Text style={[styles.optionText, { color: currentTheme.secondary }]}>
                     Quitar administrador
                   </Text>
                 </TouchableOpacity>
@@ -81,8 +86,8 @@ const MemberOptionsMenu = ({
                   onRemove();
                   onClose();
                 }}>
-                <MaterialIcons name="person-remove" size={24} color="#FF3B30" />
-                <Text style={[styles.optionText, styles.removeText]}>
+                <MaterialIcons name="person-remove" size={24} color={currentTheme.error} />
+                <Text style={[styles.optionText, { color: currentTheme.error }]}>
                   Eliminar del grupo
                 </Text>
               </TouchableOpacity>
@@ -103,7 +108,6 @@ const styles = StyleSheet.create({
   },
   menuContainer: {
     width: Dimensions.get('window').width * 0.85,
-    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
     shadowColor: '#000',
@@ -122,7 +126,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
   },
   title: {
     fontSize: 18,
@@ -144,12 +147,6 @@ const styles = StyleSheet.create({
   },
   removeOption: {
     marginTop: 8,
-  },
-  removeText: {
-    color: '#FF3B30',
-  },
-  removeAdminText: {
-    color: '#FF9500',
   },
 });
 

@@ -17,12 +17,16 @@ import { RootStackParamList } from '../../navigation/AppNavigator';
 import { observer } from 'mobx-react-lite';
 import { AuthViewModel } from '../../viewmodels/AuthViewModel';
 import { globalStyles } from '../../styles/globalStyles';
+import { useTheme } from '../../context/ThemeContext';
+import { lightTheme, darkTheme } from '../../constants/theme';
 
 type PhoneAuthNavigationProp = NativeStackNavigationProp<RootStackParamList, 'PhoneAuth'>;
 
 const PhoneAuth = observer(() => {
   const navigation = useNavigation<PhoneAuthNavigationProp>();
   const viewModel = React.useMemo(() => new AuthViewModel(), []);
+  const { isDark } = useTheme();
+  const currentTheme = isDark ? darkTheme : lightTheme;
 
   useEffect(() => {
     const auth = getAuth();
@@ -71,36 +75,45 @@ const PhoneAuth = observer(() => {
 
   if (viewModel.loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={[styles.loadingContainer, { backgroundColor: currentTheme.background }]}>
+        <ActivityIndicator size="large" color={currentTheme.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={[styles.title, globalStyles.text]}>
-        {viewModel.confirmation ? 'Verificar Código' : 'Iniciar Sesión'}
-      </Text>
-      <Text style={[styles.subtitle, globalStyles.textSecondary]}>
-        {viewModel.confirmation
-          ? 'Ingresa el código de verificación enviado a tu teléfono'
-          : 'Ingresa tu número de teléfono para continuar'}
-      </Text>
+    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
+      <View style={styles.headerContainer}>
+        <Text style={[styles.title, { color: currentTheme.text }]}>
+          {viewModel.confirmation ? 'Verificar Código' : 'Iniciar Sesión'}
+        </Text>
+        <Text style={[styles.subtitle, { color: currentTheme.secondary }]}>
+          {viewModel.confirmation
+            ? 'Ingresa el código de verificación enviado a tu teléfono'
+            : 'Ingresa tu número de teléfono para continuar'}
+        </Text>
+      </View>
 
       {!viewModel.confirmation ? (
         <>
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, { 
+            backgroundColor: currentTheme.card,
+            borderColor: currentTheme.border 
+          }]}>
             <TouchableOpacity
-              style={styles.countryButton}
+              style={[styles.countryButton, { backgroundColor: currentTheme.background }]}
               onPress={() => viewModel.setShowCountryList(true)}>
-              <Text style={[styles.countryButtonText, globalStyles.text]}>
+              <Text style={[styles.countryButtonText, { color: currentTheme.text }]}>
                 {viewModel.selectedCountry.code}
               </Text>
             </TouchableOpacity>
             <TextInput
-              style={[styles.input, globalStyles.text]}
+              style={[styles.input, { 
+                color: currentTheme.text,
+                borderColor: currentTheme.border
+              }]}
               placeholder="Número de teléfono"
+              placeholderTextColor={currentTheme.secondary}
               keyboardType="phone-pad"
               value={viewModel.phoneNumber}
               onChangeText={viewModel.setPhoneNumber}
@@ -108,20 +121,31 @@ const PhoneAuth = observer(() => {
           </View>
 
           <TouchableOpacity
-            style={[styles.button, viewModel.loading && styles.buttonDisabled]}
+            style={[
+              styles.button,
+              { backgroundColor: currentTheme.primary },
+              viewModel.loading && { backgroundColor: currentTheme.border }
+            ]}
             onPress={handleSignIn}
             disabled={viewModel.loading}>
-            <Text style={[styles.buttonText, globalStyles.textWhite]}>
+            <Text style={[styles.buttonText, { color: currentTheme.background }]}>
               {viewModel.loading ? 'Enviando...' : 'Enviar código'}
             </Text>
           </TouchableOpacity>
         </>
       ) : (
         <>
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, { 
+            backgroundColor: currentTheme.card,
+            borderColor: currentTheme.border 
+          }]}>
             <TextInput
-              style={[styles.input, globalStyles.text]}
+              style={[styles.input, { 
+                color: currentTheme.text,
+                borderColor: currentTheme.border
+              }]}
               placeholder="Código de verificación"
+              placeholderTextColor={currentTheme.secondary}
               keyboardType="number-pad"
               value={viewModel.verificationCode}
               onChangeText={viewModel.setVerificationCode}
@@ -129,10 +153,14 @@ const PhoneAuth = observer(() => {
           </View>
 
           <TouchableOpacity
-            style={[styles.button, viewModel.loading && styles.buttonDisabled]}
+            style={[
+              styles.button,
+              { backgroundColor: currentTheme.primary },
+              viewModel.loading && { backgroundColor: currentTheme.border }
+            ]}
             onPress={handleConfirmCode}
             disabled={viewModel.loading}>
-            <Text style={[styles.buttonText, globalStyles.textWhite]}>
+            <Text style={[styles.buttonText, { color: currentTheme.background }]}>
               {viewModel.loading ? 'Verificando...' : 'Verificar código'}
             </Text>
           </TouchableOpacity>
@@ -140,10 +168,12 @@ const PhoneAuth = observer(() => {
       )}
 
       <TouchableOpacity
-        style={styles.debugButton}
+        style={[styles.debugButton, { backgroundColor: currentTheme.secondary }]}
         onPress={handleDebugLogin}
         disabled={viewModel.loading}>
-        <Text style={[styles.debugButtonText, globalStyles.textWhite]}>Debug Login</Text>
+        <Text style={[styles.debugButtonText, { color: currentTheme.background }]}>
+          Debug Login
+        </Text>
       </TouchableOpacity>
 
       <Modal
@@ -151,28 +181,38 @@ const PhoneAuth = observer(() => {
         transparent
         animationType="slide"
         onRequestClose={() => viewModel.setShowCountryList(false)}>
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={[styles.modalTitle, globalStyles.text]}>Selecciona tu país</Text>
-            <ScrollView>
+        <View style={[styles.modalContainer, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+          <View style={[styles.modalContent, { 
+            backgroundColor: currentTheme.card,
+            borderColor: currentTheme.border
+          }]}>
+            <Text style={[styles.modalTitle, { color: currentTheme.text }]}>
+              Selecciona tu país
+            </Text>
+            <ScrollView style={styles.countryList}>
               {viewModel.countries.map((country, index) => (
                 <TouchableOpacity
                   key={index}
-                  style={styles.countryItem}
+                  style={[styles.countryItem, { 
+                    borderBottomColor: currentTheme.border,
+                    backgroundColor: currentTheme.background
+                  }]}
                   onPress={() => {
                     viewModel.setSelectedCountry(country);
                     viewModel.setShowCountryList(false);
                   }}>
-                  <Text style={[styles.countryItemText, globalStyles.text]}>
+                  <Text style={[styles.countryItemText, { color: currentTheme.text }]}>
                     {country.name} ({country.code})
                   </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
             <TouchableOpacity
-              style={styles.closeButton}
+              style={[styles.closeButton, { backgroundColor: currentTheme.primary }]}
               onPress={() => viewModel.setShowCountryList(false)}>
-              <Text style={[styles.closeButtonText, globalStyles.textWhite]}>Cerrar</Text>
+              <Text style={[styles.closeButtonText, { color: currentTheme.background }]}>
+                Cerrar
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -185,7 +225,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#F5F5F5',
+  },
+  headerContainer: {
+    marginTop: 40,
+    marginBottom: 40,
   },
   loadingContainer: {
     flex: 1,
@@ -193,56 +236,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 16,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
     marginBottom: 20,
     textAlign: 'center',
+    lineHeight: 22,
   },
   inputContainer: {
     flexDirection: 'row',
-    marginBottom: 20,
+    marginBottom: 24,
+    borderRadius: 12,
+    padding: 4,
+    borderWidth: 1,
   },
   countryButton: {
-    backgroundColor: '#f0f0f0',
     padding: 15,
     borderRadius: 8,
     marginRight: 10,
+    minWidth: 80,
+    alignItems: 'center',
   },
   countryButtonText: {
     fontSize: 16,
+    fontWeight: '600',
   },
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#ddd',
     borderRadius: 8,
     padding: 15,
     fontSize: 16,
-  },
-  verificationInput: {
-    marginBottom: 20,
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 15,
-    fontSize: 16,
-    height: 50,
-    textAlign: 'center',
   },
   button: {
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  buttonDisabled: {
-    backgroundColor: '#ccc',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   buttonText: {
     fontSize: 16,
@@ -250,10 +288,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   debugButton: {
-    backgroundColor: '#FF9500',
-    padding: 15,
-    borderRadius: 8,
-    marginTop: 20,
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 24,
   },
   debugButtonText: {
     fontSize: 16,
@@ -264,34 +301,37 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 20,
-    width: '80%',
+    borderRadius: 16,
+    padding: 24,
+    width: '90%',
     maxHeight: '80%',
+    borderWidth: 1,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 15,
+    marginBottom: 20,
     textAlign: 'center',
   },
+  countryList: {
+    maxHeight: '70%',
+  },
   countryItem: {
-    padding: 15,
+    padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderRadius: 8,
+    marginBottom: 8,
   },
   countryItemText: {
     fontSize: 16,
+    fontWeight: '500',
   },
   closeButton: {
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 8,
-    marginTop: 15,
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 20,
   },
   closeButtonText: {
     fontSize: 16,

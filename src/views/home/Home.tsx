@@ -22,10 +22,16 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import 'react-native-get-random-values';
 import CryptoJS from 'crypto-js';
 import { globalStyles } from '../../styles/globalStyles';
+import { useTheme } from '../../context/ThemeContext';
+import { lightTheme, darkTheme } from '../../constants/theme';
 
 type HomeNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
-const ChatItem = ({ item, onPress }: { item: any; onPress: () => void }) => {
+const ChatItem = ({ item, onPress, currentTheme }: { 
+  item: any; 
+  onPress: () => void;
+  currentTheme: any;
+}) => {
   const viewModel = React.useMemo(() => new HomeViewModel(), []);
   const [otherParticipantName, setOtherParticipantName] = useState('');
   const [decryptedLastMessage, setDecryptedLastMessage] = useState('');
@@ -54,32 +60,35 @@ const ChatItem = ({ item, onPress }: { item: any; onPress: () => void }) => {
 
   return (
     <TouchableOpacity
-      style={styles.chatItem}
+      style={[styles.chatItem, { 
+        backgroundColor: currentTheme.card,
+        borderBottomColor: currentTheme.border 
+      }]}
       onPress={onPress}>
-      <View style={styles.avatarContainer}>
+      <View style={[styles.avatarContainer, { backgroundColor: currentTheme.primary }]}>
         {item.otherParticipantPhoto ? (
           <Image 
             source={{ uri: item.otherParticipantPhoto }} 
             style={styles.avatarImage}
           />
         ) : (
-          <Text style={[styles.avatarText, globalStyles.textWhite]}>
+          <Text style={[styles.avatarText, { color: currentTheme.background }]}>
             {otherParticipantName.charAt(0).toUpperCase() || '?'}
           </Text>
         )}
       </View>
       <View style={styles.chatInfo}>
         <View style={styles.chatHeader}>
-          <Text style={[styles.chatName, globalStyles.text]}>
+          <Text style={[styles.chatName, { color: currentTheme.text }]}>
             {otherParticipantName || 'Usuario desconocido'}
           </Text>
           {item.unreadCount > 0 && (
-            <View style={styles.unreadBadge}>
+            <View style={[styles.unreadBadge, { backgroundColor: currentTheme.primary }]}>
               <Text style={styles.unreadCount}>{item.unreadCount}</Text>
             </View>
           )}
         </View>
-        <Text style={[styles.lastMessage, globalStyles.textSecondary]} numberOfLines={1}>
+        <Text style={[styles.lastMessage, { color: currentTheme.text }]} numberOfLines={1}>
           {decryptedLastMessage || 'No hay mensajes'}
         </Text>
       </View>
@@ -92,6 +101,8 @@ const Home = observer(() => {
   const viewModel = React.useMemo(() => new HomeViewModel(), []);
   const [menuVisible, setMenuVisible] = useState(false);
   const slideAnim = React.useRef(new Animated.Value(-300)).current;
+  const { isDark } = useTheme();
+  const currentTheme = isDark ? darkTheme : lightTheme;
 
   const toggleMenu = () => {
     setMenuVisible(!menuVisible);
@@ -132,12 +143,14 @@ const Home = observer(() => {
   };
 
   const renderChatItem = ({item}: {item: any}) => {
-    // Es grupo si tiene propiedad 'adminIds'
     const isGroup = !!item.adminIds;
 
     return (
       <TouchableOpacity
-        style={styles.chatItem}
+        style={[styles.chatItem, { 
+          backgroundColor: currentTheme.card,
+          borderBottomColor: currentTheme.border 
+        }]}
         onPress={() => {
           if (isGroup) {
             navigation.navigate('GroupChat', { groupId: item.id });
@@ -151,7 +164,7 @@ const Home = observer(() => {
             }
           }
         }}>
-        <View style={styles.avatarContainer}>
+        <View style={[styles.avatarContainer, { backgroundColor: currentTheme.primary }]}>
           {isGroup ? (
             item.photoURL ? (
               <Image 
@@ -159,7 +172,7 @@ const Home = observer(() => {
                 style={styles.avatarImage}
               />
             ) : (
-              <Text style={[styles.avatarText, globalStyles.textWhite]}>
+              <Text style={[styles.avatarText, { color: currentTheme.background }]}>
                 {item.name?.charAt(0).toUpperCase() || 'G'}
               </Text>
             )
@@ -169,32 +182,32 @@ const Home = observer(() => {
               style={styles.avatarImage}
             />
           ) : (
-            <Text style={[styles.avatarText, globalStyles.textWhite]}>
+            <Text style={[styles.avatarText, { color: currentTheme.background }]}>
               {item.otherParticipantName?.charAt(0).toUpperCase() || '?'}
             </Text>
           )}
         </View>
         <View style={styles.chatInfo}>
           <View style={styles.chatHeader}>
-            <Text style={[styles.chatName, globalStyles.text]}>
+            <Text style={[styles.chatName, { color: currentTheme.text }]}>
               {isGroup
                 ? item.name
                 : item.otherParticipantName || 'Usuario desconocido'}
             </Text>
             <View style={styles.headerRight}>
               {item.lastMessageTime && (
-                <Text style={[styles.lastMessageTime, globalStyles.textSecondary]}>
+                <Text style={[styles.lastMessageTime, { color: currentTheme.text }]}>
                   {viewModel.formatLastMessageTime(item.lastMessageTime)}
                 </Text>
               )}
               {item.unreadCount > 0 && (
-                <View style={styles.unreadBadge}>
+                <View style={[styles.unreadBadge, { backgroundColor: currentTheme.primary }]}>
                   <Text style={styles.unreadCount}>{item.unreadCount}</Text>
                 </View>
               )}
             </View>
           </View>
-          <Text style={[styles.lastMessage, globalStyles.textSecondary]} numberOfLines={1}>
+          <Text style={[styles.lastMessage, { color: currentTheme.text }]} numberOfLines={1}>
             {item.lastMessage?.text
               ? item.lastMessage.text
               : 'No hay mensajes'}
@@ -206,21 +219,21 @@ const Home = observer(() => {
 
   if (viewModel.loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={[styles.loadingContainer, { backgroundColor: currentTheme.background }]}>
+        <ActivityIndicator size="large" color={currentTheme.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
+      <View style={[styles.header, { backgroundColor: currentTheme.card, borderBottomColor: currentTheme.border }]}>
         <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
-          <Icon name="menu" size={24} color="#007AFF" />
+          <Icon name="menu" size={24} color={currentTheme.primary} />
         </TouchableOpacity>
-        <Text style={[styles.title, globalStyles.text]}>Chats</Text>
+        <Text style={[styles.title, { color: currentTheme.text }]}>Chats</Text>
         <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-          <Text style={[styles.signOutText, globalStyles.textBlue]}>Cerrar Sesión</Text>
+          <Text style={[styles.signOutText, { color: currentTheme.primary }]}>Cerrar Sesión</Text>
         </TouchableOpacity>
       </View>
 
@@ -231,15 +244,15 @@ const Home = observer(() => {
         contentContainerStyle={styles.chatList}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={[styles.emptyText, globalStyles.textSecondary]}>No tienes chats aún</Text>
+            <Text style={[styles.emptyText, { color: currentTheme.text }]}>No tienes chats aún</Text>
           </View>
         }
       />
 
       <TouchableOpacity
-        style={styles.newChatButton}
+        style={[styles.newChatButton, { backgroundColor: currentTheme.primary }]}
         onPress={() => navigation.navigate('ContactList')}>
-        <Text style={[styles.newChatButtonText, globalStyles.textWhite]}>+</Text>
+        <Text style={[styles.newChatButtonText, { color: currentTheme.background }]}>+</Text>
       </TouchableOpacity>
 
       <Modal
@@ -256,27 +269,35 @@ const Home = observer(() => {
               styles.menuContainer,
               {
                 transform: [{translateX: slideAnim}],
+                backgroundColor: currentTheme.card,
               },
             ]}>
             <View style={styles.menuHeader}>
-              <Text style={[styles.menuTitle, globalStyles.text]}>Menú</Text>
+              <Text style={[styles.menuTitle, { color: currentTheme.text }]}>Menú</Text>
               <TouchableOpacity onPress={toggleMenu}>
-                <Icon name="close" size={24} color="#000" />
+                <Icon name="close" size={24} color={currentTheme.text} />
               </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.menuItem} onPress={() => {
-              navigation.navigate('Profile');
-              toggleMenu();
-            }}>
-              <Icon name="person" size={24} color="#007AFF" />
-              <Text style={[styles.menuItemText, globalStyles.text]}>Perfil</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={() => {}}>
-              <Icon name="settings" size={24} color="#007AFF" />
-              <Text style={[styles.menuItemText, globalStyles.text]}>Configuración</Text>
+            <TouchableOpacity 
+              style={[styles.menuItem, { borderBottomColor: currentTheme.border }]} 
+              onPress={() => {
+                navigation.navigate('Profile');
+                toggleMenu();
+              }}>
+              <Icon name="person" size={24} color={currentTheme.primary} />
+              <Text style={[styles.menuItemText, { color: currentTheme.text }]}>Perfil</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={styles.menuItem} 
+              style={[styles.menuItem, { borderBottomColor: currentTheme.border }]} 
+              onPress={() => {
+                navigation.navigate('Settings');
+                toggleMenu();
+              }}>
+              <Icon name="settings" size={24} color={currentTheme.primary} />
+              <Text style={[styles.menuItemText, { color: currentTheme.text }]}>Configuración</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.menuItem, { borderBottomColor: currentTheme.border }]} 
               onPress={async () => {
                 try {
                   await viewModel.createTestUser();
@@ -286,21 +307,23 @@ const Home = observer(() => {
                 }
                 toggleMenu();
               }}>
-              <Icon name="add-circle" size={24} color="#007AFF" />
-              <Text style={[styles.menuItemText, globalStyles.text]}>Crear Usuario Test</Text>
+              <Icon name="add-circle" size={24} color={currentTheme.primary} />
+              <Text style={[styles.menuItemText, { color: currentTheme.text }]}>Crear Usuario Test</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={styles.menuItem} 
+              style={[styles.menuItem, { borderBottomColor: currentTheme.border }]} 
               onPress={() => {
                 navigation.navigate('CreateGroup');
                 toggleMenu();
               }}>
-              <Icon name="group-add" size={24} color="#007AFF" />
-              <Text style={[styles.menuItemText, globalStyles.text]}>Crear Grupo</Text>
+              <Icon name="group-add" size={24} color={currentTheme.primary} />
+              <Text style={[styles.menuItemText, { color: currentTheme.text }]}>Crear Grupo</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={handleSignOut}>
-              <Icon name="exit-to-app" size={24} color="#FF3B30" />
-              <Text style={[styles.menuItemText, globalStyles.textRed]}>
+            <TouchableOpacity 
+              style={[styles.menuItem, { borderBottomColor: currentTheme.border }]} 
+              onPress={handleSignOut}>
+              <Icon name="exit-to-app" size={24} color={currentTheme.error} />
+              <Text style={[styles.menuItemText, { color: currentTheme.error }]}>
                 Cerrar Sesión
               </Text>
             </TouchableOpacity>
@@ -314,7 +337,6 @@ const Home = observer(() => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
   loadingContainer: {
     flex: 1,
@@ -327,8 +349,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
-    backgroundColor: '#fff',
   },
   menuButton: {
     padding: 8,
@@ -351,7 +371,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
-    backgroundColor: '#fff',
   },
   avatarContainer: {
     width: 50,
@@ -404,7 +423,6 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 5,
@@ -430,7 +448,6 @@ const styles = StyleSheet.create({
     left: 0,
     width: 300,
     height: '100%',
-    backgroundColor: '#fff',
     padding: 16,
   },
   menuHeader: {
@@ -449,7 +466,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
   },
   menuItemText: {
     fontSize: 16,

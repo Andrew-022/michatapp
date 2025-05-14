@@ -15,6 +15,8 @@ import {RootStackParamList} from '../../navigation/AppNavigator';
 import {observer} from 'mobx-react-lite';
 import {UserProfileViewModel} from '../../viewmodels/UserProfileViewModel';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useTheme } from '../../context/ThemeContext';
+import { lightTheme, darkTheme } from '../../constants/theme';
 
 type UserProfileNavigationProp = NativeStackNavigationProp<RootStackParamList, 'UserProfile'>;
 
@@ -24,32 +26,39 @@ const UserProfileScreen = observer(() => {
   const {userId} = route.params as {userId: string};
   const viewModel = React.useMemo(() => new UserProfileViewModel(userId), [userId]);
   const [isPhotoExpanded, setIsPhotoExpanded] = useState(false);
+  const { isDark } = useTheme();
+  const currentTheme = isDark ? darkTheme : lightTheme;
 
   if (viewModel.loading) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
+        <ActivityIndicator size="large" color={currentTheme.primary} />
       </View>
     );
   }
 
   if (viewModel.error || !viewModel.userData) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>{viewModel.error || 'Usuario no encontrado'}</Text>
+      <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
+        <Text style={[styles.errorText, { color: currentTheme.error }]}>
+          {viewModel.error || 'Usuario no encontrado'}
+        </Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
+      <View style={[styles.header, { 
+        backgroundColor: currentTheme.card,
+        borderBottomColor: currentTheme.border 
+      }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color="#007AFF" />
+          <Icon name="arrow-back" size={24} color={currentTheme.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Perfil</Text>
+        <Text style={[styles.headerTitle, { color: currentTheme.text }]}>Perfil</Text>
       </View>
 
       <View style={styles.profileContainer}>
@@ -57,16 +66,18 @@ const UserProfileScreen = observer(() => {
           {viewModel.userData.photoURL ? (
             <Image source={{uri: viewModel.userData.photoURL}} style={styles.avatar} />
           ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarText}>
+            <View style={[styles.avatarPlaceholder, { backgroundColor: currentTheme.primary }]}>
+              <Text style={[styles.avatarText, { color: currentTheme.background }]}>
                 {viewModel.userData.name.charAt(0).toUpperCase()}
               </Text>
             </View>
           )}
         </TouchableOpacity>
 
-        <Text style={[styles.name, { color: '#000' }]}>{viewModel.userData.name}</Text>
-        <Text style={styles.phoneNumber}>{viewModel.userData.phoneNumber}</Text>
+        <Text style={[styles.name, { color: currentTheme.text }]}>{viewModel.userData.name}</Text>
+        <Text style={[styles.phoneNumber, { color: currentTheme.secondary }]}>
+          {viewModel.userData.phoneNumber}
+        </Text>
       </View>
 
       <Modal
@@ -84,8 +95,8 @@ const UserProfileScreen = observer(() => {
               resizeMode="contain"
             />
           ) : (
-            <View style={styles.expandedAvatarPlaceholder}>
-              <Text style={styles.expandedAvatarText}>
+            <View style={[styles.expandedAvatarPlaceholder, { backgroundColor: currentTheme.primary }]}>
+              <Text style={[styles.expandedAvatarText, { color: currentTheme.background }]}>
                 {viewModel.userData.name.charAt(0).toUpperCase()}
               </Text>
             </View>
@@ -99,14 +110,12 @@ const UserProfileScreen = observer(() => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
   backButton: {
     padding: 8,
@@ -131,14 +140,12 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
   },
   avatarText: {
     fontSize: 48,
-    color: '#fff',
     fontWeight: 'bold',
   },
   name: {
@@ -148,11 +155,9 @@ const styles = StyleSheet.create({
   },
   phoneNumber: {
     fontSize: 16,
-    color: '#666',
   },
   errorText: {
     fontSize: 16,
-    color: 'red',
     textAlign: 'center',
     marginTop: 24,
   },
@@ -170,14 +175,12 @@ const styles = StyleSheet.create({
   expandedAvatarPlaceholder: {
     width: Dimensions.get('window').width * 0.9,
     height: Dimensions.get('window').width * 0.9,
-    backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 10,
   },
   expandedAvatarText: {
     fontSize: 120,
-    color: '#fff',
     fontWeight: 'bold',
   },
 });

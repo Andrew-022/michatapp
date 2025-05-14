@@ -11,6 +11,7 @@ import GroupChatScreen from '../views/group/GroupChatScreen';
 import UserProfileScreen from '../views/profile/UserProfileScreen';
 import GroupDetailsScreen from '../views/group/GroupDetailsScreen';
 import AddMembersScreen from '../views/group/AddMembersScreen';
+import SettingsScreen from '../views/settings/SettingsScreen';
 
 export type RootStackParamList = {
   Home: undefined;
@@ -34,6 +35,7 @@ export type RootStackParamList = {
   AddMembers: {
     groupId: string;
   };
+  Settings: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -56,6 +58,7 @@ const AppNavigator = () => {
         <Stack.Screen name="UserProfile" component={UserProfileScreen} />
         <Stack.Screen name="GroupDetails" component={GroupDetailsScreen} />
         <Stack.Screen name="AddMembers" component={AddMembersScreen} />
+        <Stack.Screen name="Settings" component={SettingsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

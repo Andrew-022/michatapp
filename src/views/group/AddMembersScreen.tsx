@@ -13,6 +13,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { globalStyles } from '../../styles/globalStyles';
 import { GroupDetailsViewModel } from '../../viewmodels/GroupDetailsViewModel';
+import { useTheme } from '../../context/ThemeContext';
+import { lightTheme, darkTheme } from '../../constants/theme';
 
 const AddMembersScreen = observer(() => {
   const navigation = useNavigation();
@@ -22,9 +24,10 @@ const AddMembersScreen = observer(() => {
   const [searchText, setSearchText] = useState('');
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
-
   const [contacts, setContacts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { isDark } = useTheme();
+  const currentTheme = isDark ? darkTheme : lightTheme;
 
   React.useEffect(() => {
     loadContacts();
@@ -76,22 +79,29 @@ const AddMembersScreen = observer(() => {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
+      <View style={[styles.header, { 
+        backgroundColor: currentTheme.card,
+        borderBottomColor: currentTheme.border 
+      }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color="#007AFF" />
+          <Icon name="arrow-back" size={24} color={currentTheme.primary} />
         </TouchableOpacity>
-        <Text style={[styles.title, globalStyles.text]}>Añadir Miembros</Text>
+        <Text style={[styles.title, { color: currentTheme.text }]}>Añadir Miembros</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <View style={styles.content}>
         <TextInput
-          style={[styles.searchInput, globalStyles.text]}
+          style={[styles.searchInput, { 
+            backgroundColor: currentTheme.card,
+            borderColor: currentTheme.border,
+            color: currentTheme.text
+          }]}
           placeholder="Buscar contacto o número..."
           value={searchText}
           onChangeText={setSearchText}
-          placeholderTextColor="#666"
+          placeholderTextColor={currentTheme.secondary}
         />
 
         <FlatList
@@ -101,33 +111,39 @@ const AddMembersScreen = observer(() => {
             <TouchableOpacity
               style={[
                 styles.contactItem,
-                selectedContacts.has(item.id) && styles.contactItemSelected
+                { 
+                  backgroundColor: currentTheme.card,
+                  borderBottomColor: currentTheme.border 
+                },
+                selectedContacts.has(item.id) && { 
+                  backgroundColor: currentTheme.primary + '20' 
+                }
               ]}
               onPress={() => toggleContactSelection(item.id)}
             >
-              <View style={styles.avatarContainer}>
-                <Text style={[styles.avatarText, globalStyles.textWhite]}>
+              <View style={[styles.avatarContainer, { backgroundColor: currentTheme.primary }]}>
+                <Text style={[styles.avatarText, { color: currentTheme.background }]}>
                   {item.name.charAt(0).toUpperCase()}
                 </Text>
               </View>
               <View style={styles.contactInfo}>
-                <Text style={[styles.contactName, globalStyles.text]}>
+                <Text style={[styles.contactName, { color: currentTheme.text }]}>
                   {item.name}
                 </Text>
-                <Text style={[styles.contactPhone, globalStyles.textSecondary]}>
+                <Text style={[styles.contactPhone, { color: currentTheme.secondary }]}>
                   {item.phoneNumber}
                 </Text>
               </View>
               {selectedContacts.has(item.id) && (
-                <Text style={styles.selectedMark}>✓</Text>
+                <Text style={[styles.selectedMark, { color: currentTheme.primary }]}>✓</Text>
               )}
             </TouchableOpacity>
           )}
           ListEmptyComponent={
             isLoading ? (
-              <ActivityIndicator size="large" color="#007AFF" />
+              <ActivityIndicator size="large" color={currentTheme.primary} />
             ) : (
-              <Text style={[styles.emptyText, globalStyles.textSecondary]}>
+              <Text style={[styles.emptyText, { color: currentTheme.secondary }]}>
                 No hay contactos disponibles
               </Text>
             )
@@ -138,14 +154,15 @@ const AddMembersScreen = observer(() => {
         <TouchableOpacity
           style={[
             styles.addButton,
-            selectedContacts.size === 0 && styles.addButtonDisabled
+            { backgroundColor: currentTheme.primary },
+            selectedContacts.size === 0 && { backgroundColor: currentTheme.border }
           ]}
           onPress={handleAddMembers}
           disabled={selectedContacts.size === 0 || loading}>
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={currentTheme.background} />
           ) : (
-            <Text style={styles.addButtonText}>
+            <Text style={[styles.addButtonText, { color: currentTheme.background }]}>
               Añadir ({selectedContacts.size})
             </Text>
           )}
@@ -158,7 +175,6 @@ const AddMembersScreen = observer(() => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
   header: {
     flexDirection: 'row',
@@ -166,8 +182,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
-    backgroundColor: '#fff',
   },
   title: {
     fontSize: 20,
@@ -178,11 +192,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   searchInput: {
-    backgroundColor: '#F2F2F7',
     borderRadius: 8,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
     marginBottom: 8,
   },
   contactList: {
@@ -193,17 +205,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
-    backgroundColor: '#fff',
-  },
-  contactItemSelected: {
-    backgroundColor: '#D0E8FF',
   },
   avatarContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -223,23 +229,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   selectedMark: {
-    color: '#007AFF',
     fontWeight: 'bold',
     fontSize: 20,
     marginLeft: 8,
   },
   addButton: {
-    backgroundColor: '#007AFF',
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
     marginTop: 16,
   },
-  addButtonDisabled: {
-    backgroundColor: '#B4B4B4',
-  },
   addButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },

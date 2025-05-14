@@ -20,12 +20,16 @@ import {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { globalStyles } from '../../styles/globalStyles';
 import { CreateGroupViewModel } from '../../viewmodels/CreateGroupViewModel';
+import { useTheme } from '../../context/ThemeContext';
+import { lightTheme, darkTheme } from '../../constants/theme';
 
 const CreateGroupScreen = observer(() => {
   const navigation = useNavigation();
   const viewModel = React.useMemo(() => new CreateGroupViewModel(), []);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const { isDark } = useTheme();
+  const currentTheme = isDark ? darkTheme : lightTheme;
 
   // Ordena y filtra los contactos
   const filteredContacts = React.useMemo(() => {
@@ -74,31 +78,44 @@ const CreateGroupScreen = observer(() => {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
+      <View style={[styles.header, { 
+        backgroundColor: currentTheme.card,
+        borderBottomColor: currentTheme.border 
+      }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color="#007AFF" />
+          <Icon name="arrow-back" size={24} color={currentTheme.primary} />
         </TouchableOpacity>
-        <Text style={[styles.title, globalStyles.text]}>Crear Grupo</Text>
+        <Text style={[styles.title, { color: currentTheme.text }]}>Crear Grupo</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <View style={styles.content}>
         <TextInput
-          style={[styles.input, globalStyles.text]}
+          style={[styles.input, { 
+            backgroundColor: currentTheme.card,
+            color: currentTheme.text,
+            borderColor: currentTheme.border
+          }]}
           value={viewModel.groupName}
           onChangeText={viewModel.setGroupName.bind(viewModel)}
           placeholder="Nombre del grupo"
-          placeholderTextColor="rgba(54, 54, 54, 0.7)"
+          placeholderTextColor={currentTheme.secondary}
         />
 
-        <Text style={[styles.subtitle, globalStyles.text]}>Selecciona participantes:</Text>
+        <Text style={[styles.subtitle, { color: currentTheme.text }]}>
+          Selecciona participantes:
+        </Text>
         <TextInput
-          style={[styles.searchInput, globalStyles.text]}
+          style={[styles.searchInput, { 
+            backgroundColor: currentTheme.card,
+            borderColor: currentTheme.border,
+            color: currentTheme.text
+          }]}
           placeholder="Buscar contacto o número..."
           value={searchText}
           onChangeText={setSearchText}
-          placeholderTextColor="#666"
+          placeholderTextColor={currentTheme.secondary}
         />
 
         <FlatList
@@ -108,31 +125,41 @@ const CreateGroupScreen = observer(() => {
             <TouchableOpacity
               style={[
                 styles.contactItem,
-                item.selected && styles.contactItemSelected
+                { 
+                  backgroundColor: currentTheme.card,
+                  borderBottomColor: currentTheme.border 
+                },
+                item.selected && { backgroundColor: currentTheme.primary + '20' }
               ]}
               onPress={() => viewModel.toggleContactSelection(item.recordID)}
             >
-              <View style={styles.avatarContainer}>
-                <Text style={[styles.avatarText, globalStyles.textWhite]}>
+              <View style={[styles.avatarContainer, { backgroundColor: currentTheme.primary }]}>
+                <Text style={[styles.avatarText, { color: currentTheme.background }]}>
                   {(item.firstName?.[0] || '') + (item.lastName?.[0] || '')}
                 </Text>
               </View>
               <View style={styles.contactInfo}>
-                <Text style={[styles.contactName, globalStyles.text]}>
+                <Text style={[styles.contactName, { color: currentTheme.text }]}>
                   {item.firstName} {item.lastName}
                 </Text>
                 {item.phoneNumbers.map((phone, idx) => (
-                  <Text key={idx} style={[styles.contactPhone, globalStyles.textSecondary]}>{phone.number}</Text>
+                  <Text key={idx} style={[styles.contactPhone, { color: currentTheme.secondary }]}>
+                    {phone.number}
+                  </Text>
                 ))}
               </View>
-              {item.selected && <Text style={styles.selectedMark}>✓</Text>}
+              {item.selected && (
+                <Text style={[styles.selectedMark, { color: currentTheme.primary }]}>✓</Text>
+              )}
             </TouchableOpacity>
           )}
           ListEmptyComponent={
             viewModel.loading ? (
-              <ActivityIndicator size="large" color="#007AFF" />
+              <ActivityIndicator size="large" color={currentTheme.primary} />
             ) : (
-              <Text style={[styles.emptyText, globalStyles.textSecondary]}>No hay contactos</Text>
+              <Text style={[styles.emptyText, { color: currentTheme.secondary }]}>
+                No hay contactos
+              </Text>
             )
           }
           style={styles.contactList}
@@ -141,14 +168,18 @@ const CreateGroupScreen = observer(() => {
         <TouchableOpacity
           style={[
             styles.createButton,
-            (!viewModel.groupName.trim() || viewModel.selectedUserIds.length === 0) && styles.createButtonDisabled
+            { backgroundColor: currentTheme.primary },
+            (!viewModel.groupName.trim() || viewModel.selectedUserIds.length === 0) && 
+              { backgroundColor: currentTheme.border }
           ]}
           onPress={handleCreateGroup}
           disabled={!viewModel.groupName.trim() || viewModel.selectedUserIds.length === 0 || loading}>
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={currentTheme.background} />
           ) : (
-            <Text style={styles.createButtonText}>Crear Grupo</Text>
+            <Text style={[styles.createButtonText, { color: currentTheme.background }]}>
+              Crear Grupo
+            </Text>
           )}
         </TouchableOpacity>
       </View>
@@ -159,7 +190,6 @@ const CreateGroupScreen = observer(() => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
   header: {
     flexDirection: 'row',
@@ -167,8 +197,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
-    backgroundColor: '#fff',
   },
   title: {
     fontSize: 20,
@@ -179,11 +207,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   input: {
-    backgroundColor: '#fff',
     borderRadius: 8,
     padding: 16,
     marginBottom: 16,
     fontSize: 16,
+    borderWidth: 1,
   },
   subtitle: {
     fontSize: 16,
@@ -191,11 +219,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   searchInput: {
-    backgroundColor: '#F2F2F7',
     borderRadius: 8,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
     marginBottom: 8,
   },
   contactList: {
@@ -208,17 +234,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
-    backgroundColor: '#fff',
-  },
-  contactItemSelected: {
-    backgroundColor: '#D0E8FF',
   },
   avatarContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -238,23 +258,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   selectedMark: {
-    color: '#007AFF',
     fontWeight: 'bold',
     fontSize: 20,
     marginLeft: 8,
   },
   createButton: {
-    backgroundColor: '#007AFF',
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
     marginTop: 16,
   },
-  createButtonDisabled: {
-    backgroundColor: '#B4B4B4',
-  },
   createButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },

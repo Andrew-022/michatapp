@@ -15,14 +15,17 @@ import { RootStackParamList } from '../../navigation/AppNavigator';
 import { observer } from 'mobx-react-lite';
 import { ContactListViewModel } from '../../viewmodels/ContactListViewModel';
 import { globalStyles } from '../../styles/globalStyles';
+import { useTheme } from '../../context/ThemeContext';
+import { lightTheme, darkTheme } from '../../constants/theme';
 
 type ContactListNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ContactList'>;
 
 const ContactList = observer(() => {
   const navigation = useNavigation<ContactListNavigationProp>();
   const viewModel = React.useMemo(() => new ContactListViewModel(), []);
-
   const [searchText, setSearchText] = React.useState('');
+  const { isDark } = useTheme();
+  const currentTheme = isDark ? darkTheme : lightTheme;
 
   const filteredContacts = React.useMemo(() => {
     if (!searchText.trim()) return viewModel.contacts;
@@ -55,17 +58,22 @@ const ContactList = observer(() => {
 
   const renderContactItem = ({item}: {item: any}) => (
     <TouchableOpacity
-      style={styles.contactItem}
+      style={[styles.contactItem, { 
+        backgroundColor: currentTheme.card,
+        borderBottomColor: currentTheme.border 
+      }]}
       onPress={() => handleStartChat(item)}>
-      <View style={styles.avatarContainer}>
-        <Text style={styles.avatarText}>{item.getInitials()}</Text>
+      <View style={[styles.avatarContainer, { backgroundColor: currentTheme.primary }]}>
+        <Text style={[styles.avatarText, { color: currentTheme.background }]}>
+          {item.getInitials()}
+        </Text>
       </View>
       <View style={styles.contactInfo}>
-        <Text style={[styles.contactName, globalStyles.text]}>
+        <Text style={[styles.contactName, { color: currentTheme.text }]}>
           {item.getFullName()}
         </Text>
         {Array.isArray(item.phoneNumbers) && item.phoneNumbers.map((phone: any, index: number) => (
-          <Text key={index} style={[styles.contactPhone, globalStyles.textSecondary]}>
+          <Text key={index} style={[styles.contactPhone, { color: currentTheme.secondary }]}>
             {phone.number}
           </Text>
         ))}
@@ -75,25 +83,32 @@ const ContactList = observer(() => {
 
   if (viewModel.loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={[styles.loadingContainer, { backgroundColor: currentTheme.background }]}>
+        <ActivityIndicator size="large" color={currentTheme.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={[styles.title, globalStyles.text]}>Contactos</Text>
+    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
+      <View style={[styles.header, { 
+        backgroundColor: currentTheme.card,
+        borderBottomColor: currentTheme.border 
+      }]}>
+        <Text style={[styles.title, { color: currentTheme.text }]}>Contactos</Text>
       </View>
 
-      <View style={styles.searchContainer}>
+      <View style={[styles.searchContainer, { backgroundColor: currentTheme.card }]}>
         <TextInput
-          style={[styles.searchInput, globalStyles.text]}
+          style={[styles.searchInput, { 
+            backgroundColor: currentTheme.background,
+            borderColor: currentTheme.border,
+            color: currentTheme.text
+          }]}
           placeholder="Buscar contacto o número..."
           value={searchText}
           onChangeText={setSearchText}
-          placeholderTextColor="#666"
+          placeholderTextColor={currentTheme.secondary}
         />
       </View>
 
@@ -104,7 +119,7 @@ const ContactList = observer(() => {
         contentContainerStyle={styles.contactList}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={[styles.emptyText, globalStyles.textSecondary]}>
+            <Text style={[styles.emptyText, { color: currentTheme.secondary }]}>
               No se encontraron contactos
             </Text>
           </View>
@@ -117,7 +132,6 @@ const ContactList = observer(() => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
   loadingContainer: {
     flex: 1,
@@ -127,8 +141,6 @@ const styles = StyleSheet.create({
   header: {
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
-    backgroundColor: '#fff',
   },
   title: {
     fontSize: 24,
@@ -137,14 +149,11 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     padding: 16,
-    backgroundColor: '#fff',
   },
   searchInput: {
-    backgroundColor: '#F2F2F7',
     borderRadius: 8,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
   },
   contactList: {
     flexGrow: 1,
@@ -153,20 +162,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
-    backgroundColor: '#fff',
   },
   avatarContainer: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   avatarText: {
-    color: '#fff',
     fontSize: 20,
     fontWeight: 'bold',
   },

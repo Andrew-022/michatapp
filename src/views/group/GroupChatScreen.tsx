@@ -18,6 +18,8 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useTheme } from '../../context/ThemeContext';
+import { lightTheme, darkTheme } from '../../constants/theme';
 
 type GroupChatNavigationProp = NativeStackNavigationProp<RootStackParamList, 'GroupChat'>;
 
@@ -37,6 +39,8 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
     [groupId]
   );
   const flatListRef = useRef<FlatList>(null);
+  const { isDark } = useTheme();
+  const currentTheme = isDark ? darkTheme : lightTheme;
 
   useEffect(() => {
     return () => {
@@ -53,18 +57,22 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
         style={[
           styles.messageContainer,
           isOwnMessage ? styles.ownMessage : styles.otherMessage,
+          {
+            backgroundColor: isOwnMessage ? currentTheme.primary : currentTheme.card,
+          }
         ]}
       >
         <View style={styles.messageContentColumn}>
           {!isOwnMessage && (
-            <Text style={styles.senderName}>{senderName}</Text>
+            <Text style={[styles.senderName, { color: currentTheme.primary }]}>
+              {senderName}
+            </Text>
           )}
           <View style={styles.messageContentRow}>
             <Text
               style={[
                 styles.messageText,
-                isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
-                isOwnMessage ? globalStyles.textWhite : globalStyles.text,
+                { color: isOwnMessage ? currentTheme.background : currentTheme.text }
               ]}
             >
               {item.text}
@@ -72,8 +80,7 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
             <Text
               style={[
                 styles.messageTime,
-                isOwnMessage ? styles.ownMessageTime : styles.otherMessageTime,
-                isOwnMessage ? globalStyles.textWhite : globalStyles.textSecondary,
+                { color: isOwnMessage ? currentTheme.background : currentTheme.secondary }
               ]}
             >
               {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
@@ -86,23 +93,26 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
 
   if (viewModel.loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={[styles.loadingContainer, { backgroundColor: currentTheme.background }]}>
+        <ActivityIndicator size="large" color={currentTheme.primary} />
       </View>
     );
   }
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: currentTheme.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <View style={styles.header}>
+      <View style={[styles.header, { 
+        backgroundColor: currentTheme.card,
+        borderBottomColor: currentTheme.border 
+      }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color="#007AFF" />
+          <Icon name="arrow-back" size={24} color={currentTheme.primary} />
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.headerContent}
@@ -113,13 +123,15 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
               style={styles.headerPhoto}
             />
           ) : (
-            <View style={styles.headerPhotoPlaceholder}>
-              <Text style={styles.headerPhotoText}>
+            <View style={[styles.headerPhotoPlaceholder, { backgroundColor: currentTheme.primary }]}>
+              <Text style={[styles.headerPhotoText, { color: currentTheme.background }]}>
                 {viewModel.groupName?.charAt(0).toUpperCase() || '?'}
               </Text>
             </View>
           )}
-          <Text style={styles.headerTitle}>{viewModel.groupName}</Text>
+          <Text style={[styles.headerTitle, { color: currentTheme.text }]}>
+            {viewModel.groupName}
+          </Text>
         </TouchableOpacity>
       </View>
       <FlatList
@@ -130,24 +142,33 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
         inverted
         contentContainerStyle={styles.messageList}
       />
-      <View style={styles.inputContainer}>
+      <View style={[styles.inputContainer, { 
+        backgroundColor: currentTheme.card,
+        borderTopColor: currentTheme.border 
+      }]}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { 
+            backgroundColor: currentTheme.background,
+            color: currentTheme.text
+          }]}
           value={viewModel.newMessage}
           onChangeText={viewModel.setNewMessage}
           placeholder="Escribe un mensaje..."
-          placeholderTextColor="rgba(54, 54, 54, 0.7)"
+          placeholderTextColor={currentTheme.secondary}
           multiline
         />
         <TouchableOpacity
           style={[
             styles.sendButton,
-            !viewModel.newMessage.trim() && styles.sendButtonDisabled,
+            { backgroundColor: currentTheme.primary },
+            !viewModel.newMessage.trim() && { backgroundColor: currentTheme.border }
           ]}
           onPress={() => viewModel.sendMessage()}
           disabled={!viewModel.newMessage.trim()}
         >
-          <Text style={styles.sendButtonText}>Enviar</Text>
+          <Text style={[styles.sendButtonText, { color: currentTheme.background }]}>
+            Enviar
+          </Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -157,13 +178,10 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
   header: {
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
-    backgroundColor: '#fff',
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -186,20 +204,17 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   headerPhotoText: {
-    color: '#fff',
     fontSize: 20,
     fontWeight: 'bold',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#000',
     flex: 1,
   },
   loadingContainer: {
@@ -229,62 +244,39 @@ const styles = StyleSheet.create({
   senderName: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#007AFF',
     marginRight: 6,
   },
   ownMessage: {
     alignSelf: 'flex-end',
-    backgroundColor: '#007AFF',
   },
   otherMessage: {
     alignSelf: 'flex-start',
-    backgroundColor: '#E5E5EA',
   },
   messageText: {
     fontSize: 16,
     flexShrink: 1,
   },
-  ownMessageText: {
-    opacity: 1,
-  },
-  otherMessageText: {
-    opacity: 1,
-  },
   messageTime: {
     fontSize: 10,
     marginLeft: 4,
-  },
-  ownMessageTime: {
-    opacity: 0.7,
-  },
-  otherMessageTime: {
-    opacity: 0.7,
   },
   inputContainer: {
     flexDirection: 'row',
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
-    backgroundColor: '#fff',
   },
   input: {
     flex: 1,
-    backgroundColor: '#F2F2F7',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
     marginRight: 8,
     maxHeight: 100,
-    color: '#000',
   },
   sendButton: {
-    backgroundColor: '#007AFF',
     borderRadius: 20,
     paddingHorizontal: 16,
     justifyContent: 'center',
-  },
-  sendButtonDisabled: {
-    backgroundColor: '#B4B4B4',
   },
   sendButtonText: {
     fontSize: 16,

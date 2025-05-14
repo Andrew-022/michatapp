@@ -107,8 +107,6 @@ export class HomeViewModel {
             lastMessageTime: lastMessage?.createdAt,
             unreadCount: data.unreadCount?.[currentUser.uid] || 0
           };
-          
-          console.log('Chat with data:', chatWithData.lastMessageTime);
           return chatWithData;
         }));
         this.updateCombinedChats(chats, null);
@@ -129,7 +127,6 @@ export class HomeViewModel {
               text: this.decryptMessage(lastMessage.text, group.id),
             };
           }
-          console.log('Last message:', lastMessage?.createdAt);
           return { 
             ...group, 
             lastMessage,
