@@ -4,6 +4,7 @@ export interface User {
   name: string;
   photoURL?: string;
   lastLogin: Date;
+  status?: string;
 }
 
 export class UserModel implements User {
@@ -12,6 +13,7 @@ export class UserModel implements User {
   name: string;
   photoURL?: string;
   lastLogin: Date;
+  status?: string;
 
   constructor(data: Partial<User>) {
     this.id = data.id || '';
@@ -19,6 +21,7 @@ export class UserModel implements User {
     this.name = data.name || 'Usuario';
     this.photoURL = data.photoURL;
     this.lastLogin = data.lastLogin || new Date();
+    this.status = data.status || '¡Hola! Estoy usando MichatApp';
   }
 
   toFirestore() {
@@ -27,6 +30,7 @@ export class UserModel implements User {
       name: this.name,
       photoURL: this.photoURL,
       lastLogin: this.lastLogin,
+      status: this.status,
     };
   }
 
@@ -37,6 +41,7 @@ export class UserModel implements User {
       name: data.name,
       photoURL: data.photoURL,
       lastLogin: data.lastLogin?.toDate(),
+      status: data.status,
     });
   }
 } 

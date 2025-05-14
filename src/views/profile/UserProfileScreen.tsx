@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,12 @@ const UserProfileScreen = observer(() => {
   const [isPhotoExpanded, setIsPhotoExpanded] = useState(false);
   const { isDark } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
+
+  useEffect(() => {
+    return () => {
+      viewModel.cleanup();
+    };
+  }, [viewModel]);
 
   if (viewModel.loading) {
     return (
@@ -78,6 +84,19 @@ const UserProfileScreen = observer(() => {
         <Text style={[styles.phoneNumber, { color: currentTheme.secondary }]}>
           {viewModel.userData.phoneNumber}
         </Text>
+        <View style={styles.statusContainer}>
+          <Text style={[styles.statusLabel, { color: currentTheme.secondary }]}>
+            Estado
+          </Text>
+          <View style={[styles.statusBox, { 
+            backgroundColor: currentTheme.card,
+            borderColor: currentTheme.border
+          }]}>
+            <Text style={[styles.status, { color: currentTheme.text }]}>
+              {viewModel.userData.status || '¡Hola! Estoy usando MichatApp'}
+            </Text>
+          </View>
+        </View>
       </View>
 
       <Modal
@@ -182,6 +201,26 @@ const styles = StyleSheet.create({
   expandedAvatarText: {
     fontSize: 120,
     fontWeight: 'bold',
+  },
+  statusContainer: {
+    width: '100%',
+    marginTop: 16,
+    paddingHorizontal: 16,
+  },
+  statusLabel: {
+    fontSize: 14,
+    marginBottom: 8,
+    textAlign: 'left',
+  },
+  statusBox: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    width: '100%',
+  },
+  status: {
+    fontSize: 16,
+    textAlign: 'left',
   },
 });
 

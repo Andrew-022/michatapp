@@ -29,6 +29,8 @@ const ProfileScreen = observer(() => {
   const [isEditing, setIsEditing] = useState(false);
   const [newName, setNewName] = useState('');
   const [isPhotoExpanded, setIsPhotoExpanded] = useState(false);
+  const [isEditingStatus, setIsEditingStatus] = useState(false);
+  const [newStatus, setNewStatus] = useState('');
   const { isDark } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
 
@@ -37,6 +39,14 @@ const ProfileScreen = observer(() => {
       await viewModel.updateName(newName.trim());
       setIsEditing(false);
       setNewName('');
+    }
+  };
+
+  const handleSaveStatus = async () => {
+    if (newStatus.trim()) {
+      await viewModel.updateStatus(newStatus.trim());
+      setIsEditingStatus(false);
+      setNewStatus('');
     }
   };
 
@@ -135,6 +145,63 @@ const ProfileScreen = observer(() => {
           <Text style={[styles.phoneNumber, { color: currentTheme.secondary }]}>
             {viewModel.userData?.phoneNumber || 'Sin número'}
           </Text>
+
+          <View style={styles.statusContainer}>
+            <Text style={[styles.statusLabel, { color: currentTheme.secondary }]}>
+              Estado
+            </Text>
+            {isEditingStatus ? (
+              <View style={styles.editContainer}>
+                <TextInput
+                  style={[styles.input, { 
+                    backgroundColor: currentTheme.card,
+                    borderColor: currentTheme.border,
+                    color: currentTheme.text
+                  }]}
+                  value={newStatus}
+                  onChangeText={setNewStatus}
+                  placeholder="Tu estado"
+                  placeholderTextColor={currentTheme.secondary}
+                />
+                <View style={styles.editButtons}>
+                  <TouchableOpacity
+                    style={[styles.editButton, styles.cancelButton, { backgroundColor: currentTheme.border }]}
+                    onPress={() => {
+                      setIsEditingStatus(false);
+                      setNewStatus('');
+                    }}>
+                    <Text style={[styles.editButtonText, { color: currentTheme.text }]}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.editButton, styles.saveButton, { backgroundColor: currentTheme.primary }]}
+                    onPress={handleSaveStatus}>
+                    <Text style={[styles.editButtonText, { color: currentTheme.background }]}>
+                      Guardar
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View style={[styles.statusBox, { 
+                backgroundColor: currentTheme.card,
+                borderColor: currentTheme.border
+              }]}>
+                <View style={styles.statusRow}>
+                  <Text style={[styles.status, { color: currentTheme.text }]}>
+                    {viewModel.userData?.status || '¡Hola! Estoy usando MichatApp'}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.editIcon}
+                    onPress={() => {
+                      setNewStatus(viewModel.userData?.status || '');
+                      setIsEditingStatus(true);
+                    }}>
+                    <Icon name="edit" size={20} color={currentTheme.primary} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
         </View>
       </View>
 
@@ -344,6 +411,32 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     backgroundColor: '#007AFF',
+  },
+  statusContainer: {
+    width: '100%',
+    marginTop: 16,
+    paddingHorizontal: 16,
+  },
+  statusLabel: {
+    fontSize: 14,
+    marginBottom: 8,
+    textAlign: 'left',
+  },
+  statusBox: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    width: '100%',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  status: {
+    fontSize: 16,
+    flex: 1,
+    marginRight: 8,
   },
 });
 

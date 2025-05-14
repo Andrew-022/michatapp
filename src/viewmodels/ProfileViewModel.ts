@@ -33,6 +33,7 @@ export class ProfileViewModel {
             name: userData?.name || 'Usuario',
             photoURL: userData?.photoURL,
             lastLogin: new Date(),
+            status: userData?.status || '¡Hola! Estoy usando MichatApp',
           };
           this.loading = false;
         });
@@ -64,6 +65,29 @@ export class ProfileViewModel {
       }
     } catch (error) {
       console.error('Error updating name:', error);
+      throw error;
+    }
+  }
+
+  async updateStatus(newStatus: string) {
+    try {
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const db = getFirestore();
+        const userRef = doc(db, 'users', currentUser.uid);
+        await updateDoc(userRef, {
+          status: newStatus,
+        });
+        
+        runInAction(() => {
+          if (this.userData) {
+            this.userData.status = newStatus;
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
       throw error;
     }
   }
