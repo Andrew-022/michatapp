@@ -129,7 +129,10 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
               </Text>
             </View>
           )}
-          <Text style={[styles.headerTitle, { color: currentTheme.text }]}>
+          <Text 
+            style={[styles.headerTitle, { color: currentTheme.text }]}
+            numberOfLines={1}
+            ellipsizeMode="tail">
             {viewModel.groupName}
           </Text>
         </TouchableOpacity>
@@ -214,7 +217,8 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    flex: 1,
+    width: '75%',
+    marginRight: 8,
   },
   loadingContainer: {
     flex: 1,

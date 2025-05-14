@@ -189,7 +189,10 @@ const Home = observer(() => {
         </View>
         <View style={styles.chatInfo}>
           <View style={styles.chatHeader}>
-            <Text style={[styles.chatName, { color: currentTheme.text }]}>
+            <Text 
+              style={[styles.chatName, { color: currentTheme.text }]} 
+              numberOfLines={1}
+              ellipsizeMode="tail">
               {isGroup
                 ? item.name
                 : item.otherParticipantName || 'Usuario desconocido'}
@@ -207,7 +210,10 @@ const Home = observer(() => {
               )}
             </View>
           </View>
-          <Text style={[styles.lastMessage, { color: currentTheme.text }]} numberOfLines={1}>
+          <Text 
+            style={[styles.lastMessage, { color: currentTheme.text }]} 
+            numberOfLines={1}
+            ellipsizeMode="tail">
             {item.lastMessage?.text
               ? item.lastMessage.text
               : 'No hay mensajes'}
@@ -394,6 +400,8 @@ const styles = StyleSheet.create({
   chatName: {
     fontSize: 16,
     fontWeight: 'bold',
+    width: '75%',
+    marginRight: 8,
   },
   lastMessage: {
     fontSize: 14,
@@ -480,6 +488,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    width: '25%',
+    justifyContent: 'flex-end',
   },
   lastMessageTime: {
     fontSize: 12,
