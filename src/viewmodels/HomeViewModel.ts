@@ -205,27 +205,6 @@ export class HomeViewModel {
     }
   }
 
-  async createTestUser(): Promise<void> {
-    const auth = getAuth();
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
-
-    try {
-      await createUser(currentUser.uid, {
-        phoneNumber: currentUser.phoneNumber?.replace('+', '') || '',
-        name: "Usuario Nuevo",
-        lastLogin: new Date(),
-        photoURL: "https://i.pinimg.com/222x/57/70/f0/5770f01a32c3c53e90ecda61483ccb08.jpg"
-      });
-      
-      // Recargar los datos del usuario
-      await this.loadUserData();
-    } catch (error) {
-      console.error('Error al crear usuario de prueba:', error);
-      throw error;
-    }
-  }
-
   private decryptMessage(encryptedText: string, key: string): string {
     try {
       const decrypted = CryptoJS.AES.decrypt(encryptedText, key);

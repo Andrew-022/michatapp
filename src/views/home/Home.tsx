@@ -231,10 +231,10 @@ const Home = observer(() => {
         <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
           <Icon name="menu" size={24} color={currentTheme.primary} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: currentTheme.text }]}>Chats</Text>
-        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-          <Text style={[styles.signOutText, { color: currentTheme.primary }]}>Cerrar Sesión</Text>
-        </TouchableOpacity>
+        <View style={styles.titleContainer}>
+          <Text style={[styles.title, { color: currentTheme.text }]}>Chats</Text>
+        </View>
+        <View style={styles.menuButton} />
       </View>
 
       <FlatList
@@ -298,20 +298,6 @@ const Home = observer(() => {
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.menuItem, { borderBottomColor: currentTheme.border }]} 
-              onPress={async () => {
-                try {
-                  await viewModel.createTestUser();
-                  Alert.alert('Éxito', 'Usuario creado exitosamente');
-                } catch (error) {
-                  Alert.alert('Error', 'Error al crear usuario: ' + error);
-                }
-                toggleMenu();
-              }}>
-              <Icon name="add-circle" size={24} color={currentTheme.primary} />
-              <Text style={[styles.menuItemText, { color: currentTheme.text }]}>Crear Usuario Test</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.menuItem, { borderBottomColor: currentTheme.border }]} 
               onPress={() => {
                 navigation.navigate('CreateGroup');
                 toggleMenu();
@@ -352,6 +338,11 @@ const styles = StyleSheet.create({
   },
   menuButton: {
     padding: 8,
+    width: 40,
+  },
+  titleContainer: {
+    flex: 1,
+    alignItems: 'center',
   },
   title: {
     fontSize: 24,
