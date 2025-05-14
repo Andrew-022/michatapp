@@ -28,6 +28,8 @@ const CreateGroupScreen = observer(() => {
   const viewModel = React.useMemo(() => new CreateGroupViewModel(), []);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const { isDark } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
 
@@ -62,18 +64,34 @@ const CreateGroupScreen = observer(() => {
   }, [viewModel.contacts, searchText]);
 
   const handleCreateGroup = async () => {
-    if (!viewModel.groupName.trim() || viewModel.selectedUserIds.length === 0) return;
+    if (!viewModel.groupName.trim()) return;
 
     setLoading(true);
     try {
       const groupId = await viewModel.createGroup();
       if (groupId) {
-        navigation.navigate('GroupChat', { groupId });
+        navigation.goBack();
       }
     } catch (error) {
       console.error('Error al crear grupo:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSelectLocation = async () => {
+    setLocationLoading(true);
+    setLocationError(null);
+    try {
+      const location = await viewModel.getCurrentLocation();
+      if (location) {
+        viewModel.setLocation(location);
+      }
+    } catch (error) {
+      setLocationError(error instanceof Error ? error.message : 'Error al obtener la ubicación');
+      console.error('Error al obtener la ubicación:', error);
+    } finally {
+      setLocationLoading(false);
     }
   };
 
@@ -103,8 +121,52 @@ const CreateGroupScreen = observer(() => {
           placeholderTextColor={currentTheme.secondary}
         />
 
+        <View style={[styles.switchContainer, { borderColor: currentTheme.border }]}>
+          <Text style={[styles.switchLabel, { color: currentTheme.text }]}>
+            Grupo público
+          </Text>
+          <TouchableOpacity
+            style={[styles.switch, viewModel.isPublic && styles.switchActive]}
+            onPress={() => viewModel.setPublic(!viewModel.isPublic)}
+          >
+            <Text style={[styles.switchText, { color: currentTheme.text }]}>
+              {viewModel.isPublic ? 'Sí' : 'No'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={[
+            styles.locationButton, 
+            { backgroundColor: currentTheme.primary },
+            locationLoading && styles.locationButtonDisabled
+          ]}
+          onPress={handleSelectLocation}
+          disabled={locationLoading}
+        >
+          {locationLoading ? (
+            <ActivityIndicator color={currentTheme.background} />
+          ) : (
+            <Text style={[styles.locationButtonText, { color: currentTheme.background }]}>
+              {viewModel.location ? 'Cambiar ubicación' : 'Seleccionar ubicación actual'}
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        {locationError && (
+          <Text style={[styles.errorText, { color: currentTheme.error }]}>
+            {locationError}
+          </Text>
+        )}
+
+        {viewModel.location && (
+          <Text style={[styles.locationText, { color: currentTheme.secondary }]}>
+            Lat: {viewModel.location.latitude.toFixed(6)}, Long: {viewModel.location.longitude.toFixed(6)}
+          </Text>
+        )}
+
         <Text style={[styles.subtitle, { color: currentTheme.text }]}>
-          Selecciona participantes:
+          Selecciona participantes (opcional):
         </Text>
         <TextInput
           style={[styles.searchInput, { 
@@ -169,11 +231,11 @@ const CreateGroupScreen = observer(() => {
           style={[
             styles.createButton,
             { backgroundColor: currentTheme.primary },
-            (!viewModel.groupName.trim() || viewModel.selectedUserIds.length === 0) && 
+            (!viewModel.groupName.trim() || loading) && 
               { backgroundColor: currentTheme.border }
           ]}
           onPress={handleCreateGroup}
-          disabled={!viewModel.groupName.trim() || viewModel.selectedUserIds.length === 0 || loading}>
+          disabled={!viewModel.groupName.trim() || loading}>
           {loading ? (
             <ActivityIndicator color={currentTheme.background} />
           ) : (
@@ -275,6 +337,55 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: 'center',
     marginVertical: 20,
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderWidth: 1,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  switchLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  switch: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#ddd',
+  },
+  switchActive: {
+    backgroundColor: '#007AFF',
+  },
+  switchText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  locationButton: {
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  locationButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  locationText: {
+    fontSize: 14,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  locationButtonDisabled: {
+    opacity: 0.7,
+  },
+  errorText: {
+    fontSize: 14,
+    marginBottom: 8,
+    textAlign: 'center',
   },
 });
 

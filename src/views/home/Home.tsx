@@ -313,6 +313,15 @@ const Home = observer(() => {
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.menuItem, { borderBottomColor: currentTheme.border }]} 
+              onPress={() => {
+                navigation.navigate('NearbyGroups');
+                toggleMenu();
+              }}>
+              <Icon name="location-on" size={24} color={currentTheme.primary} />
+              <Text style={[styles.menuItemText, { color: currentTheme.text }]}>Grupos Cercanos</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.menuItem, { borderBottomColor: currentTheme.border }]} 
               onPress={handleSignOut}>
               <Icon name="exit-to-app" size={24} color={currentTheme.error} />
               <Text style={[styles.menuItemText, { color: currentTheme.error }]}>

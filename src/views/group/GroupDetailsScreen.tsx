@@ -375,6 +375,73 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
               )}
             </View>
 
+            <View style={[styles.visibilityContainer, { borderTopColor: currentTheme.border }]}>
+              <View style={styles.visibilityHeader}>
+                <MaterialIcons name="visibility" size={16} color={currentTheme.secondary} style={styles.visibilityIcon} />
+                <Text style={[styles.visibilityTitle, { color: currentTheme.text }]}>Visibilidad</Text>
+              </View>
+              {viewModel.isAdmin ? (
+                <TouchableOpacity
+                  style={[styles.visibilityToggle, { backgroundColor: currentTheme.background }]}
+                  onPress={() => viewModel.toggleVisibility()}>
+                  <Text style={[styles.visibilityText, { color: currentTheme.text }]}>
+                    {viewModel.groupData.isPublic ? 'Público' : 'Privado'}
+                  </Text>
+                  <MaterialIcons 
+                    name={viewModel.groupData.isPublic ? "public" : "lock"} 
+                    size={20} 
+                    color={currentTheme.primary} 
+                  />
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.visibilityInfo}>
+                  <Text style={[styles.visibilityText, { color: currentTheme.text }]}>
+                    {viewModel.groupData.isPublic ? 'Público' : 'Privado'}
+                  </Text>
+                  <MaterialIcons 
+                    name={viewModel.groupData.isPublic ? "public" : "lock"} 
+                    size={20} 
+                    color={currentTheme.secondary} 
+                  />
+                </View>
+              )}
+            </View>
+
+            <View style={[styles.locationContainer, { borderTopColor: currentTheme.border }]}>
+              <View style={styles.locationHeader}>
+                <MaterialIcons name="location-on" size={16} color={currentTheme.secondary} style={styles.locationIcon} />
+                <Text style={[styles.locationTitle, { color: currentTheme.text }]}>Ubicación</Text>
+              </View>
+              {viewModel.isAdmin ? (
+                <TouchableOpacity
+                  style={[styles.locationButton, { backgroundColor: currentTheme.background }]}
+                  onPress={() => viewModel.updateLocation()}>
+                  {viewModel.groupData.location ? (
+                    <Text style={[styles.locationText, { color: currentTheme.text }]}>
+                      {viewModel.groupData.location.address || 'Ubicación actual'}
+                    </Text>
+                  ) : (
+                    <Text style={[styles.locationText, { color: currentTheme.secondary }]}>
+                      Añadir ubicación
+                    </Text>
+                  )}
+                  <MaterialIcons name="edit-location" size={20} color={currentTheme.primary} />
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.locationInfo}>
+                  {viewModel.groupData.location ? (
+                    <Text style={[styles.locationText, { color: currentTheme.text }]}>
+                      {viewModel.groupData.location.address || 'Ubicación actual'}
+                    </Text>
+                  ) : (
+                    <Text style={[styles.locationText, { color: currentTheme.secondary }]}>
+                      Sin ubicación
+                    </Text>
+                  )}
+                </View>
+              )}
+            </View>
+
             <View style={[styles.creationDateContainer, { borderTopColor: currentTheme.border }]}>
               <MaterialIcons name="event" size={16} color={currentTheme.secondary} style={styles.dateIcon} />
               <Text style={[styles.creationDate, { color: currentTheme.secondary }]}>
@@ -806,6 +873,72 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 16,
     fontWeight: '500',
+  },
+  visibilityContainer: {
+    borderTopWidth: 1,
+    paddingTop: 12,
+    marginTop: 12,
+  },
+  visibilityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  visibilityIcon: {
+    marginRight: 4,
+  },
+  visibilityTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  visibilityToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 8,
+    borderRadius: 8,
+  },
+  visibilityInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 8,
+  },
+  visibilityText: {
+    fontSize: 14,
+  },
+  locationContainer: {
+    borderTopWidth: 1,
+    paddingTop: 12,
+    marginTop: 12,
+  },
+  locationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  locationIcon: {
+    marginRight: 4,
+  },
+  locationTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  locationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 8,
+    borderRadius: 8,
+  },
+  locationInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 8,
+  },
+  locationText: {
+    fontSize: 14,
   },
 });
 

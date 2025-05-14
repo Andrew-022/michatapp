@@ -4,6 +4,7 @@ import { Platform, PermissionsAndroid } from 'react-native';
 import { getFirestore, collection, getDocs, addDoc } from '@react-native-firebase/firestore';
 import { getAuth } from '@react-native-firebase/auth';
 import { serverTimestamp } from '@react-native-firebase/firestore';
+import Geolocation from '@react-native-community/geolocation';
 
 export interface GroupContact {
   recordID: string;
@@ -19,6 +20,10 @@ export class CreateGroupViewModel {
   loading: boolean = true;
   groupName: string = '';
   currentUserId: string;
+  isPublic: boolean = false;
+  location: { latitude: number; longitude: number } | null = null;
+  isLoading: boolean = false;
+  error: string | null = null;
 
   constructor() {
     makeAutoObservable(this);
@@ -28,6 +33,82 @@ export class CreateGroupViewModel {
 
   setGroupName(name: string) {
     this.groupName = name;
+  }
+
+  setPublic(isPublic: boolean) {
+    this.isPublic = isPublic;
+  }
+
+  setLocation(location: { latitude: number; longitude: number } | null) {
+    this.location = location;
+  }
+
+  private async requestLocationPermission() {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Permiso de ubicación',
+            message: 'Esta aplicación necesita acceder a tu ubicación para crear grupos con ubicación.',
+            buttonNeutral: 'Preguntar más tarde',
+            buttonNegative: 'Cancelar',
+            buttonPositive: 'Aceptar',
+          },
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (error) {
+        console.error('Error requesting location permission:', error);
+        return false;
+      }
+    }
+    return true;
+  }
+
+  async getCurrentLocation(): Promise<{ latitude: number; longitude: number } | null> {
+    try {
+      const hasPermission = await this.requestLocationPermission();
+      if (!hasPermission) {
+        throw new Error('Se requiere permiso de ubicación');
+      }
+
+      // Configuración simplificada y más eficiente
+      const options = {
+        enableHighAccuracy: false, // Usar el proveedor más eficiente en batería
+        timeout: 10000, // 10 segundos de timeout
+      };
+
+      const position = await new Promise<Geolocation.GeoPosition>((resolve, reject) => {
+        Geolocation.getCurrentPosition(
+          (position) => resolve(position),
+          (error) => {
+            console.error('Error de geolocalización:', error);
+            reject(error);
+          },
+          options
+        );
+      });
+
+      return {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      };
+    } catch (error: any) {
+      console.error('Error getting location:', error);
+      
+      // Mensajes de error más descriptivos
+      if (error.code === 1) {
+        throw new Error('Permiso de ubicación denegado');
+      } else if (error.code === 2) {
+        throw new Error('Ubicación no disponible');
+      } else if (error.code === 3) {
+        throw new Error('Tiempo de espera agotado al obtener la ubicación');
+      } else if (error.code === 4) {
+        throw new Error('Error al acceder al servicio de ubicación');
+      } else {
+        throw new Error('Error al obtener la ubicación: ' + (error.message || 'Error desconocido'));
+      }
+    }
   }
 
   async requestContactsPermission() {
@@ -135,7 +216,7 @@ export class CreateGroupViewModel {
   }
 
   async createGroup(): Promise<string | null> {
-    if (!this.groupName.trim() || this.selectedUserIds.length === 0) {
+    if (!this.groupName.trim()) {
       return null;
     }
 
@@ -149,6 +230,8 @@ export class CreateGroupViewModel {
         name: this.groupName.trim(),
         adminIds: [currentUser.uid],
         participants: [currentUser.uid, ...this.selectedUserIds],
+        isPublic: this.isPublic,
+        location: this.location,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         lastMessage: {

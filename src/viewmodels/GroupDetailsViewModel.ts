@@ -3,8 +3,16 @@ import {getFirestore, doc, getDoc, collection, query, where, getDocs, updateDoc,
 import {getAuth} from '@react-native-firebase/auth';
 import storage from '@react-native-firebase/storage';
 import ImagePicker, { Image } from 'react-native-image-crop-picker';
-import { Alert } from 'react-native';
+import { Alert, Platform, PermissionsAndroid } from 'react-native';
 import Contacts from '@s77rt/react-native-contacts';
+import Geolocation from '@react-native-community/geolocation';
+
+export interface GroupLocation {
+  latitude: number;
+  longitude: number;
+  address?: string;
+  radius?: number;
+}
 
 export interface GroupMember {
   id: string;
@@ -21,6 +29,8 @@ export interface GroupData {
   participants: string[];
   description?: string;
   createdAt: Date;
+  isPublic: boolean;
+  location?: GroupLocation;
 }
 
 export class GroupDetailsViewModel {
@@ -549,6 +559,142 @@ export class GroupDetailsViewModel {
       Alert.alert(
         'Error',
         'No se pudo quitar al administrador',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      this.setLoading(false);
+    }
+  }
+
+  async toggleVisibility() {
+    if (!this.isAdmin) {
+      Alert.alert(
+        'Acceso denegado',
+        'Solo el administrador puede modificar la visibilidad del grupo',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    try {
+      this.setLoading(true);
+      const db = getFirestore();
+      const groupRef = doc(db, 'groupChats', this.groupId);
+      
+      const newVisibility = !this.groupData?.isPublic;
+      await updateDoc(groupRef, {
+        isPublic: newVisibility
+      });
+
+      if (this.groupData) {
+        this.setGroupData({
+          ...this.groupData,
+          isPublic: newVisibility
+        });
+      }
+    } catch (error) {
+      console.error('Error al cambiar la visibilidad:', error);
+      Alert.alert(
+        'Error',
+        'No se pudo cambiar la visibilidad del grupo',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      this.setLoading(false);
+    }
+  }
+
+  private async requestLocationPermission() {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Permiso de ubicación',
+            message: 'Esta aplicación necesita acceder a tu ubicación para actualizar la ubicación del grupo.',
+            buttonNeutral: 'Preguntar más tarde',
+            buttonNegative: 'Cancelar',
+            buttonPositive: 'Aceptar',
+          },
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (error) {
+        console.error('Error requesting location permission:', error);
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private async getCurrentLocation(): Promise<GroupLocation | null> {
+    try {
+      const hasPermission = await this.requestLocationPermission();
+      if (!hasPermission) {
+        throw new Error('Se requiere permiso de ubicación');
+      }
+
+      const options = {
+        enableHighAccuracy: false,
+        timeout: 10000,
+      };
+
+      const position = await new Promise<Geolocation.GeoPosition>((resolve, reject) => {
+        Geolocation.getCurrentPosition(
+          (position) => resolve(position),
+          (error) => {
+            console.error('Error de geolocalización:', error);
+            reject(error);
+          },
+          options
+        );
+      });
+
+      return {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      };
+    } catch (error) {
+      console.error('Error getting location:', error);
+      return null;
+    }
+  }
+
+  async updateLocation() {
+    if (!this.isAdmin) {
+      Alert.alert(
+        'Acceso denegado',
+        'Solo el administrador puede modificar la ubicación del grupo',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    try {
+      this.setLoading(true);
+      const location = await this.getCurrentLocation();
+      
+      if (!location) {
+        throw new Error('No se pudo obtener la ubicación actual');
+      }
+
+      const db = getFirestore();
+      const groupRef = doc(db, 'groupChats', this.groupId);
+      
+      await updateDoc(groupRef, {
+        location
+      });
+
+      if (this.groupData) {
+        this.setGroupData({
+          ...this.groupData,
+          location
+        });
+      }
+    } catch (error) {
+      console.error('Error al actualizar la ubicación:', error);
+      Alert.alert(
+        'Error',
+        'No se pudo actualizar la ubicación del grupo',
         [{ text: 'OK' }]
       );
     } finally {
