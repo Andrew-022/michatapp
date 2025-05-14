@@ -1,49 +1,77 @@
-import React, {createContext, useContext, useState, useEffect} from 'react';
+import React, {createContext, useContext, useEffect, useState} from 'react';
 import {useColorScheme} from 'react-native';
+import {lightTheme, darkTheme} from '../constants/theme';
 import SettingsViewModel from '../viewmodels/SettingsViewModel';
 
-type ThemeType = 'light' | 'dark' | 'system';
+type Theme = 'light' | 'dark' | 'system';
 
 interface ThemeContextType {
-  theme: ThemeType;
+  theme: Theme;
   isDark: boolean;
-  setTheme: (theme: ThemeType) => void;
+  setTheme: (theme: Theme) => void;
+  currentTheme: typeof lightTheme;
+  secondaryColor: string;
+  setSecondaryColor: (color: string) => void;
 }
 
-const ThemeContext = createContext<ThemeContextType>({
-  theme: 'system',
-  isDark: false,
-  setTheme: () => {},
-});
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({children}) => {
   const systemColorScheme = useColorScheme();
-  const [theme, setThemeState] = useState<ThemeType>('system');
+  const [theme, setThemeState] = useState<Theme>('system');
+  const [isDark, setIsDark] = useState(false);
+  const [secondaryColor, setSecondaryColorState] = useState('#007AFF');
   const settingsViewModel = SettingsViewModel.getInstance();
 
-  const isDark =
-    theme === 'system' ? systemColorScheme === 'dark' : theme === 'dark';
-
-  const setTheme = async (newTheme: ThemeType) => {
-    setThemeState(newTheme);
-    await settingsViewModel.setTheme(newTheme);
-  };
-
   useEffect(() => {
-    const loadTheme = async () => {
-      const savedTheme = await settingsViewModel.getTheme();
-      if (savedTheme) {
-        setThemeState(savedTheme);
-      }
+    const loadSettings = async () => {
+      const settings = await settingsViewModel.loadAllSettings();
+      setThemeState(settings.theme as Theme);
+      setIsDark(settings.isDark);
+      setSecondaryColorState(settings.secondaryColor);
     };
-    loadTheme();
+    loadSettings();
   }, []);
 
+  useEffect(() => {
+    if (theme === 'system') {
+      setIsDark(systemColorScheme === 'dark');
+    } else {
+      setIsDark(theme === 'dark');
+    }
+  }, [theme, systemColorScheme]);
+
+  const setTheme = async (newTheme: Theme) => {
+    setThemeState(newTheme);
+    await settingsViewModel.saveTheme(newTheme);
+  };
+
+  const setSecondaryColor = async (color: string) => {
+    setSecondaryColorState(color);
+    await settingsViewModel.saveSecondaryColor(color);
+  };
+
+  const currentTheme = isDark ? darkTheme : lightTheme;
+
   return (
-    <ThemeContext.Provider value={{theme, isDark, setTheme}}>
+    <ThemeContext.Provider
+      value={{
+        theme,
+        isDark,
+        setTheme,
+        currentTheme,
+        secondaryColor,
+        setSecondaryColor,
+      }}>
       {children}
     </ThemeContext.Provider>
   );
 };
 
-export const useTheme = () => useContext(ThemeContext); 
+export const useTheme = () => {
+  const context = useContext(ThemeContext);
+  if (context === undefined) {
+    throw new Error('useTheme debe ser usado dentro de un ThemeProvider');
+  }
+  return context;
+}; 

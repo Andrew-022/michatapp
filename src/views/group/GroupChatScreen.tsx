@@ -39,7 +39,7 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
     [groupId]
   );
   const flatListRef = useRef<FlatList>(null);
-  const { isDark } = useTheme();
+  const { isDark, secondaryColor } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
 
   useEffect(() => {
@@ -58,7 +58,7 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
           styles.messageContainer,
           isOwnMessage ? styles.ownMessage : styles.otherMessage,
           {
-            backgroundColor: isOwnMessage ? currentTheme.primary : currentTheme.card,
+            backgroundColor: isOwnMessage ? secondaryColor : currentTheme.card,
           }
         ]}
       >
@@ -160,8 +160,7 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
         <TouchableOpacity
           style={[
             styles.sendButton,
-            { backgroundColor: currentTheme.primary },
-            !viewModel.newMessage.trim() && { backgroundColor: currentTheme.border }
+            { backgroundColor: viewModel.newMessage.trim() ? secondaryColor : currentTheme.border }
           ]}
           onPress={() => viewModel.sendMessage()}
           disabled={!viewModel.newMessage.trim()}
