@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import {SafeAreaView, StatusBar, StyleSheet} from 'react-native';
+import {SafeAreaView, StatusBar, StyleSheet, Platform} from 'react-native';
 import AppNavigator from './src/navigation/AppNavigator';
 import {ThemeProvider, useTheme} from './src/context/ThemeContext';
 import {lightTheme, darkTheme} from './src/constants/theme';
@@ -20,24 +20,24 @@ function AppContent(): React.JSX.Element {
       <StatusBar
         barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor={theme.background}
+        translucent={true}
       />
       <AppNavigator />
     </SafeAreaView>
   );
 }
 
-function App(): React.JSX.Element {
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
+});
+
+export default function App(): React.JSX.Element {
   return (
     <ThemeProvider>
       <AppContent />
     </ThemeProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
-
-export default App;

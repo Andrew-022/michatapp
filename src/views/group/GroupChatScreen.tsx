@@ -102,8 +102,9 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: currentTheme.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      behavior={'padding'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 20}
+      enabled={true}
     >
       <View style={[styles.header, { 
         backgroundColor: currentTheme.card,
