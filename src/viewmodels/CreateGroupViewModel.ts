@@ -5,6 +5,7 @@ import { getFirestore, collection, getDocs, addDoc } from '@react-native-firebas
 import { getAuth } from '@react-native-firebase/auth';
 import { serverTimestamp } from '@react-native-firebase/firestore';
 import Geolocation from '@react-native-community/geolocation';
+import { GOOGLE_MAPS_API_KEY } from '../../android/app/src/config/keys';
 
 export interface GroupContact {
   recordID: string;
@@ -15,13 +16,19 @@ export interface GroupContact {
   userId?: string;
 }
 
+export interface GroupLocation {
+  latitude: number;
+  longitude: number;
+  address?: string;
+}
+
 export class CreateGroupViewModel {
   contacts: GroupContact[] = [];
   loading: boolean = true;
   groupName: string = '';
   currentUserId: string;
   isPublic: boolean = false;
-  location: { latitude: number; longitude: number } | null = null;
+  location: GroupLocation | null = null;
   isLoading: boolean = false;
   error: string | null = null;
 
@@ -39,7 +46,7 @@ export class CreateGroupViewModel {
     this.isPublic = isPublic;
   }
 
-  setLocation(location: { latitude: number; longitude: number } | null) {
+  setLocation(location: GroupLocation | null) {
     this.location = location;
   }
 
@@ -65,17 +72,33 @@ export class CreateGroupViewModel {
     return true;
   }
 
-  async getCurrentLocation(): Promise<{ latitude: number; longitude: number } | null> {
+  private async getAddressFromCoordinates(latitude: number, longitude: number): Promise<string> {
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}`
+      );
+      const data = await response.json();
+      
+      if (data.results && data.results.length > 0) {
+        return data.results[0].formatted_address;
+      }
+      return 'Ubicación actual';
+    } catch (error) {
+      console.error('Error al obtener la dirección:', error);
+      return 'Ubicación actual';
+    }
+  }
+
+  async getCurrentLocation(): Promise<GroupLocation | null> {
     try {
       const hasPermission = await this.requestLocationPermission();
       if (!hasPermission) {
         throw new Error('Se requiere permiso de ubicación');
       }
 
-      // Configuración simplificada y más eficiente
       const options = {
-        enableHighAccuracy: false, // Usar el proveedor más eficiente en batería
-        timeout: 10000, // 10 segundos de timeout
+        enableHighAccuracy: false,
+        timeout: 10000,
       };
 
       const position = await new Promise<Geolocation.GeoPosition>((resolve, reject) => {
@@ -89,14 +112,21 @@ export class CreateGroupViewModel {
         );
       });
 
-      return {
+      const location = {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
+      };
+
+      // Obtener la dirección a partir de las coordenadas
+      const address = await this.getAddressFromCoordinates(location.latitude, location.longitude);
+
+      return {
+        ...location,
+        address
       };
     } catch (error: any) {
       console.error('Error getting location:', error);
       
-      // Mensajes de error más descriptivos
       if (error.code === 1) {
         throw new Error('Permiso de ubicación denegado');
       } else if (error.code === 2) {

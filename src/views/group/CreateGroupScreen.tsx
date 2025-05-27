@@ -161,7 +161,7 @@ const CreateGroupScreen = observer(() => {
 
         {viewModel.location && (
           <Text style={[styles.locationText, { color: currentTheme.secondary }]}>
-            Lat: {viewModel.location.latitude.toFixed(6)}, Long: {viewModel.location.longitude.toFixed(6)}
+            {viewModel.location.address || `Lat: ${viewModel.location.latitude.toFixed(6)}, Long: ${viewModel.location.longitude.toFixed(6)}`}
           </Text>
         )}
 
