@@ -27,7 +27,11 @@ export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({children})
     const loadSettings = async () => {
       const settings = await settingsViewModel.loadAllSettings();
       setThemeState(settings.theme as Theme);
-      setIsDark(settings.isDark);
+      if (settings.theme !== 'system') {
+        setIsDark(settings.isDark);
+      } else {
+        setIsDark(systemColorScheme === 'dark');
+      }
       setSecondaryColorState(settings.secondaryColor);
     };
     loadSettings();
@@ -36,14 +40,18 @@ export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({children})
   useEffect(() => {
     if (theme === 'system') {
       setIsDark(systemColorScheme === 'dark');
-    } else {
-      setIsDark(theme === 'dark');
     }
   }, [theme, systemColorScheme]);
 
   const setTheme = async (newTheme: Theme) => {
+    const newIsDark = newTheme === 'system' ? systemColorScheme === 'dark' : newTheme === 'dark';
+    await settingsViewModel.saveAllSettings({
+      theme: newTheme,
+      isDark: newIsDark,
+      secondaryColor,
+    });
     setThemeState(newTheme);
-    await settingsViewModel.saveTheme(newTheme);
+    setIsDark(newIsDark);
   };
 
   const setSecondaryColor = async (color: string) => {
