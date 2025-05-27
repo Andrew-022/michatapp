@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
+  Dimensions,
+  Alert,
+  ScrollView,
 } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { useNavigation } from '@react-navigation/native';
@@ -22,6 +25,7 @@ import { globalStyles } from '../../styles/globalStyles';
 import { CreateGroupViewModel } from '../../viewmodels/CreateGroupViewModel';
 import { useTheme } from '../../context/ThemeContext';
 import { lightTheme, darkTheme } from '../../constants/theme';
+import MapView, { Marker, Circle } from 'react-native-maps';
 
 const CreateGroupScreen = observer(() => {
   const navigation = useNavigation();
@@ -32,6 +36,7 @@ const CreateGroupScreen = observer(() => {
   const [locationError, setLocationError] = useState<string | null>(null);
   const { isDark } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
+  const mapRef = React.useRef<MapView>(null);
 
   // Ordena y filtra los contactos
   const filteredContacts = React.useMemo(() => {
@@ -86,13 +91,18 @@ const CreateGroupScreen = observer(() => {
       const location = await viewModel.getCurrentLocation();
       if (location) {
         viewModel.setLocation(location);
+        setTimeout(() => {
+          if (mapRef.current) {
+            mapRef.current.animateToRegion(viewModel.mapRegion, 1000);
+          }
+        }, 100);
       }
     } catch (error) {
       setLocationError(error instanceof Error ? error.message : 'Error al obtener la ubicación');
-      console.error('Error al obtener la ubicación:', error);
     } finally {
       setLocationLoading(false);
     }
+    
   };
 
   return (
@@ -108,143 +118,184 @@ const CreateGroupScreen = observer(() => {
         <View style={{ width: 24 }} />
       </View>
 
-      <View style={styles.content}>
-        <TextInput
-          style={[styles.input, { 
-            backgroundColor: currentTheme.card,
-            color: currentTheme.text,
-            borderColor: currentTheme.border
-          }]}
-          value={viewModel.groupName}
-          onChangeText={viewModel.setGroupName.bind(viewModel)}
-          placeholder="Nombre del grupo"
-          placeholderTextColor={currentTheme.secondary}
-        />
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.content}>
+          <TextInput
+            style={[styles.input, { 
+              backgroundColor: currentTheme.card,
+              color: currentTheme.text,
+              borderColor: currentTheme.border
+            }]}
+            value={viewModel.groupName}
+            onChangeText={viewModel.setGroupName.bind(viewModel)}
+            placeholder="Nombre del grupo"
+            placeholderTextColor={currentTheme.secondary}
+          />
 
-        <View style={[styles.switchContainer, { borderColor: currentTheme.border }]}>
-          <Text style={[styles.switchLabel, { color: currentTheme.text }]}>
-            Grupo público
-          </Text>
-          <TouchableOpacity
-            style={[styles.switch, viewModel.isPublic && styles.switchActive]}
-            onPress={() => viewModel.setPublic(!viewModel.isPublic)}
-          >
-            <Text style={[styles.switchText, { color: currentTheme.text }]}>
-              {viewModel.isPublic ? 'Sí' : 'No'}
+          <View style={[styles.switchContainer, { borderColor: currentTheme.border }]}>
+            <Text style={[styles.switchLabel, { color: currentTheme.text }]}>
+              Grupo público
             </Text>
+            <TouchableOpacity
+              style={[styles.switch, viewModel.isPublic && styles.switchActive]}
+              onPress={() => viewModel.setPublic(!viewModel.isPublic)}
+            >
+              <Text style={[styles.switchText, { color: currentTheme.text }]}>
+                {viewModel.isPublic ? 'Sí' : 'No'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.locationButton, 
+              { backgroundColor: currentTheme.primary },
+              locationLoading && styles.locationButtonDisabled
+            ]}
+            onPress={handleSelectLocation}
+            disabled={locationLoading}
+          >
+            {locationLoading ? (
+              <ActivityIndicator color={currentTheme.background} />
+            ) : (
+              <Text style={[styles.locationButtonText, { color: currentTheme.background }]}>
+                {viewModel.location ? 'Cambiar ubicación' : 'Seleccionar ubicación actual'}
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          {locationError && (
+            <Text style={[styles.errorText, { color: currentTheme.error }]}>
+              {locationError}
+            </Text>
+          )}
+
+          <View style={[styles.mapContainer, { borderColor: currentTheme.border }]}>
+            <MapView
+              ref={mapRef}
+              style={styles.map}
+              region={viewModel.mapRegion}
+              provider="google"
+              showsUserLocation={true}
+              showsMyLocationButton={true}
+              showsCompass={true}
+              loadingEnabled={true}
+              loadingIndicatorColor={currentTheme.primary}
+              loadingBackgroundColor={currentTheme.background}
+              onMapReady={() => {
+                if (viewModel.location) {
+                  mapRef.current?.animateToRegion(viewModel.mapRegion, 1000);
+                }
+              }}
+            >
+              {viewModel.location && (
+                <Circle
+                  key={`circle-${viewModel.location.latitude}-${viewModel.location.longitude}`}
+                  center={{
+                    latitude: viewModel.location.latitude,
+                    longitude: viewModel.location.longitude,
+                  }}
+                  radius={100}
+                  strokeColor={currentTheme.primary}
+                  fillColor={`${currentTheme.primary}33`}
+                  strokeWidth={2}
+                />
+              )}
+            </MapView>
+          </View>
+
+          {viewModel.location && (
+            <Text style={[styles.locationText, { color: currentTheme.secondary }]}>
+              {viewModel.location.address || `Lat: ${viewModel.location.latitude.toFixed(6)}, Long: ${viewModel.location.longitude.toFixed(6)}`}
+            </Text>
+          )}
+
+          <Text style={[styles.subtitle, { color: currentTheme.text }]}>
+            Selecciona participantes (opcional):
+          </Text>
+          <TextInput
+            style={[styles.searchInput, { 
+              backgroundColor: currentTheme.card,
+              borderColor: currentTheme.border,
+              color: currentTheme.text
+            }]}
+            placeholder="Buscar contacto o número..."
+            value={searchText}
+            onChangeText={setSearchText}
+            placeholderTextColor={currentTheme.secondary}
+          />
+
+          <FlatList
+            data={filteredContacts}
+            keyExtractor={item => item.recordID}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.contactItem,
+                  { 
+                    backgroundColor: currentTheme.card,
+                    borderBottomColor: currentTheme.border 
+                  },
+                  item.selected && { backgroundColor: currentTheme.primary + '20' }
+                ]}
+                onPress={() => viewModel.toggleContactSelection(item.recordID)}
+              >
+                <View style={[styles.avatarContainer, { backgroundColor: currentTheme.primary }]}>
+                  <Text style={[styles.avatarText, { color: currentTheme.background }]}>
+                    {(item.firstName?.[0] || '') + (item.lastName?.[0] || '')}
+                  </Text>
+                </View>
+                <View style={styles.contactInfo}>
+                  <Text style={[styles.contactName, { color: currentTheme.text }]}>
+                    {item.firstName} {item.lastName}
+                  </Text>
+                  {item.phoneNumbers.map((phone, idx) => (
+                    <Text key={idx} style={[styles.contactPhone, { color: currentTheme.secondary }]}>
+                      {phone.number}
+                    </Text>
+                  ))}
+                </View>
+                {item.selected && (
+                  <Text style={[styles.selectedMark, { color: currentTheme.primary }]}>✓</Text>
+                )}
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              viewModel.loading ? (
+                <ActivityIndicator size="large" color={currentTheme.primary} />
+              ) : (
+                <Text style={[styles.emptyText, { color: currentTheme.secondary }]}>
+                  No hay contactos
+                </Text>
+              )
+            }
+            style={styles.contactList}
+            scrollEnabled={false}
+          />
+
+          <TouchableOpacity
+            style={[
+              styles.createButton,
+              { backgroundColor: currentTheme.primary },
+              (!viewModel.groupName.trim() || loading) && 
+                { backgroundColor: currentTheme.border }
+            ]}
+            onPress={handleCreateGroup}
+            disabled={!viewModel.groupName.trim() || loading}>
+            {loading ? (
+              <ActivityIndicator color={currentTheme.background} />
+            ) : (
+              <Text style={[styles.createButtonText, { color: currentTheme.background }]}>
+                Crear Grupo
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
-
-        <TouchableOpacity
-          style={[
-            styles.locationButton, 
-            { backgroundColor: currentTheme.primary },
-            locationLoading && styles.locationButtonDisabled
-          ]}
-          onPress={handleSelectLocation}
-          disabled={locationLoading}
-        >
-          {locationLoading ? (
-            <ActivityIndicator color={currentTheme.background} />
-          ) : (
-            <Text style={[styles.locationButtonText, { color: currentTheme.background }]}>
-              {viewModel.location ? 'Cambiar ubicación' : 'Seleccionar ubicación actual'}
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        {locationError && (
-          <Text style={[styles.errorText, { color: currentTheme.error }]}>
-            {locationError}
-          </Text>
-        )}
-
-        {viewModel.location && (
-          <Text style={[styles.locationText, { color: currentTheme.secondary }]}>
-            {viewModel.location.address || `Lat: ${viewModel.location.latitude.toFixed(6)}, Long: ${viewModel.location.longitude.toFixed(6)}`}
-          </Text>
-        )}
-
-        <Text style={[styles.subtitle, { color: currentTheme.text }]}>
-          Selecciona participantes (opcional):
-        </Text>
-        <TextInput
-          style={[styles.searchInput, { 
-            backgroundColor: currentTheme.card,
-            borderColor: currentTheme.border,
-            color: currentTheme.text
-          }]}
-          placeholder="Buscar contacto o número..."
-          value={searchText}
-          onChangeText={setSearchText}
-          placeholderTextColor={currentTheme.secondary}
-        />
-
-        <FlatList
-          data={filteredContacts}
-          keyExtractor={item => item.recordID}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.contactItem,
-                { 
-                  backgroundColor: currentTheme.card,
-                  borderBottomColor: currentTheme.border 
-                },
-                item.selected && { backgroundColor: currentTheme.primary + '20' }
-              ]}
-              onPress={() => viewModel.toggleContactSelection(item.recordID)}
-            >
-              <View style={[styles.avatarContainer, { backgroundColor: currentTheme.primary }]}>
-                <Text style={[styles.avatarText, { color: currentTheme.background }]}>
-                  {(item.firstName?.[0] || '') + (item.lastName?.[0] || '')}
-                </Text>
-              </View>
-              <View style={styles.contactInfo}>
-                <Text style={[styles.contactName, { color: currentTheme.text }]}>
-                  {item.firstName} {item.lastName}
-                </Text>
-                {item.phoneNumbers.map((phone, idx) => (
-                  <Text key={idx} style={[styles.contactPhone, { color: currentTheme.secondary }]}>
-                    {phone.number}
-                  </Text>
-                ))}
-              </View>
-              {item.selected && (
-                <Text style={[styles.selectedMark, { color: currentTheme.primary }]}>✓</Text>
-              )}
-            </TouchableOpacity>
-          )}
-          ListEmptyComponent={
-            viewModel.loading ? (
-              <ActivityIndicator size="large" color={currentTheme.primary} />
-            ) : (
-              <Text style={[styles.emptyText, { color: currentTheme.secondary }]}>
-                No hay contactos
-              </Text>
-            )
-          }
-          style={styles.contactList}
-        />
-
-        <TouchableOpacity
-          style={[
-            styles.createButton,
-            { backgroundColor: currentTheme.primary },
-            (!viewModel.groupName.trim() || loading) && 
-              { backgroundColor: currentTheme.border }
-          ]}
-          onPress={handleCreateGroup}
-          disabled={!viewModel.groupName.trim() || loading}>
-          {loading ? (
-            <ActivityIndicator color={currentTheme.background} />
-          ) : (
-            <Text style={[styles.createButtonText, { color: currentTheme.background }]}>
-              Crear Grupo
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      </ScrollView>
     </View>
   );
 });
@@ -252,6 +303,12 @@ const CreateGroupScreen = observer(() => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollViewContent: {
+    flexGrow: 1,
   },
   header: {
     flexDirection: 'row',
@@ -266,7 +323,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    flex: 1,
   },
   input: {
     borderRadius: 8,
@@ -386,6 +442,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 8,
     textAlign: 'center',
+  },
+  mapContainer: {
+    height: 300,
+    marginVertical: 16,
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  map: {
+    ...StyleSheet.absoluteFillObject,
   },
 });
 

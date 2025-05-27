@@ -22,6 +22,13 @@ export interface GroupLocation {
   address?: string;
 }
 
+export interface MapRegion {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+}
+
 export class CreateGroupViewModel {
   contacts: GroupContact[] = [];
   loading: boolean = true;
@@ -31,6 +38,18 @@ export class CreateGroupViewModel {
   location: GroupLocation | null = null;
   isLoading: boolean = false;
   error: string | null = null;
+  mapRegion: MapRegion = {
+    latitude: 40.4168,
+    longitude: -3.7038,
+    latitudeDelta: 0.01,
+    longitudeDelta: 0.01,
+  };
+
+  // Añade estas coordenadas de Madrid
+  private readonly MADRID_COORDINATES = {
+    latitude: 40.4168,
+    longitude: -3.7038,
+  };
 
   constructor() {
     makeAutoObservable(this);
@@ -48,6 +67,22 @@ export class CreateGroupViewModel {
 
   setLocation(location: GroupLocation | null) {
     this.location = location;
+    if (location) {
+      this.updateMapRegion(location);
+    }
+  }
+
+  setMapRegion(region: MapRegion) {
+    this.mapRegion = region;
+  }
+
+  updateMapRegion(location: GroupLocation) {
+    this.mapRegion = {
+      latitude: location.latitude,
+      longitude: location.longitude,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    };
   }
 
   private async requestLocationPermission() {
@@ -92,8 +127,16 @@ export class CreateGroupViewModel {
   async getCurrentLocation(): Promise<GroupLocation | null> {
     try {
       const hasPermission = await this.requestLocationPermission();
+
       if (!hasPermission) {
-        throw new Error('Se requiere permiso de ubicación');
+        const address = await this.getAddressFromCoordinates(
+          this.MADRID_COORDINATES.latitude,
+          this.MADRID_COORDINATES.longitude
+        );
+        return {
+          ...this.MADRID_COORDINATES,
+          address
+        };
       }
 
       const options = {
@@ -105,8 +148,18 @@ export class CreateGroupViewModel {
         Geolocation.getCurrentPosition(
           (position) => resolve(position),
           (error) => {
-            console.error('Error de geolocalización:', error);
-            reject(error);
+            resolve({
+              coords: {
+                latitude: this.MADRID_COORDINATES.latitude,
+                longitude: this.MADRID_COORDINATES.longitude,
+                altitude: null,
+                accuracy: null,
+                altitudeAccuracy: null,
+                heading: null,
+                speed: null
+              },
+              timestamp: Date.now()
+            });
           },
           options
         );
@@ -117,7 +170,6 @@ export class CreateGroupViewModel {
         longitude: position.coords.longitude,
       };
 
-      // Obtener la dirección a partir de las coordenadas
       const address = await this.getAddressFromCoordinates(location.latitude, location.longitude);
 
       return {
@@ -125,19 +177,14 @@ export class CreateGroupViewModel {
         address
       };
     } catch (error: any) {
-      console.error('Error getting location:', error);
-      
-      if (error.code === 1) {
-        throw new Error('Permiso de ubicación denegado');
-      } else if (error.code === 2) {
-        throw new Error('Ubicación no disponible');
-      } else if (error.code === 3) {
-        throw new Error('Tiempo de espera agotado al obtener la ubicación');
-      } else if (error.code === 4) {
-        throw new Error('Error al acceder al servicio de ubicación');
-      } else {
-        throw new Error('Error al obtener la ubicación: ' + (error.message || 'Error desconocido'));
-      }
+      const address = await this.getAddressFromCoordinates(
+        this.MADRID_COORDINATES.latitude,
+        this.MADRID_COORDINATES.longitude
+      );
+      return {
+        ...this.MADRID_COORDINATES,
+        address
+      };
     }
   }
 
