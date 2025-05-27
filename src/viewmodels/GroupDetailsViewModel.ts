@@ -6,6 +6,7 @@ import ImagePicker, { Image } from 'react-native-image-crop-picker';
 import { Alert, Platform, PermissionsAndroid } from 'react-native';
 import Contacts from '@s77rt/react-native-contacts';
 import Geolocation from '@react-native-community/geolocation';
+import { GOOGLE_MAPS_API_KEY } from '../../android/app/src/config/keys';
 
 export interface GroupLocation {
   latitude: number;
@@ -649,13 +650,38 @@ export class GroupDetailsViewModel {
         );
       });
 
-      return {
+      const location = {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
+      };
+
+      // Obtener la dirección a partir de las coordenadas
+      const address = await this.getAddressFromCoordinates(location.latitude, location.longitude);
+
+      return {
+        ...location,
+        address
       };
     } catch (error) {
       console.error('Error getting location:', error);
       return null;
+    }
+  }
+
+  private async getAddressFromCoordinates(latitude: number, longitude: number): Promise<string> {
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}`
+      );
+      const data = await response.json();
+      
+      if (data.results && data.results.length > 0) {
+        return data.results[0].formatted_address;
+      }
+      return 'Ubicación actual';
+    } catch (error) {
+      console.error('Error al obtener la dirección:', error);
+      return 'Ubicación actual';
     }
   }
 
@@ -677,17 +703,25 @@ export class GroupDetailsViewModel {
         throw new Error('No se pudo obtener la ubicación actual');
       }
 
+      // Obtener la dirección a partir de las coordenadas
+      const address = await this.getAddressFromCoordinates(location.latitude, location.longitude);
+      
+      const locationWithAddress = {
+        ...location,
+        address
+      };
+
       const db = getFirestore();
       const groupRef = doc(db, 'groupChats', this.groupId);
       
       await updateDoc(groupRef, {
-        location
+        location: locationWithAddress
       });
 
       if (this.groupData) {
         this.setGroupData({
           ...this.groupData,
-          location
+          location: locationWithAddress
         });
       }
     } catch (error) {
