@@ -292,15 +292,45 @@ export class CreateGroupViewModel {
     return this.selectedContacts.map(c => c.userId!);
   }
 
-  async createGroup(): Promise<string | null> {
+  validateGroupName(): { isValid: boolean; error?: string } {
     if (!this.groupName.trim()) {
-      return null;
+      return { isValid: false, error: 'Por favor ingresa un nombre para el grupo' };
     }
+    return { isValid: true };
+  }
 
+  validateLocation(): { isValid: boolean; error?: string } {
+    if (!this.location) {
+      return { isValid: false, error: 'Por favor selecciona una ubicación para el grupo' };
+    }
+    return { isValid: true };
+  }
+
+  validateParticipants(): { isValid: boolean; error?: string } {
+    return { isValid: true };
+  }
+
+  validateStep1(): { isValid: boolean; error?: string } {
+    const nameValidation = this.validateGroupName();
+    if (!nameValidation.isValid) return nameValidation;
+
+    const locationValidation = this.validateLocation();
+    if (!locationValidation.isValid) return locationValidation;
+
+    return { isValid: true };
+  }
+
+  validateStep2(): { isValid: boolean; error?: string } {
+    return { isValid: true };
+  }
+
+  async createGroup(): Promise<{ success: boolean; groupId?: string; error?: string }> {
     try {
       const auth = getAuth();
       const currentUser = auth.currentUser;
-      if (!currentUser) return null;
+      if (!currentUser) {
+        return { success: false, error: 'No hay usuario autenticado' };
+      }
 
       const db = getFirestore();
       const groupData = {
@@ -326,10 +356,10 @@ export class CreateGroupViewModel {
       };
 
       const groupRef = await addDoc(collection(db, 'groupChats'), groupData);
-      return groupRef.id;
+      return { success: true, groupId: groupRef.id };
     } catch (error) {
       console.error('Error al crear grupo:', error);
-      return null;
+      return { success: false, error: 'No se pudo crear el grupo. Por favor intenta de nuevo.' };
     }
   }
 }

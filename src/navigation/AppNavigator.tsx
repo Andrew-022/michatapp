@@ -13,6 +13,8 @@ import GroupDetailsScreen from '../views/group/GroupDetailsScreen';
 import AddMembersScreen from '../views/group/AddMembersScreen';
 import SettingsScreen from '../views/settings/SettingsScreen';
 import NearbyGroupsScreen from '../views/group/NearbyGroupsScreen';
+import SelectParticipantsScreen from '../views/group/SelectParticipantsScreen';
+import { CreateGroupViewModel } from '../viewmodels/CreateGroupViewModel';
 
 export type RootStackParamList = {
   Home: undefined;
@@ -38,6 +40,9 @@ export type RootStackParamList = {
   };
   Settings: undefined;
   NearbyGroups: undefined;
+  SelectParticipants: {
+    viewModel: CreateGroupViewModel;
+  };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -62,6 +67,7 @@ const AppNavigator = () => {
         <Stack.Screen name="AddMembers" component={AddMembersScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="NearbyGroups" component={NearbyGroupsScreen} />
+        <Stack.Screen name="SelectParticipants" component={SelectParticipantsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

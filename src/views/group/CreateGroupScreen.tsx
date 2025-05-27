@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../navigation/AppNavigator';
 import { getAuth } from '@react-native-firebase/auth';
 import { 
   getFirestore, 
@@ -28,61 +30,13 @@ import { lightTheme, darkTheme } from '../../constants/theme';
 import MapView, { Marker, Circle } from 'react-native-maps';
 
 const CreateGroupScreen = observer(() => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const viewModel = React.useMemo(() => new CreateGroupViewModel(), []);
-  const [loading, setLoading] = useState(false);
-  const [searchText, setSearchText] = useState('');
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const { isDark } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
   const mapRef = React.useRef<MapView>(null);
-
-  // Ordena y filtra los contactos
-  const filteredContacts = React.useMemo(() => {
-    let contacts = viewModel.contacts;
-
-    // Filtrado
-    if (searchText.trim()) {
-      const lower = searchText.toLowerCase();
-      contacts = contacts.filter(contact =>
-        `${contact.firstName} ${contact.lastName}`.toLowerCase().includes(lower) ||
-        (Array.isArray(contact.phoneNumbers) &&
-          contact.phoneNumbers.some((p: any) => p.number.includes(lower)))
-      );
-    }
-
-    // Orden alfabético, dejando al final los sin nombre
-    return contacts.slice().sort((a, b) => {
-      const aHasName = (a.firstName || a.lastName).trim().length > 0;
-      const bHasName = (b.firstName || b.lastName).trim().length > 0;
-
-      if (aHasName && !bHasName) return -1;
-      if (!aHasName && bHasName) return 1;
-      if (!aHasName && !bHasName) return 0;
-
-      const lastNameCompare = (a.lastName || '').localeCompare(b.lastName || '');
-      if (lastNameCompare !== 0) return lastNameCompare;
-
-      return (a.firstName || '').localeCompare(b.firstName || '');
-    });
-  }, [viewModel.contacts, searchText]);
-
-  const handleCreateGroup = async () => {
-    if (!viewModel.groupName.trim()) return;
-
-    setLoading(true);
-    try {
-      const groupId = await viewModel.createGroup();
-      if (groupId) {
-        navigation.goBack();
-      }
-    } catch (error) {
-      console.error('Error al crear grupo:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSelectLocation = async () => {
     setLocationLoading(true);
@@ -102,7 +56,15 @@ const CreateGroupScreen = observer(() => {
     } finally {
       setLocationLoading(false);
     }
-    
+  };
+
+  const handleNext = () => {
+    const validation = viewModel.validateStep1();
+    if (!validation.isValid) {
+      Alert.alert('Error', validation.error);
+      return;
+    }
+    navigation.navigate('SelectParticipants', { viewModel });
   };
 
   return (
@@ -214,85 +176,19 @@ const CreateGroupScreen = observer(() => {
             </Text>
           )}
 
-          <Text style={[styles.subtitle, { color: currentTheme.text }]}>
-            Selecciona participantes (opcional):
-          </Text>
-          <TextInput
-            style={[styles.searchInput, { 
-              backgroundColor: currentTheme.card,
-              borderColor: currentTheme.border,
-              color: currentTheme.text
-            }]}
-            placeholder="Buscar contacto o número..."
-            value={searchText}
-            onChangeText={setSearchText}
-            placeholderTextColor={currentTheme.secondary}
-          />
-
-          <FlatList
-            data={filteredContacts}
-            keyExtractor={item => item.recordID}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[
-                  styles.contactItem,
-                  { 
-                    backgroundColor: currentTheme.card,
-                    borderBottomColor: currentTheme.border 
-                  },
-                  item.selected && { backgroundColor: currentTheme.primary + '20' }
-                ]}
-                onPress={() => viewModel.toggleContactSelection(item.recordID)}
-              >
-                <View style={[styles.avatarContainer, { backgroundColor: currentTheme.primary }]}>
-                  <Text style={[styles.avatarText, { color: currentTheme.background }]}>
-                    {(item.firstName?.[0] || '') + (item.lastName?.[0] || '')}
-                  </Text>
-                </View>
-                <View style={styles.contactInfo}>
-                  <Text style={[styles.contactName, { color: currentTheme.text }]}>
-                    {item.firstName} {item.lastName}
-                  </Text>
-                  {item.phoneNumbers.map((phone, idx) => (
-                    <Text key={idx} style={[styles.contactPhone, { color: currentTheme.secondary }]}>
-                      {phone.number}
-                    </Text>
-                  ))}
-                </View>
-                {item.selected && (
-                  <Text style={[styles.selectedMark, { color: currentTheme.primary }]}>✓</Text>
-                )}
-              </TouchableOpacity>
-            )}
-            ListEmptyComponent={
-              viewModel.loading ? (
-                <ActivityIndicator size="large" color={currentTheme.primary} />
-              ) : (
-                <Text style={[styles.emptyText, { color: currentTheme.secondary }]}>
-                  No hay contactos
-                </Text>
-              )
-            }
-            style={styles.contactList}
-            scrollEnabled={false}
-          />
-
           <TouchableOpacity
             style={[
-              styles.createButton,
+              styles.nextButton,
               { backgroundColor: currentTheme.primary },
-              (!viewModel.groupName.trim() || loading) && 
+              (!viewModel.groupName.trim() || !viewModel.location) && 
                 { backgroundColor: currentTheme.border }
             ]}
-            onPress={handleCreateGroup}
-            disabled={!viewModel.groupName.trim() || loading}>
-            {loading ? (
-              <ActivityIndicator color={currentTheme.background} />
-            ) : (
-              <Text style={[styles.createButtonText, { color: currentTheme.background }]}>
-                Crear Grupo
-              </Text>
-            )}
+            onPress={handleNext}
+            disabled={!viewModel.groupName.trim() || !viewModel.location}>
+            <Text style={[styles.nextButtonText, { color: currentTheme.background }]}>
+              Siguiente
+            </Text>
+            <Icon name="arrow-forward" size={24} color={currentTheme.background} />
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -453,6 +349,33 @@ const styles = StyleSheet.create({
   },
   map: {
     ...StyleSheet.absoluteFillObject,
+  },
+  participantsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 8,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  participantsButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  nextButton: {
+    flexDirection: 'row',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+  nextButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginRight: 8,
   },
 });
 
