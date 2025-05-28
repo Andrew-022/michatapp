@@ -101,7 +101,7 @@ const Home = observer(() => {
   const viewModel = React.useMemo(() => new HomeViewModel(), []);
   const [menuVisible, setMenuVisible] = useState(false);
   const slideAnim = React.useRef(new Animated.Value(-300)).current;
-  const { isDark } = useTheme();
+  const { isDark, secondaryColor } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
 
   const toggleMenu = () => {
@@ -290,7 +290,7 @@ const Home = observer(() => {
                 navigation.navigate('Profile');
                 toggleMenu();
               }}>
-              <Icon name="person" size={24} color={currentTheme.primary} />
+              <Icon name="person" size={24} color={secondaryColor} />
               <Text style={[styles.menuItemText, { color: currentTheme.text }]}>Perfil</Text>
             </TouchableOpacity>
             <TouchableOpacity 
@@ -299,7 +299,7 @@ const Home = observer(() => {
                 navigation.navigate('Settings');
                 toggleMenu();
               }}>
-              <Icon name="settings" size={24} color={currentTheme.primary} />
+              <Icon name="settings" size={24} color={secondaryColor} />
               <Text style={[styles.menuItemText, { color: currentTheme.text }]}>Configuración</Text>
             </TouchableOpacity>
             <TouchableOpacity 
@@ -308,7 +308,7 @@ const Home = observer(() => {
                 navigation.navigate('CreateGroup');
                 toggleMenu();
               }}>
-              <Icon name="group-add" size={24} color={currentTheme.primary} />
+              <Icon name="group-add" size={24} color={secondaryColor} />
               <Text style={[styles.menuItemText, { color: currentTheme.text }]}>Crear Grupo</Text>
             </TouchableOpacity>
             <TouchableOpacity 
@@ -317,7 +317,7 @@ const Home = observer(() => {
                 navigation.navigate('NearbyGroups');
                 toggleMenu();
               }}>
-              <Icon name="location-on" size={24} color={currentTheme.primary} />
+              <Icon name="location-on" size={24} color={secondaryColor} />
               <Text style={[styles.menuItemText, { color: currentTheme.text }]}>Grupos Cercanos</Text>
             </TouchableOpacity>
             <TouchableOpacity 
