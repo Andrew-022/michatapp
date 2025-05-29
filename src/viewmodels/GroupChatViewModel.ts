@@ -1,21 +1,15 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import { getAuth } from '@react-native-firebase/auth';
-import { 
-  getFirestore, 
-  collection, 
-  doc, 
-  getDoc, 
-  onSnapshot, 
-  orderBy, 
-  addDoc, 
-  updateDoc, 
-  serverTimestamp,
-  query,
-  increment
-} from '@react-native-firebase/firestore';
 import { Message, MessageModel } from '../models/Message';
-import { GroupChat, GroupChatModel } from '../models/GroupChat';
+import { GroupChat } from '../models/GroupChat';
 import CryptoJS from 'crypto-js';
+import { 
+  loadGroupInfo, 
+  loadParticipantsInfo, 
+  loadGroupMessages, 
+  resetGroupUnreadCount, 
+  sendGroupMessage 
+} from '../services/firestore';
 
 export class GroupChatViewModel {
   messages: Message[] = [];
@@ -26,6 +20,7 @@ export class GroupChatViewModel {
   groupPhotoURL: string | undefined;
   participants: { id: string; name: string }[] = [];
   private readonly encryptionKey: string;
+  private unsubscribe: (() => void) | null = null;
 
   constructor(groupId: string) {
     this.groupId = groupId;
@@ -37,17 +32,6 @@ export class GroupChatViewModel {
 
   private generateGroupKey(groupId: string): string {
     return groupId;
-  }
-
-  private encryptMessage(text: string): string {
-    try {
-      const key = this.encryptionKey;
-      const encrypted = CryptoJS.AES.encrypt(text, key).toString();
-      return encrypted;
-    } catch (error) {
-      console.error('Error al cifrar mensaje:', error);
-      return text;
-    }
   }
 
   private decryptMessage(encryptedText: string): string {
@@ -64,7 +48,15 @@ export class GroupChatViewModel {
 
   private async initialize() {
     try {
-      await this.loadGroupInfo();
+      const groupInfo = await loadGroupInfo(this.groupId);
+      const participantsInfo = await loadParticipantsInfo(groupInfo.participants);
+      
+      runInAction(() => {
+        this.groupName = groupInfo.name;
+        this.groupPhotoURL = groupInfo.photoURL;
+        this.participants = participantsInfo;
+      });
+
       this.loadMessages();
     } catch (error) {
       console.error('Error al inicializar el chat grupal:', error);
@@ -74,100 +66,33 @@ export class GroupChatViewModel {
     }
   }
 
-  private async loadGroupInfo() {
-    try {
-      const db = getFirestore();
-      const groupDocRef = doc(db, 'groupChats', this.groupId);
-      const groupDoc = await getDoc(groupDocRef);
-      const groupData = groupDoc.data() as GroupChat;
-      
-      if (!groupData) {
-        throw new Error('No se encontró información del grupo');
-      }
-
-      await this.loadParticipantsInfo(groupData.participants || []);
-      
-      runInAction(() => {
-        this.groupName = groupData.name || 'Grupo';
-        this.groupPhotoURL = groupData.photoURL;
-      });
-    } catch (error) {
-      console.error('Error al cargar información del grupo:', error);
-      throw error;
-    }
-  }
-
-  private async loadParticipantsInfo(participantIds: string[]) {
-    const db = getFirestore();
-    const participantsInfo: { id: string; name: string }[] = [];
-
-    for (const participantId of participantIds) {
-      try {
-        const userDoc = await getDoc(doc(db, 'users', participantId));
-        const userData = userDoc.data();
-        participantsInfo.push({
-          id: participantId,
-          name: userData?.name || 'Usuario'
-        });
-      } catch (error) {
-        console.error('Error al cargar información del participante:', error);
-      }
-    }
-
-    runInAction(() => {
-      this.participants = participantsInfo;
-    });
-  }
-
-  setNewMessage = (text: string) => {
-    this.newMessage = text;
-  }
-
   private loadMessages() {
-    const db = getFirestore();
-    const messagesRef = collection(db, 'groupChats', this.groupId, 'messages');
-    const q = query(messagesRef, orderBy('createdAt', 'desc'));
-
-    const unsubscribe = onSnapshot(
-      q,
-      snapshot => {
+    this.unsubscribe = loadGroupMessages(
+      this.groupId,
+      (messages) => {
         runInAction(() => {
-          this.messages = snapshot.docs.map(doc => {
-            const data = doc.data();
-            const decryptedText = this.decryptMessage(data.text);
-            return MessageModel.fromFirestore(doc.id, {
-              ...data,
-              text: decryptedText
-            });
-          });
+          this.messages = messages.map(msg => ({
+            ...msg,
+            text: this.decryptMessage(msg.text)
+          }));
           this.loading = false;
         });
       },
-      error => {
+      (error) => {
         console.error('Error al cargar mensajes:', error);
         runInAction(() => {
           this.loading = false;
         });
-      },
+      }
     );
-
-    return unsubscribe;
   }
 
   private async resetUnreadCount() {
-    const auth = getAuth();
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
+    await resetGroupUnreadCount(this.groupId);
+  }
 
-    try {
-      const db = getFirestore();
-      const groupRef = doc(db, 'groupChats', this.groupId);
-      await updateDoc(groupRef, {
-        [`unreadCount.${currentUser.uid}`]: 0
-      });
-    } catch (error) {
-      console.error('Error al reiniciar contador de mensajes no leídos:', error);
-    }
+  setNewMessage = (text: string) => {
+    this.newMessage = text;
   }
 
   async sendMessage() {
@@ -183,38 +108,7 @@ export class GroupChatViewModel {
     });
 
     try {
-      const db = getFirestore();
-      const encryptedText = this.encryptMessage(messageToSend);
-      
-      const messageData = {
-        text: encryptedText,
-        senderId: currentUser.uid,
-        createdAt: serverTimestamp(),
-      };
-
-      const messagesRef = collection(db, 'groupChats', this.groupId, 'messages');
-      await addDoc(messagesRef, messageData);
-
-      const groupRef = doc(db, 'groupChats', this.groupId);
-      
-      // Incrementar el contador para todos los participantes excepto el remitente
-      const updates: any = {
-        lastMessage: {
-          text: encryptedText,
-          createdAt: serverTimestamp(),
-          senderId: currentUser.uid,
-        },
-        updatedAt: serverTimestamp(),
-      };
-
-      // Incrementar el contador para cada participante excepto el remitente
-      this.participants.forEach(participant => {
-        if (participant.id !== currentUser.uid) {
-          updates[`unreadCount.${participant.id}`] = increment(1);
-        }
-      });
-
-      await updateDoc(groupRef, updates);
+      await sendGroupMessage(this.groupId, messageToSend, currentUser.uid, this.participants);
     } catch (error) {
       console.error('Error al enviar mensaje:', error);
     }
@@ -231,7 +125,9 @@ export class GroupChatViewModel {
   }
 
   cleanup() {
-    // Reiniciar el contador al salir del chat grupal
+    if (this.unsubscribe) {
+      this.unsubscribe();
+    }
     this.resetUnreadCount();
   }
 }

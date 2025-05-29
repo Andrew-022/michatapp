@@ -5,6 +5,7 @@ import { Chat, ChatModel } from '../models/Chat';
 import { GroupChatModel } from '../models/GroupChat';
 import CryptoJS from 'crypto-js';
 import { Platform } from 'react-native';
+import { Message, MessageModel } from '../models/Message';
 
 // Inicializar Firestore con configuración específica
 const db = getFirestore();
@@ -457,6 +458,136 @@ export const createGroup = async (groupData: {
   } catch (error) {
     console.error('Error al crear grupo:', error);
     return { success: false, error: 'No se pudo crear el grupo. Por favor intenta de nuevo.' };
+  }
+};
+
+export const loadGroupInfo = async (groupId: string): Promise<{
+  name: string;
+  photoURL?: string;
+  participants: string[];
+}> => {
+  try {
+    const db = getFirestore();
+    const groupDocRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
+    const groupDoc = await getDoc(groupDocRef);
+    const groupData = groupDoc.data() as GroupChatModel;
+    
+    if (!groupData) {
+      throw new Error('No se encontró información del grupo');
+    }
+
+    return {
+      name: groupData.name || 'Grupo',
+      photoURL: groupData.photoURL,
+      participants: groupData.participants || []
+    };
+  } catch (error) {
+    console.error('Error al cargar información del grupo:', error);
+    throw error;
+  }
+};
+
+export const loadParticipantsInfo = async (participantIds: string[]): Promise<{ id: string; name: string }[]> => {
+  const db = getFirestore();
+  const participantsInfo: { id: string; name: string }[] = [];
+
+  for (const participantId of participantIds) {
+    try {
+      const userDoc = await getDoc(doc(db, COLLECTIONS.USERS, participantId));
+      const userData = userDoc.data();
+      participantsInfo.push({
+        id: participantId,
+        name: userData?.name || 'Usuario'
+      });
+    } catch (error) {
+      console.error('Error al cargar información del participante:', error);
+    }
+  }
+
+  return participantsInfo;
+};
+
+export const loadGroupMessages = (
+  groupId: string,
+  onMessagesUpdate: (messages: Message[]) => void,
+  onError: (error: any) => void
+) => {
+  const db = getFirestore();
+  const messagesRef = collection(db, COLLECTIONS.GROUP_CHATS, groupId, COLLECTIONS.MESSAGES);
+  const q = query(messagesRef, orderBy('createdAt', 'desc'));
+
+  return onSnapshot(
+    q,
+    snapshot => {
+      const messages = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return MessageModel.fromFirestore(doc.id, data);
+      });
+      onMessagesUpdate(messages);
+    },
+    error => {
+      console.error('Error al cargar mensajes:', error);
+      onError(error);
+    }
+  );
+};
+
+export const resetGroupUnreadCount = async (groupId: string) => {
+  const auth = getAuth();
+  const currentUser = auth.currentUser;
+  if (!currentUser) return;
+
+  try {
+    const db = getFirestore();
+    const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
+    await updateDoc(groupRef, {
+      [`unreadCount.${currentUser.uid}`]: 0
+    });
+  } catch (error) {
+    console.error('Error al reiniciar contador de mensajes no leídos:', error);
+  }
+};
+
+export const sendGroupMessage = async (
+  groupId: string,
+  messageText: string,
+  senderId: string,
+  participants: { id: string }[]
+) => {
+  try {
+    const db = getFirestore();
+    const encryptedText = CryptoJS.AES.encrypt(messageText, groupId).toString();
+    
+    const messageData = {
+      text: encryptedText,
+      senderId: senderId,
+      createdAt: serverTimestamp(),
+    };
+
+    const messagesRef = collection(db, COLLECTIONS.GROUP_CHATS, groupId, COLLECTIONS.MESSAGES);
+    await addDoc(messagesRef, messageData);
+
+    const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
+    
+    const updates: any = {
+      lastMessage: {
+        text: encryptedText,
+        createdAt: serverTimestamp(),
+        senderId: senderId,
+      },
+      updatedAt: serverTimestamp(),
+    };
+
+    participants.forEach(participant => {
+      if (participant.id !== senderId) {
+        updates[`unreadCount.${participant.id}`] = increment(1);
+      }
+    });
+
+    await updateDoc(groupRef, updates);
+  } catch (error) {
+    console.error('Error al enviar mensaje:', error);
+    throw error;
   }
 };
 
