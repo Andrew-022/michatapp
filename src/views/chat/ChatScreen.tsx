@@ -40,7 +40,7 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
     [chatId, otherParticipantId],
   );
   const flatListRef = useRef<FlatList>(null);
-  const { isDark, secondaryColor } = useTheme();
+  const { isDark, secondaryColor, primaryColor } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
 
   useEffect(() => {

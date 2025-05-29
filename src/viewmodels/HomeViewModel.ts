@@ -1,16 +1,23 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import { getAuth, signOut } from '@react-native-firebase/auth';
-import { getFirestore, collection, doc, getDoc, setDoc, query, where, onSnapshot } from '@react-native-firebase/firestore';
 import { Chat, ChatModel } from '../models/Chat';
 import { User, UserModel } from '../models/User';
-import { createUser } from '../services/firestore';
 import { GroupChatModel } from '../models/GroupChat';
-import CryptoJS from 'crypto-js';
+import {
+  createUser,
+  getUser,
+  subscribeToUserChats,
+  subscribeToGroupChats,
+  decryptMessage,
+  markMessagesAsRead,
+  incrementUnreadCount
+} from '../services/firestore';
 
 export class HomeViewModel {
   userData: User | null = null;
   chats: (Chat | GroupChatModel)[] = [];
   loading: boolean = true;
+  private _unsubscribes: (() => void)[] = [];
 
   constructor() {
     makeAutoObservable(this);
@@ -24,24 +31,21 @@ export class HomeViewModel {
     if (!currentUser) return;
 
     try {
-      const db = getFirestore();
-      const userDocRef = doc(db, 'users', currentUser.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (!userDoc.exists()) {
+      const userData = await getUser(currentUser.uid);
+      if (!userData) {
         const newUser = new UserModel({
           id: currentUser.uid,
           phoneNumber: currentUser.phoneNumber,
           lastLogin: new Date(),
         });
 
-        await setDoc(userDocRef, newUser.toFirestore());
+        await createUser(currentUser.uid, newUser.toFirestore());
         runInAction(() => {
           this.userData = newUser;
         });
       } else {
         runInAction(() => {
-          this.userData = UserModel.fromFirestore(userDoc.id, userDoc.data());
+          this.userData = UserModel.fromFirestore(currentUser.uid, userData);
         });
       }
     } catch (error) {
@@ -49,96 +53,67 @@ export class HomeViewModel {
     }
   }
 
-  private async loadAllChats() {
+  private loadAllChats() {
     const auth = getAuth();
     const currentUser = auth.currentUser;
     if (!currentUser) return;
 
-    const db = getFirestore();
-
-    // Cargar chats normales
-    const chatsQuery = query(
-      collection(db, 'chats'),
-      where('participants', 'array-contains', currentUser.uid)
-    );
-
-    // Cargar grupos
-    const groupsQuery = query(
-      collection(db, 'groupChats'),
-      where('participants', 'array-contains', currentUser.uid)
-    );
-
-    // Escuchar ambos
-    const unsubscribeChats = onSnapshot(
-      chatsQuery,
-      async snapshot => {
-        const chats = await Promise.all(snapshot.docs.map(async docSnap => {
-          const data = docSnap.data();
-          const chat = ChatModel.fromFirestore(docSnap.id, data);
-          const otherParticipantId = this.getOtherParticipantId(chat);
-          let otherParticipantName = 'Usuario desconocido';
-          let otherParticipantPhoto: string | undefined;
-          
-          if (otherParticipantId) {
-            try {
-              const userDocRef = doc(db, 'users', otherParticipantId);
-              const userDoc = await getDoc(userDocRef);
-              if (userDoc.exists()) {
-                const userData = userDoc.data();
-                otherParticipantName = userData?.name || userData?.phoneNumber || 'Usuario';
-                otherParticipantPhoto = userData?.photoURL;
-              }
-            } catch (e) {}
-          }
-          // Desencriptar el último mensaje si existe
-          let lastMessage = chat.lastMessage;
-          if (lastMessage && lastMessage.text) {
-            lastMessage = {
-              ...lastMessage,
-              text: this.decryptMessage(lastMessage.text, chat.id)
-            };
-          }
-          
-          const chatWithData = { 
-            ...chat, 
-            otherParticipantName, 
-            otherParticipantPhoto, 
-            lastMessage,
-            lastMessageTime: lastMessage?.createdAt,
-            unreadCount: data.unreadCount?.[currentUser.uid] || 0
-          };
-          return chatWithData;
-        }));
-        this.updateCombinedChats(chats, null);
-      }
-    );
-
-    const unsubscribeGroups = onSnapshot(
-      groupsQuery,
-      snapshot => {
-        const groups = snapshot.docs.map(doc => {
-          const data = doc.data();
-          const group = GroupChatModel.fromFirestore(doc.id, data);
-          // Desencriptar el último mensaje si existe
-          let lastMessage = group.lastMessage;
-          if (lastMessage && lastMessage.text) {
-            lastMessage = {
-              ...lastMessage,
-              text: this.decryptMessage(lastMessage.text, group.id),
-            };
-          }
-          return { 
-            ...group, 
-            lastMessage,
-            lastMessageTime: lastMessage?.createdAt,
-            photoURL: group.photoURL,
-            unreadCount: data.unreadCount?.[currentUser.uid] || 0
-          };
-        });
+    const unsubscribeChats = subscribeToUserChats(currentUser.uid, async (chats) => {
+      const processedChats = await Promise.all(chats.map(async chat => {
+        const chatModel = ChatModel.fromFirestore(chat.id, chat);
+        const otherParticipantId = this.getOtherParticipantId(chatModel);
+        let otherParticipantName = 'Usuario desconocido';
+        let otherParticipantPhoto: string | undefined;
         
-        this.updateCombinedChats(null, groups);
-      }
-    );
+        if (otherParticipantId) {
+          const userData = await getUser(otherParticipantId);
+          if (userData) {
+            otherParticipantName = userData.name || userData.phoneNumber || 'Usuario';
+            otherParticipantPhoto = userData.photoURL;
+          }
+        }
+
+        let lastMessage = chatModel.lastMessage;
+        if (lastMessage && lastMessage.text) {
+          lastMessage = {
+            ...lastMessage,
+            text: decryptMessage(lastMessage.text, chat.id)
+          };
+        }
+        
+        return { 
+          ...chatModel, 
+          otherParticipantName, 
+          otherParticipantPhoto, 
+          lastMessage,
+          lastMessageTime: lastMessage?.createdAt,
+          unreadCount: chat.unreadCount?.[currentUser.uid] || 0
+        };
+      }));
+      this.updateCombinedChats(processedChats, null);
+    });
+
+    const unsubscribeGroups = subscribeToGroupChats(currentUser.uid, (groups) => {
+      const processedGroups = groups.map(group => {
+        const groupModel = GroupChatModel.fromFirestore(group.id, group);
+        let lastMessage = groupModel.lastMessage;
+        if (lastMessage && lastMessage.text) {
+          lastMessage = {
+            ...lastMessage,
+            text: decryptMessage(lastMessage.text, group.id),
+          };
+        }
+        return { 
+          ...groupModel, 
+          lastMessage,
+          lastMessageTime: lastMessage?.createdAt,
+          photoURL: groupModel.photoURL,
+          unreadCount: group.unreadCount?.[currentUser.uid] || 0
+        };
+      });
+      
+      this.updateCombinedChats(null, processedGroups);
+    });
 
     this._unsubscribes = [unsubscribeChats, unsubscribeGroups];
   }
@@ -146,7 +121,6 @@ export class HomeViewModel {
   // Combina y ordena los chats y grupos
   private _chats: Chat[] = [];
   private _groups: GroupChatModel[] = [];
-  private _unsubscribes: any[] = [];
 
   private updateCombinedChats(chats: Chat[] | null, groups: GroupChatModel[] | null) {
     if (chats !== null) this._chats = chats;
@@ -184,35 +158,16 @@ export class HomeViewModel {
     if (!otherParticipantId) return '';
 
     try {
-      const db = getFirestore();
-      const userDocRef = doc(db, 'users', otherParticipantId);
-      const userDoc = await getDoc(userDocRef);
-
-      if (!userDoc.exists()) {
-        return 'Usuario';
-      }
-
-      const userData = userDoc.data();
+      const userData = await getUser(otherParticipantId);
       if (!userData) {
         return 'Usuario';
       }
 
-      const user = UserModel.fromFirestore(userDoc.id, userData);
+      const user = UserModel.fromFirestore(otherParticipantId, userData);
       return user.name || user.phoneNumber || 'Usuario';
     } catch (error) {
       console.error('Error al obtener nombre del participante:', error);
       return 'Usuario';
-    }
-  }
-
-  private decryptMessage(encryptedText: string, key: string): string {
-    try {
-      const decrypted = CryptoJS.AES.decrypt(encryptedText, key);
-      const text = decrypted.toString(CryptoJS.enc.Utf8);
-      return text || 'Mensaje cifrado';
-    } catch (error) {
-      console.error('Error al descifrar mensaje:', error);
-      return 'Mensaje cifrado';
     }
   }
 
@@ -251,56 +206,6 @@ export class HomeViewModel {
     } catch (error) {
       console.error('Error al formatear fecha:', error);
       return '';
-    }
-  }
-
-  // Método para marcar mensajes como leídos
-  async markMessagesAsRead(chatId: string, isGroup: boolean = false): Promise<void> {
-    const auth = getAuth();
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
-
-    const db = getFirestore();
-    const collectionName = isGroup ? 'groupChats' : 'chats';
-    const chatRef = doc(db, collectionName, chatId);
-
-    try {
-      await setDoc(chatRef, {
-        unreadCount: {
-          [currentUser.uid]: 0
-        }
-      }, { merge: true });
-    } catch (error) {
-      console.error('Error al marcar mensajes como leídos:', error);
-      throw error;
-    }
-  }
-
-  // Método para incrementar el contador de mensajes no leídos
-  async incrementUnreadCount(chatId: string, isGroup: boolean = false): Promise<void> {
-    const auth = getAuth();
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
-
-    const db = getFirestore();
-    const collectionName = isGroup ? 'groupChats' : 'chats';
-    const chatRef = doc(db, collectionName, chatId);
-
-    try {
-      const chatDoc = await getDoc(chatRef);
-      if (chatDoc.exists()) {
-        const data = chatDoc.data();
-        const currentCount = data.unreadCount?.[currentUser.uid] || 0;
-        
-        await setDoc(chatRef, {
-          unreadCount: {
-            [currentUser.uid]: currentCount + 1
-          }
-        }, { merge: true });
-      }
-    } catch (error) {
-      console.error('Error al incrementar contador de mensajes no leídos:', error);
-      throw error;
     }
   }
 } 
