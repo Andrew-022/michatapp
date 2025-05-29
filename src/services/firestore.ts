@@ -939,4 +939,80 @@ export const uploadGroupPhoto = async (groupId: string, image: Image): Promise<s
   }
 };
 
+export const loadNearbyGroups = async (maxDistance: number = 10, currentLocation: { latitude: number; longitude: number }) => {
+  try {
+    const db = getFirestore();
+    const groupsRef = collection(db, 'groupChats');
+    const q = query(groupsRef, where('isPublic', '==', true));
+    const querySnapshot = await getDocs(q);
+
+    const groups = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      if (data.location) {
+        const distance = calculateDistance(
+          currentLocation.latitude,
+          currentLocation.longitude,
+          data.location.latitude,
+          data.location.longitude
+        );
+        
+        // Solo incluir grupos dentro del radio máximo
+        if (distance <= maxDistance) {
+          groups.push({
+            id: doc.id,
+            name: data.name,
+            description: data.description,
+            isPublic: data.isPublic,
+            location: data.location,
+            distance,
+            participants: data.participants || [],
+            adminIds: data.adminIds || [],
+          });
+        }
+      }
+    });
+
+    // Ordenar grupos por distancia
+    return groups.sort((a, b) => a.distance - b.distance);
+  } catch (error) {
+    console.error('Error al cargar grupos cercanos:', error);
+    throw error;
+  }
+};
+
+export const joinNearbyGroup = async (groupId: string, currentUserId: string, currentParticipants: string[]): Promise<boolean> => {
+  try {
+    const db = getFirestore();
+    const groupRef = doc(db, 'groupChats', groupId);
+    
+    await updateDoc(groupRef, {
+      participants: [...currentParticipants, currentUserId],
+      [`unreadCount.${currentUserId}`]: 0
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Error al unirse al grupo:', error);
+    return false;
+  }
+};
+
+// Función auxiliar para calcular distancia
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371; // Radio de la Tierra en km
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
+
+const toRad = (value: number): number => {
+  return value * Math.PI / 180;
+};
+
 export default db;

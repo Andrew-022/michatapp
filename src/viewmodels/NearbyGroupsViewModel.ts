@@ -1,8 +1,8 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import { Platform, PermissionsAndroid } from 'react-native';
-import { getFirestore, collection, query, where, getDocs, updateDoc, doc } from '@react-native-firebase/firestore';
 import { getAuth } from '@react-native-firebase/auth';
 import Geolocation from '@react-native-community/geolocation';
+import { loadNearbyGroups, joinNearbyGroup } from '../services/firestore';
 
 interface GroupLocation {
   latitude: number;
@@ -117,40 +117,7 @@ export class NearbyGroupsViewModel {
         this.currentLocation = location;
       });
 
-      const db = getFirestore();
-      const groupsRef = collection(db, 'groupChats');
-      const q = query(groupsRef, where('isPublic', '==', true));
-      const querySnapshot = await getDocs(q);
-
-      const groups: NearbyGroup[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.location) {
-          const distance = this.calculateDistance(
-            location.latitude,
-            location.longitude,
-            data.location.latitude,
-            data.location.longitude
-          );
-          
-          // Solo incluir grupos dentro del radio máximo
-          if (distance <= maxDistance) {
-            groups.push({
-              id: doc.id,
-              name: data.name,
-              description: data.description,
-              isPublic: data.isPublic,
-              location: data.location,
-              distance,
-              participants: data.participants || [],
-              adminIds: data.adminIds || [],
-            });
-          }
-        }
-      });
-
-      // Ordenar grupos por distancia
-      groups.sort((a, b) => a.distance - b.distance);
+      const groups = await loadNearbyGroups(maxDistance, location);
 
       runInAction(() => {
         this.groups = groups;
@@ -170,17 +137,17 @@ export class NearbyGroupsViewModel {
       const currentUser = auth.currentUser;
       if (!currentUser) return false;
 
-      const db = getFirestore();
-      const groupRef = doc(db, 'groupChats', groupId);
-      
-      await updateDoc(groupRef, {
-        participants: [...this.groups.find(g => g.id === groupId)?.participants || [], currentUser.uid],
-        [`unreadCount.${currentUser.uid}`]: 0
-      });
+      const group = this.groups.find(g => g.id === groupId);
+      if (!group) return false;
 
-      // Actualizar la lista de grupos
-      await this.loadNearbyGroups();
-      return true;
+      const success = await joinNearbyGroup(groupId, currentUser.uid, group.participants);
+      
+      if (success) {
+        // Actualizar la lista de grupos
+        await this.loadNearbyGroups();
+      }
+      
+      return success;
     } catch (error) {
       console.error('Error al unirse al grupo:', error);
       return false;
