@@ -6,6 +6,7 @@ import { getAuth } from '@react-native-firebase/auth';
 import { serverTimestamp } from '@react-native-firebase/firestore';
 import Geolocation from '@react-native-community/geolocation';
 import { GOOGLE_MAPS_API_KEY } from '../config/keys';
+import { createGroup } from '../services/firestore';
 
 export interface GroupContact {
   recordID: string;
@@ -326,37 +327,15 @@ export class CreateGroupViewModel {
 
   async createGroup(): Promise<{ success: boolean; groupId?: string; error?: string }> {
     try {
-      const auth = getAuth();
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        return { success: false, error: 'No hay usuario autenticado' };
-      }
-
-      const db = getFirestore();
       const groupData = {
         name: this.groupName.trim(),
-        adminIds: [currentUser.uid],
-        participants: [currentUser.uid, ...this.selectedUserIds],
+        adminIds: [this.currentUserId],
+        participants: [this.currentUserId, ...this.selectedUserIds],
         isPublic: this.isPublic,
         location: this.location,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        lastMessage: {
-          text: '',
-          createdAt: serverTimestamp(),
-          senderId: currentUser.uid,
-        },
-        unreadCount: {
-          [currentUser.uid]: 0,
-          ...this.selectedUserIds.reduce((acc, userId) => ({
-            ...acc,
-            [userId]: 1
-          }), {})
-        }
       };
 
-      const groupRef = await addDoc(collection(db, 'groupChats'), groupData);
-      return { success: true, groupId: groupRef.id };
+      return await createGroup(groupData);
     } catch (error) {
       console.error('Error al crear grupo:', error);
       return { success: false, error: 'No se pudo crear el grupo. Por favor intenta de nuevo.' };

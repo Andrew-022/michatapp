@@ -413,4 +413,51 @@ export const startChatWithContact = async (
   }
 };
 
+export const createGroup = async (groupData: {
+  name: string;
+  adminIds: string[];
+  participants: string[];
+  isPublic: boolean;
+  location: {
+    latitude: number;
+    longitude: number;
+    address?: string;
+  } | null;
+}): Promise<{ success: boolean; groupId?: string; error?: string }> => {
+  try {
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      return { success: false, error: 'No hay usuario autenticado' };
+    }
+
+    const db = getFirestore();
+    const groupDataWithTimestamps = {
+      ...groupData,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      lastMessage: {
+        text: '',
+        createdAt: serverTimestamp(),
+        senderId: currentUser.uid,
+      },
+      unreadCount: {
+        [currentUser.uid]: 0,
+        ...groupData.participants
+          .filter(id => id !== currentUser.uid)
+          .reduce((acc, userId) => ({
+            ...acc,
+            [userId]: 1
+          }), {})
+      }
+    };
+
+    const groupRef = await addDoc(collection(db, COLLECTIONS.GROUP_CHATS), groupDataWithTimestamps);
+    return { success: true, groupId: groupRef.id };
+  } catch (error) {
+    console.error('Error al crear grupo:', error);
+    return { success: false, error: 'No se pudo crear el grupo. Por favor intenta de nuevo.' };
+  }
+};
+
 export default db;
