@@ -1,5 +1,5 @@
 import {makeAutoObservable, action} from 'mobx';
-import {getFirestore, doc, onSnapshot} from '@react-native-firebase/firestore';
+import {subscribeToUserProfile} from '../services/firestore';
 
 export interface UserData {
   name: string;
@@ -27,13 +27,8 @@ export class UserProfileViewModel {
     this.error = error;
   });
 
-  private setUserData = action((data: any) => {
-    this.userData = {
-      name: data.name || 'Usuario',
-      phoneNumber: data.phoneNumber || '',
-      photoURL: data.photoURL,
-      status: data.status === undefined ? '¡Hola! Estoy usando MichatApp' : data.status
-    };
+  private setUserData = action((data: UserData) => {
+    this.userData = data;
   });
 
   async loadUserData() {
@@ -41,28 +36,20 @@ export class UserProfileViewModel {
       this.setLoading(true);
       this.setError(null);
       
-      const db = getFirestore();
-      const userRef = doc(db, 'users', this.userId);
-      
       // Limpiar la suscripción anterior si existe
       if (this.unsubscribe) {
         this.unsubscribe();
       }
 
       // Suscribirse a los cambios en tiempo real
-      this.unsubscribe = onSnapshot(userRef, 
-        (doc) => {
-          if (doc.exists()) {
-            const data = doc.data();
-            this.setUserData(data);
-          } else {
-            this.setError('Usuario no encontrado');
-          }
+      this.unsubscribe = subscribeToUserProfile(
+        this.userId,
+        (data) => {
+          this.setUserData(data);
           this.setLoading(false);
         },
         (error) => {
-          console.error('Error al cargar datos del usuario:', error);
-          this.setError('Error al cargar los datos del usuario');
+          this.setError(error);
           this.setLoading(false);
         }
       );

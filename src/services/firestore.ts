@@ -1093,4 +1093,44 @@ export const uploadUserPhoto = async (userId: string, image: Image): Promise<str
   }
 };
 
+export const subscribeToUserProfile = (
+  userId: string,
+  onUpdate: (data: {
+    name: string;
+    phoneNumber: string;
+    photoURL?: string;
+    status?: string;
+  }) => void,
+  onError: (error: any) => void
+) => {
+  try {
+    const db = getFirestore();
+    const userRef = doc(db, 'users', userId);
+    
+    return onSnapshot(userRef, 
+      (doc) => {
+        if (doc.exists()) {
+          const data = doc.data();
+          onUpdate({
+            name: data.name || 'Usuario',
+            phoneNumber: data.phoneNumber || '',
+            photoURL: data.photoURL,
+            status: data.status === undefined ? '¡Hola! Estoy usando MichatApp' : data.status
+          });
+        } else {
+          onError('Usuario no encontrado');
+        }
+      },
+      (error) => {
+        console.error('Error al cargar datos del usuario:', error);
+        onError('Error al cargar los datos del usuario');
+      }
+    );
+  } catch (error) {
+    console.error('Error al cargar datos del usuario:', error);
+    onError('Error al cargar los datos del usuario');
+    return null;
+  }
+};
+
 export default db;
