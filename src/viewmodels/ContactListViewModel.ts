@@ -2,16 +2,8 @@ import { makeAutoObservable, runInAction } from 'mobx';
 import Contacts from '@s77rt/react-native-contacts';
 import { Platform, PermissionsAndroid } from 'react-native';
 import { getAuth } from '@react-native-firebase/auth';
-import { 
-  getFirestore, 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  addDoc, 
-  serverTimestamp 
-} from '@react-native-firebase/firestore';
 import { Contact, ContactModel } from '../models/Contact';
+import { startChatWithContact } from '../services/firestore';
 
 export class ContactListViewModel {
   contacts: Contact[] = [];
@@ -106,75 +98,14 @@ export class ContactListViewModel {
       throw new Error('Usuario no autenticado');
     }
 
-    const db = getFirestore();
-    const usersRef = collection(db, 'users');
-    let matchingUserId: string | null = null;
-
-    if (Array.isArray(otherUser.phoneNumbers) && otherUser.phoneNumbers.length > 0) {
-      // Obtenemos los números limpios del contacto
-      const contactNumbers = otherUser.phoneNumbers.map(p => p.number.replace(/\D/g, ''));
-      
-      // Realizamos la búsqueda para cada número del contacto
-      for (const contactNumber of contactNumbers) {
-        const usersSnapshot = await getDocs(usersRef);
-        
-        const matchingUser = usersSnapshot.docs.find(doc => {
-          const dbNumber = doc.data().phoneNumber;
-          return dbNumber.endsWith(contactNumber);
-        });
-
-        if (matchingUser) {
-          matchingUserId = matchingUser.id;
-          break;
-        }
-      }
-    }
-
-    if (!matchingUserId) {
+    if (!Array.isArray(otherUser.phoneNumbers) || otherUser.phoneNumbers.length === 0) {
       return {
         chatId: '',
         otherParticipantId: null,
       };
     }
 
-    // Verificar si ya existe un chat entre estos usuarios
-    const chatsRef = collection(db, 'chats');
-    const chatsQuery = query(
-      chatsRef,
-      where('participants', 'array-contains', currentUser.uid)
-    );
-    const existingChat = await getDocs(chatsQuery);
-
-    const chat = existingChat.docs.find(doc => {
-      const data = doc.data();
-      return data.participants.includes(matchingUserId);
-    });
-
-    if (chat) {
-      return {
-        chatId: chat.id,
-        otherParticipantId: matchingUserId,
-      };
-    }
-
-    // Si no existe, crear uno nuevo
-    const newChatRef = await addDoc(collection(db, 'chats'), {
-      participants: [currentUser.uid, matchingUserId],
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      lastMessage: {
-        text: '',
-        createdAt: serverTimestamp(),
-      },
-      unreadCount: {
-        [currentUser.uid]: 0,
-        [matchingUserId]: 0
-      }
-    });
-
-    return {
-      chatId: newChatRef.id,
-      otherParticipantId: matchingUserId,
-    };
+    const contactNumbers = otherUser.phoneNumbers.map(p => p.number.replace(/\D/g, ''));
+    return startChatWithContact(currentUser.uid, contactNumbers);
   }
 } 

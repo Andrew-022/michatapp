@@ -1,4 +1,4 @@
-import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, addDoc, query, where, onSnapshot, orderBy, serverTimestamp, increment } from '@react-native-firebase/firestore';
+import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, addDoc, query, where, onSnapshot, orderBy, serverTimestamp, increment, getDocs } from '@react-native-firebase/firestore';
 import { getAuth } from '@react-native-firebase/auth';
 import { User, UserModel } from '../models/User';
 import { Chat, ChatModel } from '../models/Chat';
@@ -304,6 +304,111 @@ export const sendChatMessage = async (
     return true;
   } catch (error) {
     console.error('Error al enviar mensaje:', error);
+    throw error;
+  }
+};
+
+// Funciones específicas de ContactListViewModel
+export const findUserByPhoneNumber = async (phoneNumbers: string[]): Promise<string | null> => {
+  try {
+    const usersRef = collection(db, COLLECTIONS.USERS);
+    const usersSnapshot = await getDocs(usersRef);
+    
+    for (const contactNumber of phoneNumbers) {
+      const matchingUser = usersSnapshot.docs.find(doc => {
+        const dbNumber = doc.data().phoneNumber;
+        return dbNumber.endsWith(contactNumber);
+      });
+
+      if (matchingUser) {
+        return matchingUser.id;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('Error al buscar usuario por número:', error);
+    return null;
+  }
+};
+
+export const findExistingChat = async (currentUserId: string, otherUserId: string): Promise<string | null> => {
+  try {
+    const chatsRef = collection(db, COLLECTIONS.CHATS);
+    const chatsQuery = query(
+      chatsRef,
+      where('participants', 'array-contains', currentUserId)
+    );
+    const existingChat = await getDocs(chatsQuery);
+
+    const chat = existingChat.docs.find(doc => {
+      const data = doc.data();
+      return data.participants.includes(otherUserId);
+    });
+
+    return chat ? chat.id : null;
+  } catch (error) {
+    console.error('Error al buscar chat existente:', error);
+    return null;
+  }
+};
+
+export const createNewChat = async (currentUserId: string, otherUserId: string): Promise<string> => {
+  try {
+    const newChatRef = await addDoc(collection(db, COLLECTIONS.CHATS), {
+      participants: [currentUserId, otherUserId],
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      lastMessage: {
+        text: '',
+        createdAt: serverTimestamp(),
+      },
+      unreadCount: {
+        [currentUserId]: 0,
+        [otherUserId]: 0
+      }
+    });
+
+    return newChatRef.id;
+  } catch (error) {
+    console.error('Error al crear nuevo chat:', error);
+    throw error;
+  }
+};
+
+export const startChatWithContact = async (
+  currentUserId: string,
+  contactPhoneNumbers: string[]
+): Promise<{ chatId: string; otherParticipantId: string | null }> => {
+  try {
+    // Buscar usuario por número de teléfono
+    const matchingUserId = await findUserByPhoneNumber(contactPhoneNumbers);
+    
+    if (!matchingUserId) {
+      return {
+        chatId: '',
+        otherParticipantId: null,
+      };
+    }
+
+    // Buscar chat existente
+    const existingChatId = await findExistingChat(currentUserId, matchingUserId);
+    
+    if (existingChatId) {
+      return {
+        chatId: existingChatId,
+        otherParticipantId: matchingUserId,
+      };
+    }
+
+    // Crear nuevo chat
+    const newChatId = await createNewChat(currentUserId, matchingUserId);
+    
+    return {
+      chatId: newChatId,
+      otherParticipantId: matchingUserId,
+    };
+  } catch (error) {
+    console.error('Error al iniciar chat con contacto:', error);
     throw error;
   }
 };
