@@ -1,7 +1,6 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import { getAuth } from '@react-native-firebase/auth';
 import { Message, MessageModel } from '../models/Message';
-import { GroupChat } from '../models/GroupChat';
 import CryptoJS from 'crypto-js';
 import { 
   loadGroupInfo, 

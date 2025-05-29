@@ -84,7 +84,10 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
           onPress: async () => {
             const success = await viewModel.deleteGroup();
             if (success) {
-              navigation.goBack();
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Home' }],
+              });
             }
           },
         },

@@ -1,12 +1,9 @@
 import { makeAutoObservable, runInAction } from 'mobx';
-import Contacts from '@s77rt/react-native-contacts';
 import { Platform, PermissionsAndroid } from 'react-native';
-import { getFirestore, collection, getDocs, addDoc } from '@react-native-firebase/firestore';
 import { getAuth } from '@react-native-firebase/auth';
-import { serverTimestamp } from '@react-native-firebase/firestore';
 import Geolocation from '@react-native-community/geolocation';
 import { GOOGLE_MAPS_API_KEY } from '../config/keys';
-import { createGroup } from '../services/firestore';
+import { createGroup, loadGroupCreationContacts } from '../services/firestore';
 
 export interface GroupContact {
   recordID: string;
@@ -220,44 +217,9 @@ export class CreateGroupViewModel {
 
   async loadContacts() {
     try {
-      const contacts = await Contacts.getAll(["firstName", "lastName", "phoneNumbers"]);
-      const db = getFirestore();
-      const usersSnapshot = await getDocs(collection(db, 'users'));
-
-      const mappedContacts: GroupContact[] = contacts.map((c: any, idx: number) => {
-        let userId: string | undefined = undefined;
-
-        if (Array.isArray(c.phoneNumbers) && c.phoneNumbers.length > 0) {
-          const contactNumbers = c.phoneNumbers.map((p: any) => p.value.replace(/\D/g, ''));
-          for (const contactNumber of contactNumbers) {
-            const matchingUser = usersSnapshot.docs.find(doc => {
-              const dbNumber = doc.data().phoneNumber;
-              return dbNumber && dbNumber.endsWith(contactNumber);
-            });
-            if (matchingUser) {
-              userId = matchingUser.id;
-              break;
-            }
-          }
-        }
-
-        return {
-          recordID: c.recordID || `${c.firstName || ''}_${c.lastName || ''}_${c.phoneNumbers?.[0]?.value || idx}`,
-          firstName: c.firstName || '',
-          lastName: c.lastName || '',
-          phoneNumbers: Array.isArray(c.phoneNumbers)
-            ? c.phoneNumbers.map((p: any) => ({
-                label: p.label,
-                number: p.value,
-              }))
-            : [],
-          selected: false,
-          userId,
-        };
-      });
-
+      const contacts = await loadGroupCreationContacts(this.currentUserId);
       runInAction(() => {
-        this.contacts = mappedContacts.filter(c => c.userId);
+        this.contacts = contacts;
         this.loading = false;
       });
     } catch (error) {

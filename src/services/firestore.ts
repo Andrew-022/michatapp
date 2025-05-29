@@ -1,11 +1,14 @@
-import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, addDoc, query, where, onSnapshot, orderBy, serverTimestamp, increment, getDocs } from '@react-native-firebase/firestore';
+import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, addDoc, query, where, onSnapshot, orderBy, serverTimestamp, increment, getDocs, deleteDoc, arrayUnion, arrayRemove } from '@react-native-firebase/firestore';
 import { getAuth } from '@react-native-firebase/auth';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from '@react-native-firebase/storage';
 import { User, UserModel } from '../models/User';
 import { Chat, ChatModel } from '../models/Chat';
 import { GroupChatModel } from '../models/GroupChat';
 import CryptoJS from 'crypto-js';
 import { Platform } from 'react-native';
 import { Message, MessageModel } from '../models/Message';
+import Contacts from '@s77rt/react-native-contacts';
+import { Image } from 'react-native';
 
 // Inicializar Firestore con configuración específica
 const db = getFirestore();
@@ -587,6 +590,351 @@ export const sendGroupMessage = async (
     await updateDoc(groupRef, updates);
   } catch (error) {
     console.error('Error al enviar mensaje:', error);
+    throw error;
+  }
+};
+
+export const loadGroupDetails = async (groupId: string): Promise<{
+  name: string;
+  photoURL?: string;
+  adminIds: string[];
+  participants: string[];
+  description?: string;
+  createdAt: Date;
+  isPublic: boolean;
+  location?: {
+    latitude: number;
+    longitude: number;
+    address?: string;
+    radius?: number;
+  };
+}> => {
+  try {
+    const db = getFirestore();
+    const groupDoc = await getDoc(doc(db, COLLECTIONS.GROUP_CHATS, groupId));
+    
+    if (groupDoc.exists()) {
+      const data = groupDoc.data();
+      return {
+        ...data,
+        createdAt: data.createdAt?.toDate() || new Date(),
+      } as any;
+    }
+    throw new Error('Grupo no encontrado');
+  } catch (error) {
+    console.error('Error al cargar datos del grupo:', error);
+    throw error;
+  }
+};
+
+export const loadGroupMembers = async (participantIds: string[], adminIds: string[]): Promise<{
+  id: string;
+  name: string;
+  photoURL?: string;
+  phoneNumber: string;
+  isAdmin: boolean;
+}[]> => {
+  try {
+    const db = getFirestore();
+    const members = [];
+
+    for (const participantId of participantIds) {
+      try {
+        const userDoc = await getDoc(doc(db, COLLECTIONS.USERS, participantId));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (userData) {
+            members.push({
+              id: participantId,
+              name: userData.name || 'Usuario',
+              photoURL: userData.photoURL,
+              phoneNumber: userData.phoneNumber || 'Sin número',
+              isAdmin: adminIds.includes(participantId)
+            });
+          }
+        }
+      } catch (error) {
+        console.error(`Error al cargar información del miembro ${participantId}:`, error);
+      }
+    }
+
+    return members.sort((a, b) => {
+      if (a.isAdmin && !b.isAdmin) return -1;
+      if (!a.isAdmin && b.isAdmin) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  } catch (error) {
+    console.error('Error al cargar miembros del grupo:', error);
+    throw error;
+  }
+};
+
+export const updateGroupDescription = async (groupId: string, newDescription: string) => {
+  try {
+    const db = getFirestore();
+    const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
+    await updateDoc(groupRef, { description: newDescription });
+    return true;
+  } catch (error) {
+    console.error('Error al actualizar la descripción:', error);
+    throw error;
+  }
+};
+
+export const updateGroupName = async (groupId: string, newName: string) => {
+  try {
+    const db = getFirestore();
+    const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
+    await updateDoc(groupRef, { name: newName });
+    return true;
+  } catch (error) {
+    console.error('Error al actualizar el nombre:', error);
+    throw error;
+  }
+};
+
+export const deleteGroupChat = async (groupId: string, photoURL?: string) => {
+  try {
+    const db = getFirestore();
+    const storage = getStorage();
+    const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
+    
+    if (photoURL) {
+      try {
+        const photoRef = ref(storage, photoURL);
+        await deleteObject(photoRef);
+      } catch (error) {
+        console.error('Error al eliminar la foto del grupo:', error);
+      }
+    }
+
+    await deleteDoc(groupRef);
+    return true;
+  } catch (error) {
+    console.error('Error al eliminar el grupo:', error);
+    throw error;
+  }
+};
+
+export const addGroupMember = async (groupId: string, userId: string) => {
+  try {
+    const db = getFirestore();
+    const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
+    await updateDoc(groupRef, {
+      participants: arrayUnion(userId)
+    });
+    return true;
+  } catch (error) {
+    console.error('Error al añadir miembro:', error);
+    throw error;
+  }
+};
+
+export const removeGroupMember = async (groupId: string, userId: string) => {
+  try {
+    const db = getFirestore();
+    const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
+    await updateDoc(groupRef, {
+      participants: arrayRemove(userId)
+    });
+    return true;
+  } catch (error) {
+    console.error('Error al eliminar miembro:', error);
+    throw error;
+  }
+};
+
+export const loadGroupContacts = async (participantIds: string[]) => {
+  try {
+    const contacts = await Contacts.getAll(["firstName", "lastName", "phoneNumbers"]);
+    const db = getFirestore();
+    const usersSnapshot = await getDocs(collection(db, COLLECTIONS.USERS));
+
+    const mappedContacts = contacts.map((c: any) => {
+      let userId: string | undefined = undefined;
+
+      if (Array.isArray(c.phoneNumbers) && c.phoneNumbers.length > 0) {
+        const contactNumbers = c.phoneNumbers.map((p: any) => p.value.replace(/\D/g, ''));
+        for (const contactNumber of contactNumbers) {
+          const matchingUser = usersSnapshot.docs.find(doc => {
+            const dbNumber = doc.data().phoneNumber;
+            return dbNumber && dbNumber.endsWith(contactNumber);
+          });
+          if (matchingUser) {
+            userId = matchingUser.id;
+            break;
+          }
+        }
+      }
+
+      return {
+        id: userId,
+        name: `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Sin nombre',
+        phoneNumber: c.phoneNumbers?.[0]?.value || 'Sin número',
+      };
+    });
+
+    return mappedContacts.filter(c => c.id && !participantIds.includes(c.id));
+  } catch (error) {
+    console.error('Error al cargar contactos:', error);
+    throw error;
+  }
+};
+
+export const leaveGroupChat = async (groupId: string, userId: string) => {
+  try {
+    const db = getFirestore();
+    const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
+    await updateDoc(groupRef, {
+      participants: arrayRemove(userId)
+    });
+    return true;
+  } catch (error) {
+    console.error('Error al salir del grupo:', error);
+    throw error;
+  }
+};
+
+export const makeGroupAdmin = async (groupId: string, userId: string) => {
+  try {
+    const db = getFirestore();
+    const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
+    await updateDoc(groupRef, {
+      adminIds: arrayUnion(userId)
+    });
+    return true;
+  } catch (error) {
+    console.error('Error al hacer administrador:', error);
+    throw error;
+  }
+};
+
+export const removeGroupAdmin = async (groupId: string, userId: string) => {
+  try {
+    const db = getFirestore();
+    const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
+    await updateDoc(groupRef, {
+      adminIds: arrayRemove(userId)
+    });
+    return true;
+  } catch (error) {
+    console.error('Error al quitar administrador:', error);
+    throw error;
+  }
+};
+
+export const toggleGroupVisibility = async (groupId: string, currentVisibility: boolean) => {
+  try {
+    const db = getFirestore();
+    const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
+    await updateDoc(groupRef, {
+      isPublic: !currentVisibility
+    });
+    return true;
+  } catch (error) {
+    console.error('Error al cambiar la visibilidad:', error);
+    throw error;
+  }
+};
+
+export const updateGroupLocation = async (groupId: string, location: {
+  latitude: number;
+  longitude: number;
+  address?: string;
+}) => {
+  try {
+    const db = getFirestore();
+    const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
+    await updateDoc(groupRef, {
+      location
+    });
+    return true;
+  } catch (error) {
+    console.error('Error al actualizar la ubicación:', error);
+    throw error;
+  }
+};
+
+export const loadGroupCreationContacts = async (currentUserId: string): Promise<{
+  recordID: string;
+  firstName: string;
+  lastName: string;
+  phoneNumbers: { label: string; number: string }[];
+  selected: boolean;
+  userId?: string;
+}[]> => {
+  try {
+    const contacts = await Contacts.getAll(["firstName", "lastName", "phoneNumbers"]);
+    const db = getFirestore();
+    const usersSnapshot = await getDocs(collection(db, COLLECTIONS.USERS));
+
+    const mappedContacts = contacts.map((c: any, idx: number) => {
+      let userId: string | undefined = undefined;
+
+      if (Array.isArray(c.phoneNumbers) && c.phoneNumbers.length > 0) {
+        const contactNumbers = c.phoneNumbers.map((p: any) => p.value.replace(/\D/g, ''));
+        for (const contactNumber of contactNumbers) {
+          const matchingUser = usersSnapshot.docs.find(doc => {
+            const dbNumber = doc.data().phoneNumber;
+            return dbNumber && dbNumber.endsWith(contactNumber);
+          });
+          if (matchingUser) {
+            userId = matchingUser.id;
+            break;
+          }
+        }
+      }
+
+      return {
+        recordID: c.recordID || `${c.firstName || ''}_${c.lastName || ''}_${c.phoneNumbers?.[0]?.value || idx}`,
+        firstName: c.firstName || '',
+        lastName: c.lastName || '',
+        phoneNumbers: Array.isArray(c.phoneNumbers)
+          ? c.phoneNumbers.map((p: any) => ({
+              label: p.label,
+              number: p.value,
+            }))
+          : [],
+        selected: false,
+        userId,
+      };
+    });
+
+    return mappedContacts.filter(c => c.userId && c.userId !== currentUserId);
+  } catch (error) {
+    console.error('Error al cargar contactos:', error);
+    throw error;
+  }
+};
+
+export const uploadGroupPhoto = async (groupId: string, image: Image): Promise<string> => {
+  try {
+    const db = getFirestore();
+    const storage = getStorage();
+    
+    // Convertir la imagen a Blob
+    const response = await fetch(image.uri);
+    const blob = await response.blob();
+    
+    // Crear una referencia única para la imagen
+    const photoRef = ref(storage, `groupPhotos/${groupId}/${Date.now()}`);
+    
+    // Subir la imagen
+    await uploadBytes(photoRef, blob);
+    
+    // Obtener la URL de la imagen
+    const photoURL = await getDownloadURL(photoRef);
+    
+    // Actualizar el documento del grupo con la nueva URL de la foto
+    const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
+    await updateDoc(groupRef, {
+      photoURL,
+      updatedAt: serverTimestamp()
+    });
+    
+    return photoURL;
+  } catch (error) {
+    console.error('Error al subir la foto del grupo:', error);
     throw error;
   }
 };

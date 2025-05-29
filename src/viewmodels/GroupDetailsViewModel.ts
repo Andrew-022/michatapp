@@ -7,6 +7,22 @@ import { Alert, Platform, PermissionsAndroid } from 'react-native';
 import Contacts from '@s77rt/react-native-contacts';
 import Geolocation from '@react-native-community/geolocation';
 import { GOOGLE_MAPS_API_KEY } from '../config/keys';
+import {
+  loadGroupDetails,
+  loadGroupMembers,
+  updateGroupDescription,
+  updateGroupName,
+  deleteGroupChat,
+  addGroupMember,
+  removeGroupMember,
+  loadGroupContacts,
+  leaveGroupChat,
+  makeGroupAdmin,
+  removeGroupAdmin,
+  toggleGroupVisibility,
+  updateGroupLocation,
+  uploadGroupPhoto
+} from '../services/firestore';
 
 export interface GroupLocation {
   latitude: number;
@@ -149,19 +165,9 @@ export class GroupDetailsViewModel {
       this.setLoading(true);
       this.setError(null);
       
-      const db = getFirestore();
-      const groupDoc = await getDoc(doc(db, 'groupChats', this.groupId));
-      
-      if (groupDoc.exists()) {
-        const data = groupDoc.data();
-        this.setGroupData({
-          ...data,
-          createdAt: data.createdAt?.toDate() || new Date(),
-        } as GroupData);
-        await this.loadMembers(data.participants || []);
-      } else {
-        this.setError('Grupo no encontrado');
-      }
+      const data = await loadGroupDetails(this.groupId);
+      this.setGroupData(data);
+      await this.loadMembers(data.participants);
     } catch (error) {
       console.error('Error al cargar datos del grupo:', error);
       this.setError('Error al cargar los datos del grupo');
@@ -172,36 +178,7 @@ export class GroupDetailsViewModel {
 
   private async loadMembers(participantIds: string[]) {
     try {
-      const db = getFirestore();
-      const members: GroupMember[] = [];
-
-      for (const participantId of participantIds) {
-        try {
-          const userDoc = await getDoc(doc(db, 'users', participantId));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            if (userData) {
-              members.push({
-                id: participantId,
-                name: userData.name || 'Usuario',
-                photoURL: userData.photoURL,
-                phoneNumber: userData.phoneNumber || 'Sin número',
-                isAdmin: this.groupData?.adminIds.includes(participantId) || false
-              });
-            }
-          }
-        } catch (error) {
-          console.error(`Error al cargar información del miembro ${participantId}:`, error);
-        }
-      }
-
-      // Ordenar miembros: admins primero, luego el resto alfabéticamente
-      members.sort((a, b) => {
-        if (a.isAdmin && !b.isAdmin) return -1;
-        if (!a.isAdmin && b.isAdmin) return 1;
-        return a.name.localeCompare(b.name);
-      });
-
+      const members = await loadGroupMembers(participantIds, this.groupData?.adminIds || []);
       this.setMembers(members);
     } catch (error) {
       console.error('Error al cargar miembros del grupo:', error);
@@ -221,13 +198,8 @@ export class GroupDetailsViewModel {
 
     try {
       this.setLoading(true);
-      const db = getFirestore();
-      const groupRef = doc(db, 'groupChats', this.groupId);
+      await updateGroupDescription(this.groupId, newDescription);
       
-      await updateDoc(groupRef, {
-        description: newDescription
-      });
-
       if (this.groupData) {
         this.setGroupData({
           ...this.groupData,
@@ -258,13 +230,8 @@ export class GroupDetailsViewModel {
 
     try {
       this.setLoading(true);
-      const db = getFirestore();
-      const groupRef = doc(db, 'groupChats', this.groupId);
+      await updateGroupName(this.groupId, newName);
       
-      await updateDoc(groupRef, {
-        name: newName
-      });
-
       if (this.groupData) {
         this.setGroupData({
           ...this.groupData,
@@ -295,22 +262,7 @@ export class GroupDetailsViewModel {
 
     try {
       this.setLoading(true);
-      const db = getFirestore();
-      const groupRef = doc(db, 'groupChats', this.groupId);
-      
-      // Eliminar la foto del grupo si existe
-      if (this.groupData?.photoURL) {
-        try {
-          const photoRef = storage().refFromURL(this.groupData.photoURL);
-          await photoRef.delete();
-        } catch (error) {
-          console.error('Error al eliminar la foto del grupo:', error);
-        }
-      }
-
-      // Eliminar el documento del grupo
-      await deleteDoc(groupRef);
-      
+      await deleteGroupChat(this.groupId, this.groupData?.photoURL);
       return true;
     } catch (error) {
       console.error('Error al eliminar el grupo:', error);
@@ -346,14 +298,7 @@ export class GroupDetailsViewModel {
 
     try {
       this.setLoading(true);
-      const db = getFirestore();
-      const groupRef = doc(db, 'groupChats', this.groupId);
-      
-      await updateDoc(groupRef, {
-        participants: arrayUnion(userId)
-      });
-
-      // Recargar los datos del grupo
+      await addGroupMember(this.groupId, userId);
       await this.loadGroupData();
     } catch (error) {
       console.error('Error al añadir miembro:', error);
@@ -388,14 +333,7 @@ export class GroupDetailsViewModel {
 
     try {
       this.setLoading(true);
-      const db = getFirestore();
-      const groupRef = doc(db, 'groupChats', this.groupId);
-      
-      await updateDoc(groupRef, {
-        participants: arrayRemove(userId)
-      });
-
-      // Recargar los datos del grupo
+      await removeGroupMember(this.groupId, userId);
       await this.loadGroupData();
     } catch (error) {
       console.error('Error al eliminar miembro:', error);
@@ -411,35 +349,7 @@ export class GroupDetailsViewModel {
 
   async loadContacts() {
     try {
-      const contacts = await Contacts.getAll(["firstName", "lastName", "phoneNumbers"]);
-      const db = getFirestore();
-      const usersSnapshot = await getDocs(collection(db, 'users'));
-
-      const mappedContacts = contacts.map((c: any) => {
-        let userId: string | undefined = undefined;
-
-        if (Array.isArray(c.phoneNumbers) && c.phoneNumbers.length > 0) {
-          const contactNumbers = c.phoneNumbers.map((p: any) => p.value.replace(/\D/g, ''));
-          for (const contactNumber of contactNumbers) {
-            const matchingUser = usersSnapshot.docs.find(doc => {
-              const dbNumber = doc.data().phoneNumber;
-              return dbNumber && dbNumber.endsWith(contactNumber);
-            });
-            if (matchingUser) {
-              userId = matchingUser.id;
-              break;
-            }
-          }
-        }
-
-        return {
-          id: userId,
-          name: `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Sin nombre',
-          phoneNumber: c.phoneNumbers?.[0]?.value || 'Sin número',
-        };
-      });
-
-      return mappedContacts.filter(c => c.id && !this.groupData?.participants.includes(c.id));
+      return await loadGroupContacts(this.groupData?.participants || []);
     } catch (error) {
       console.error('Error al cargar contactos:', error);
       return [];
@@ -462,13 +372,7 @@ export class GroupDetailsViewModel {
 
     try {
       this.setLoading(true);
-      const db = getFirestore();
-      const groupRef = doc(db, 'groupChats', this.groupId);
-      
-      await updateDoc(groupRef, {
-        participants: arrayRemove(currentUser.uid)
-      });
-      
+      await leaveGroupChat(this.groupId, currentUser.uid);
       return true;
     } catch (error) {
       console.error('Error al salir del grupo:', error);
@@ -504,14 +408,7 @@ export class GroupDetailsViewModel {
 
     try {
       this.setLoading(true);
-      const db = getFirestore();
-      const groupRef = doc(db, 'groupChats', this.groupId);
-      
-      await updateDoc(groupRef, {
-        adminIds: arrayUnion(userId)
-      });
-
-      // Recargar los datos del grupo
+      await makeGroupAdmin(this.groupId, userId);
       await this.loadGroupData();
     } catch (error) {
       console.error('Error al hacer administrador:', error);
@@ -546,14 +443,7 @@ export class GroupDetailsViewModel {
 
     try {
       this.setLoading(true);
-      const db = getFirestore();
-      const groupRef = doc(db, 'groupChats', this.groupId);
-      
-      await updateDoc(groupRef, {
-        adminIds: arrayRemove(userId)
-      });
-
-      // Recargar los datos del grupo
+      await removeGroupAdmin(this.groupId, userId);
       await this.loadGroupData();
     } catch (error) {
       console.error('Error al quitar administrador:', error);
@@ -579,18 +469,12 @@ export class GroupDetailsViewModel {
 
     try {
       this.setLoading(true);
-      const db = getFirestore();
-      const groupRef = doc(db, 'groupChats', this.groupId);
+      await toggleGroupVisibility(this.groupId, this.groupData?.isPublic || false);
       
-      const newVisibility = !this.groupData?.isPublic;
-      await updateDoc(groupRef, {
-        isPublic: newVisibility
-      });
-
       if (this.groupData) {
         this.setGroupData({
           ...this.groupData,
-          isPublic: newVisibility
+          isPublic: !this.groupData.isPublic
         });
       }
     } catch (error) {
@@ -703,20 +587,10 @@ export class GroupDetailsViewModel {
         throw new Error('No se pudo obtener la ubicación actual');
       }
 
-      // Obtener la dirección a partir de las coordenadas
       const address = await this.getAddressFromCoordinates(location.latitude, location.longitude);
-      
-      const locationWithAddress = {
-        ...location,
-        address
-      };
+      const locationWithAddress = { ...location, address };
 
-      const db = getFirestore();
-      const groupRef = doc(db, 'groupChats', this.groupId);
-      
-      await updateDoc(groupRef, {
-        location: locationWithAddress
-      });
+      await updateGroupLocation(this.groupId, locationWithAddress);
 
       if (this.groupData) {
         this.setGroupData({
