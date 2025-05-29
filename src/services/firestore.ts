@@ -1015,4 +1015,82 @@ const toRad = (value: number): number => {
   return value * Math.PI / 180;
 };
 
+export const loadUserProfile = async (userId: string) => {
+  try {
+    const db = getFirestore();
+    const userDocRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userDocRef);
+    const userData = userDoc.data();
+    
+    return {
+      id: userId,
+      phoneNumber: userData?.phoneNumber || '',
+      name: userData?.name || 'Usuario',
+      photoURL: userData?.photoURL,
+      lastLogin: new Date(),
+      status: userData?.status || '¡Hola! Estoy usando MichatApp',
+    };
+  } catch (error) {
+    console.error('Error loading user data:', error);
+    throw error;
+  }
+};
+
+export const updateUserName = async (userId: string, newName: string) => {
+  try {
+    const db = getFirestore();
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
+      name: newName,
+    });
+    return true;
+  } catch (error) {
+    console.error('Error updating name:', error);
+    throw error;
+  }
+};
+
+export const updateUserStatus = async (userId: string, newStatus: string) => {
+  try {
+    const db = getFirestore();
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
+      status: newStatus,
+    });
+    return true;
+  } catch (error) {
+    console.error('Error updating status:', error);
+    throw error;
+  }
+};
+
+export const uploadUserPhoto = async (userId: string, image: Image): Promise<string> => {
+  try {
+    const storage = getStorage();
+    const reference = ref(storage, `profile_photos/${userId}`);
+    
+    // Convertir la URI a Blob
+    const response = await fetch(image.path);
+    const blob = await response.blob();
+
+    // Subir el archivo
+    await uploadBytes(reference, blob);
+    
+    // Obtener la URL de descarga
+    const downloadURL = await getDownloadURL(reference);
+
+    // Actualizar Firestore
+    const db = getFirestore();
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
+      photoURL: downloadURL,
+    });
+
+    return downloadURL;
+  } catch (error) {
+    console.error('Error uploading photo:', error);
+    throw error;
+  }
+};
+
 export default db;

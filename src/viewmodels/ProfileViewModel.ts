@@ -1,10 +1,9 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import { User } from '../models/User';
 import { getAuth } from '@react-native-firebase/auth';
-import { getFirestore, doc, getDoc, updateDoc } from '@react-native-firebase/firestore';
-import storage from '@react-native-firebase/storage';
 import { Platform } from 'react-native';
 import ImagePicker, { Image } from 'react-native-image-crop-picker';
+import { loadUserProfile, updateUserName, updateUserStatus, uploadUserPhoto } from '../services/firestore';
 
 export class ProfileViewModel {
   userData: User | null = null;
@@ -21,20 +20,10 @@ export class ProfileViewModel {
       const auth = getAuth();
       const currentUser = auth.currentUser;
       if (currentUser) {
-        const db = getFirestore();
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        const userDoc = await getDoc(userDocRef);
-        const userData = userDoc.data();
+        const userData = await loadUserProfile(currentUser.uid);
         
         runInAction(() => {
-          this.userData = {
-            id: currentUser.uid,
-            phoneNumber: currentUser.phoneNumber || '',
-            name: userData?.name || 'Usuario',
-            photoURL: userData?.photoURL,
-            lastLogin: new Date(),
-            status: userData?.status || '¡Hola! Estoy usando MichatApp',
-          };
+          this.userData = userData;
           this.loading = false;
         });
       }
@@ -51,11 +40,7 @@ export class ProfileViewModel {
       const auth = getAuth();
       const currentUser = auth.currentUser;
       if (currentUser) {
-        const db = getFirestore();
-        const userRef = doc(db, 'users', currentUser.uid);
-        await updateDoc(userRef, {
-          name: newName,
-        });
+        await updateUserName(currentUser.uid, newName);
         
         runInAction(() => {
           if (this.userData) {
@@ -74,11 +59,7 @@ export class ProfileViewModel {
       const auth = getAuth();
       const currentUser = auth.currentUser;
       if (currentUser) {
-        const db = getFirestore();
-        const userRef = doc(db, 'users', currentUser.uid);
-        await updateDoc(userRef, {
-          status: newStatus,
-        });
+        await updateUserStatus(currentUser.uid, newStatus);
         
         runInAction(() => {
           if (this.userData) {
@@ -126,24 +107,7 @@ export class ProfileViewModel {
         this.uploadingPhoto = true;
       });
 
-      const reference = storage().ref(`profile_photos/${currentUser.uid}`);
-      
-      // Convertir la URI a Blob
-      const response = await fetch(image.path);
-      const blob = await response.blob();
-
-      // Subir el archivo
-      await reference.put(blob);
-      
-      // Obtener la URL de descarga
-      const downloadURL = await reference.getDownloadURL();
-
-      // Actualizar Firestore
-      const db = getFirestore();
-      const userRef = doc(db, 'users', currentUser.uid);
-      await updateDoc(userRef, {
-        photoURL: downloadURL,
-      });
+      const downloadURL = await uploadUserPhoto(currentUser.uid, image);
 
       runInAction(() => {
         if (this.userData) {
