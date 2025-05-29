@@ -140,7 +140,7 @@ export class AuthViewModel {
 
       // Crear usuario si no existe
       await this.createUserIfNotExists(currentUser);
-
+      
       // Limpiar el estado de confirmación
       runInAction(() => {
         this.confirmation = null;

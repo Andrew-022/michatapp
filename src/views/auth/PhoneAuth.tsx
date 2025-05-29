@@ -32,10 +32,7 @@ const PhoneAuth = observer(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       console.log('Auth state changed:', user?.uid);
-      // Solo redirigimos si hay usuario y no estamos en proceso de confirmación
-      if (user && !viewModel.confirmation) {
-        navigation.replace('Home');
-      }
+      // Eliminamos la redirección automática
     });
 
     return () => unsubscribe();
@@ -50,8 +47,6 @@ const PhoneAuth = observer(() => {
     try {
       const result = await viewModel.confirmCode();
       if (result.success) {
-        // Esperamos un momento para asegurarnos de que se complete la creación del usuario
-        await new Promise(resolve => setTimeout(resolve, 2000));
         Alert.alert('Éxito', result.message);
         navigation.replace('Home');
       } else {

@@ -9,8 +9,11 @@ import {
   resetChatUnreadCount,
   subscribeToChatMessages,
   sendChatMessage,
-  decryptMessage
+  decryptMessage,
+  getUserFCMToken
 } from '../services/firestore';
+import messaging from '@react-native-firebase/messaging';
+import { sendPushNotification } from '../services/notifications';
 
 export class ChatViewModel {
   messages: Message[] = [];
@@ -104,6 +107,21 @@ export class ChatViewModel {
         currentUser.uid,
         this.otherParticipantId
       );
+
+      const recipientToken = await getUserFCMToken(this.otherParticipantId);
+      
+      if (recipientToken) {
+        await sendPushNotification(
+          recipientToken,
+          this.otherParticipantName || 'Nuevo mensaje',
+          messageToSend,
+          {
+            chatId: this.chatId,
+            senderId: currentUser.uid,
+            type: 'chat_message'
+          }
+        );
+      }
     } catch (error) {
       console.error('Error al enviar mensaje:', error);
     }

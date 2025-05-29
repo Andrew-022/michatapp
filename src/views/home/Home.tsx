@@ -10,6 +10,8 @@ import {
   Animated,
   Alert,
   Image,
+  Platform,
+  PermissionsAndroid,
 } from 'react-native';
 import { getAuth, onAuthStateChanged } from '@react-native-firebase/auth';
 import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
@@ -24,6 +26,8 @@ import CryptoJS from 'crypto-js';
 import { globalStyles } from '../../styles/globalStyles';
 import { useTheme } from '../../context/ThemeContext';
 import { lightTheme, darkTheme } from '../../constants/theme';
+import messaging from '@react-native-firebase/messaging';
+import { saveUserFCMToken } from '../../services/firestore';
 
 type HomeNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -113,6 +117,50 @@ const Home = observer(() => {
     }).start();
   };
 
+  const requestNotificationPermission = async () => {
+    try {
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+          {
+            title: 'Permiso de Notificaciones',
+            message: 'La aplicación necesita acceso a las notificaciones para mantenerte informado de nuevos mensajes.',
+            buttonNeutral: 'Preguntar más tarde',
+            buttonNegative: 'Cancelar',
+            buttonPositive: 'OK',
+          }
+        );
+        
+        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+          console.log('Permiso de notificaciones concedido');
+          // Obtener y guardar el token FCM
+          const token = await messaging().getToken();
+          const auth = getAuth();
+          const currentUser = auth.currentUser;
+          if (currentUser) {
+            await saveUserFCMToken(currentUser.uid, token);
+          }
+        }
+      } else {
+        const authStatus = await messaging().requestPermission();
+        const enabled =
+          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+        if (enabled) {
+          const token = await messaging().getToken();
+          const auth = getAuth();
+          const currentUser = auth.currentUser;
+          if (currentUser) {
+            await saveUserFCMToken(currentUser.uid, token);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error al solicitar permiso de notificaciones:', error);
+    }
+  };
+
   useEffect(() => {
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -120,6 +168,9 @@ const Home = observer(() => {
         navigation.replace('PhoneAuth');
       }
     });
+
+    // Solicitar permiso de notificaciones cuando se carga el componente
+    requestNotificationPermission();
 
     return () => unsubscribe();
   }, [navigation]);

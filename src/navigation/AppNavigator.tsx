@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { getAuth, onAuthStateChanged } from '@react-native-firebase/auth';
 import Home from '../views/home/Home';
 import ChatScreen from '../views/chat/ChatScreen';
 import PhoneAuth from '../views/auth/PhoneAuth';
@@ -48,10 +49,27 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const AppNavigator = () => {
+  const [initializing, setInitializing] = useState(true);
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      if (initializing) setInitializing(false);
+    });
+
+    return unsubscribe;
+  }, [initializing]);
+
+  if (initializing) {
+    return null; // O un componente de carga si lo prefieres
+  }
+
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName="PhoneAuth"
+        initialRouteName={user ? "Home" : "PhoneAuth"}
         screenOptions={{
           headerShown: false,
         }}>
