@@ -1133,4 +1133,32 @@ export const subscribeToUserProfile = (
   }
 };
 
+export const getUserFCMToken = async (userId: string): Promise<string | null> => {
+  try {
+    const db = getFirestore();
+    const userDocRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userDocRef);
+
+    if (userDoc.exists()) {
+      return userDoc.data()?.fcmToken || null;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error al obtener token FCM:', error);
+    return null;
+  }
+};
+
+export const saveUserFCMToken = async (userId: string, token: string): Promise<void> => {
+  try {
+    const db = getFirestore();
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
+      fcmToken: token,
+    });
+  } catch (error) {
+    console.error('Error al guardar token FCM:', error);
+  }
+};
+
 export default db;

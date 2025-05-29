@@ -10,8 +10,11 @@ import {
   subscribeToGroupChats,
   decryptMessage,
   markMessagesAsRead,
-  incrementUnreadCount
+  incrementUnreadCount,
+  saveUserFCMToken
 } from '../services/firestore';
+import { Platform, PermissionsAndroid } from 'react-native';
+import { getMessaging, getToken } from '@react-native-firebase/messaging';
 
 export class HomeViewModel {
   userData: User | null = null;
@@ -206,6 +209,54 @@ export class HomeViewModel {
     } catch (error) {
       console.error('Error al formatear fecha:', error);
       return '';
+    }
+  }
+
+  async requestNotificationPermission(): Promise<void> {
+    try {
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+          {
+            title: 'Permiso de Notificaciones',
+            message: 'La aplicación necesita acceso a las notificaciones para mantenerte informado de nuevos mensajes.',
+            buttonNeutral: 'Preguntar más tarde',
+            buttonNegative: 'Cancelar',
+            buttonPositive: 'OK',
+          }
+        );
+        
+        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+          console.log('Permiso de notificaciones concedido');
+          await this.saveFCMToken();
+        }
+      } else {
+        const messaging = getMessaging();
+        const authStatus = await messaging.requestPermission();
+        const enabled =
+          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+        if (enabled) {
+          await this.saveFCMToken();
+        }
+      }
+    } catch (error) {
+      console.error('Error al solicitar permiso de notificaciones:', error);
+    }
+  }
+
+  private async saveFCMToken(): Promise<void> {
+    try {
+      const messaging = getMessaging();
+      const token = await getToken(messaging);
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        await saveUserFCMToken(currentUser.uid, token);
+      }
+    } catch (error) {
+      console.error('Error al guardar token FCM:', error);
     }
   }
 } 

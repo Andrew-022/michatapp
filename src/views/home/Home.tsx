@@ -10,6 +10,8 @@ import {
   Animated,
   Alert,
   Image,
+  Platform,
+  PermissionsAndroid,
 } from 'react-native';
 import { getAuth, onAuthStateChanged } from '@react-native-firebase/auth';
 import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
@@ -24,6 +26,8 @@ import CryptoJS from 'crypto-js';
 import { globalStyles } from '../../styles/globalStyles';
 import { useTheme } from '../../context/ThemeContext';
 import { lightTheme, darkTheme } from '../../constants/theme';
+import { getMessaging, getToken } from '@react-native-firebase/messaging';
+import { saveUserFCMToken } from '../../services/firestore';
 
 type HomeNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -120,6 +124,9 @@ const Home = observer(() => {
         navigation.replace('PhoneAuth');
       }
     });
+
+    // Solicitar permiso de notificaciones cuando se carga el componente
+    viewModel.requestNotificationPermission();
 
     return () => unsubscribe();
   }, [navigation]);

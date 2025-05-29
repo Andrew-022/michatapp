@@ -10,6 +10,13 @@ import {SafeAreaView, StatusBar, StyleSheet, Platform} from 'react-native';
 import AppNavigator from './src/navigation/AppNavigator';
 import {ThemeProvider, useTheme} from './src/context/ThemeContext';
 import {lightTheme, darkTheme} from './src/constants/theme';
+import { getMessaging } from '@react-native-firebase/messaging';
+
+// Configurar el manejador de mensajes en segundo plano
+getMessaging().setBackgroundMessageHandler(async remoteMessage => {
+  console.log('Mensaje recibido en segundo plano:', remoteMessage);
+  // Aquí puedes manejar la notificación como necesites
+});
 
 function AppContent(): React.JSX.Element {
   const {isDark} = useTheme();
