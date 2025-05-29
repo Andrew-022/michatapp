@@ -26,7 +26,7 @@ const UserProfileScreen = observer(() => {
   const {userId} = route.params as {userId: string};
   const viewModel = React.useMemo(() => new UserProfileViewModel(userId), [userId]);
   const [isPhotoExpanded, setIsPhotoExpanded] = useState(false);
-  const { isDark } = useTheme();
+  const { isDark, primaryColor } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
 
   useEffect(() => {
@@ -38,7 +38,7 @@ const UserProfileScreen = observer(() => {
   if (viewModel.loading) {
     return (
       <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
-        <ActivityIndicator size="large" color={currentTheme.primary} />
+        <ActivityIndicator size="large" color={primaryColor} />
       </View>
     );
   }
@@ -62,7 +62,7 @@ const UserProfileScreen = observer(() => {
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color={currentTheme.primary} />
+          <Icon name="arrow-back" size={24} color={primaryColor} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: currentTheme.text }]}>Perfil</Text>
       </View>
@@ -72,7 +72,7 @@ const UserProfileScreen = observer(() => {
           {viewModel.userData.photoURL ? (
             <Image source={{uri: viewModel.userData.photoURL}} style={styles.avatar} />
           ) : (
-            <View style={[styles.avatarPlaceholder, { backgroundColor: currentTheme.primary }]}>
+            <View style={[styles.avatarPlaceholder, { backgroundColor: primaryColor }]}>
               <Text style={[styles.avatarText, { color: currentTheme.background }]}>
                 {viewModel.userData.name.charAt(0).toUpperCase()}
               </Text>
@@ -114,7 +114,7 @@ const UserProfileScreen = observer(() => {
               resizeMode="contain"
             />
           ) : (
-            <View style={[styles.expandedAvatarPlaceholder, { backgroundColor: currentTheme.primary }]}>
+            <View style={[styles.expandedAvatarPlaceholder, { backgroundColor: primaryColor }]}>
               <Text style={[styles.expandedAvatarText, { color: currentTheme.background }]}>
                 {viewModel.userData.name.charAt(0).toUpperCase()}
               </Text>

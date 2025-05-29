@@ -26,7 +26,7 @@ const AddMembersScreen = observer(() => {
   const [loading, setLoading] = useState(false);
   const [contacts, setContacts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { isDark } = useTheme();
+  const { isDark, primaryColor } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
 
   React.useEffect(() => {
@@ -85,7 +85,7 @@ const AddMembersScreen = observer(() => {
         borderBottomColor: currentTheme.border 
       }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color={currentTheme.primary} />
+          <Icon name="arrow-back" size={24} color={primaryColor} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: currentTheme.text }]}>Añadir Miembros</Text>
         <View style={{ width: 24 }} />
@@ -116,12 +116,12 @@ const AddMembersScreen = observer(() => {
                   borderBottomColor: currentTheme.border 
                 },
                 selectedContacts.has(item.id) && { 
-                  backgroundColor: currentTheme.primary + '20' 
+                  backgroundColor: primaryColor + '20' 
                 }
               ]}
               onPress={() => toggleContactSelection(item.id)}
             >
-              <View style={[styles.avatarContainer, { backgroundColor: currentTheme.primary }]}>
+              <View style={[styles.avatarContainer, { backgroundColor: primaryColor }]}>
                 <Text style={[styles.avatarText, { color: currentTheme.background }]}>
                   {item.name.charAt(0).toUpperCase()}
                 </Text>
@@ -135,13 +135,13 @@ const AddMembersScreen = observer(() => {
                 </Text>
               </View>
               {selectedContacts.has(item.id) && (
-                <Text style={[styles.selectedMark, { color: currentTheme.primary }]}>✓</Text>
+                <Text style={[styles.selectedMark, { color: primaryColor }]}>✓</Text>
               )}
             </TouchableOpacity>
           )}
           ListEmptyComponent={
             isLoading ? (
-              <ActivityIndicator size="large" color={currentTheme.primary} />
+              <ActivityIndicator size="large" color={primaryColor} />
             ) : (
               <Text style={[styles.emptyText, { color: currentTheme.secondary }]}>
                 No hay contactos disponibles
@@ -154,7 +154,7 @@ const AddMembersScreen = observer(() => {
         <TouchableOpacity
           style={[
             styles.addButton,
-            { backgroundColor: currentTheme.primary },
+            { backgroundColor: primaryColor },
             selectedContacts.size === 0 && { backgroundColor: currentTheme.border }
           ]}
           onPress={handleAddMembers}

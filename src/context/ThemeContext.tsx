@@ -5,6 +5,9 @@ import SettingsViewModel from '../viewmodels/SettingsViewModel';
 
 type Theme = 'light' | 'dark' | 'system';
 
+const DEFAULT_PRIMARY_COLOR = '#007AFF';
+const DEFAULT_SECONDARY_COLOR = '#007AFF';
+
 interface ThemeContextType {
   theme: Theme;
   isDark: boolean;
@@ -12,6 +15,8 @@ interface ThemeContextType {
   currentTheme: typeof lightTheme;
   secondaryColor: string;
   setSecondaryColor: (color: string) => void;
+  primaryColor: string;
+  setPrimaryColor: (color: string) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -20,7 +25,8 @@ export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({children})
   const systemColorScheme = useColorScheme();
   const [theme, setThemeState] = useState<Theme>('system');
   const [isDark, setIsDark] = useState(false);
-  const [secondaryColor, setSecondaryColorState] = useState('#007AFF');
+  const [secondaryColor, setSecondaryColorState] = useState(DEFAULT_SECONDARY_COLOR);
+  const [primaryColor, setPrimaryColorState] = useState(DEFAULT_PRIMARY_COLOR);
   const settingsViewModel = SettingsViewModel.getInstance();
 
   useEffect(() => {
@@ -32,7 +38,8 @@ export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({children})
       } else {
         setIsDark(systemColorScheme === 'dark');
       }
-      setSecondaryColorState(settings.secondaryColor);
+      setSecondaryColorState(settings.secondaryColor || DEFAULT_SECONDARY_COLOR);
+      setPrimaryColorState(settings.primaryColor || DEFAULT_PRIMARY_COLOR);
     };
     loadSettings();
   }, []);
@@ -48,15 +55,23 @@ export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({children})
     await settingsViewModel.saveAllSettings({
       theme: newTheme,
       isDark: newIsDark,
-      secondaryColor,
+      secondaryColor: secondaryColor || DEFAULT_SECONDARY_COLOR,
+      primaryColor: primaryColor || DEFAULT_PRIMARY_COLOR,
     });
     setThemeState(newTheme);
     setIsDark(newIsDark);
   };
 
   const setSecondaryColor = async (color: string) => {
-    setSecondaryColorState(color);
-    await settingsViewModel.saveSecondaryColor(color);
+    const newColor = color || DEFAULT_SECONDARY_COLOR;
+    setSecondaryColorState(newColor);
+    await settingsViewModel.saveSecondaryColor(newColor);
+  };
+
+  const setPrimaryColor = async (color: string) => {
+    const newColor = color || DEFAULT_PRIMARY_COLOR;
+    setPrimaryColorState(newColor);
+    await settingsViewModel.savePrimaryColor(newColor);
   };
 
   const currentTheme = isDark ? darkTheme : lightTheme;
@@ -68,8 +83,10 @@ export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({children})
         isDark,
         setTheme,
         currentTheme,
-        secondaryColor,
+        secondaryColor: secondaryColor || DEFAULT_SECONDARY_COLOR,
         setSecondaryColor,
+        primaryColor: primaryColor || DEFAULT_PRIMARY_COLOR,
+        setPrimaryColor,
       }}>
       {children}
     </ThemeContext.Provider>

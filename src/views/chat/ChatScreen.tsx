@@ -84,7 +84,7 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
   if (viewModel.loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: currentTheme.background }]}>
-        <ActivityIndicator size="large" color={currentTheme.primary} />
+        <ActivityIndicator size="large" color={primaryColor} />
       </View>
     );
   }
@@ -102,7 +102,7 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color={currentTheme.primary} />
+          <Icon name="arrow-back" size={24} color={primaryColor} />
         </TouchableOpacity>
         <View style={styles.headerContent}>
           {viewModel.otherParticipantPhoto ? (
@@ -111,7 +111,7 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
               style={styles.headerPhoto}
             />
           ) : (
-            <View style={[styles.headerPhotoPlaceholder, { backgroundColor: currentTheme.primary }]}>
+            <View style={[styles.headerPhotoPlaceholder, { backgroundColor: primaryColor }]}>
               <Text style={[styles.headerPhotoText, { color: currentTheme.background }]}>
                 {viewModel.otherParticipantName?.charAt(0).toUpperCase() || '?'}
               </Text>

@@ -34,7 +34,7 @@ const CreateGroupScreen = observer(() => {
   const viewModel = React.useMemo(() => new CreateGroupViewModel(), []);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
-  const { isDark } = useTheme();
+  const { isDark, primaryColor } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
   const mapRef = React.useRef<MapView>(null);
 
@@ -74,7 +74,7 @@ const CreateGroupScreen = observer(() => {
         borderBottomColor: currentTheme.border 
       }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color={currentTheme.primary} />
+          <Icon name="arrow-back" size={24} color={primaryColor} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: currentTheme.text }]}>Crear Grupo</Text>
         <View style={{ width: 24 }} />
@@ -115,7 +115,7 @@ const CreateGroupScreen = observer(() => {
           <TouchableOpacity
             style={[
               styles.locationButton, 
-              { backgroundColor: currentTheme.primary },
+              { backgroundColor: primaryColor },
               locationLoading && styles.locationButtonDisabled
             ]}
             onPress={handleSelectLocation}
@@ -146,7 +146,7 @@ const CreateGroupScreen = observer(() => {
               showsMyLocationButton={true}
               showsCompass={true}
               loadingEnabled={true}
-              loadingIndicatorColor={currentTheme.primary}
+              loadingIndicatorColor={primaryColor}
               loadingBackgroundColor={currentTheme.background}
               onMapReady={() => {
                 if (viewModel.location) {
@@ -162,8 +162,8 @@ const CreateGroupScreen = observer(() => {
                     longitude: viewModel.location.longitude,
                   }}
                   radius={100}
-                  strokeColor={currentTheme.primary}
-                  fillColor={`${currentTheme.primary}33`}
+                  strokeColor={primaryColor}
+                  fillColor={`${primaryColor}33`}
                   strokeWidth={2}
                 />
               )}
@@ -179,7 +179,7 @@ const CreateGroupScreen = observer(() => {
           <TouchableOpacity
             style={[
               styles.nextButton,
-              { backgroundColor: currentTheme.primary },
+              { backgroundColor: primaryColor },
               (!viewModel.groupName.trim() || !viewModel.location) && 
                 { backgroundColor: currentTheme.border }
             ]}

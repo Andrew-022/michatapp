@@ -25,7 +25,7 @@ type PhoneAuthNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Ph
 const PhoneAuth = observer(() => {
   const navigation = useNavigation<PhoneAuthNavigationProp>();
   const viewModel = React.useMemo(() => new AuthViewModel(), []);
-  const { isDark } = useTheme();
+  const { isDark, primaryColor } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
 
   useEffect(() => {
@@ -76,7 +76,7 @@ const PhoneAuth = observer(() => {
   if (viewModel.loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: currentTheme.background }]}>
-        <ActivityIndicator size="large" color={currentTheme.primary} />
+        <ActivityIndicator size="large" color={primaryColor} />
       </View>
     );
   }
@@ -123,7 +123,7 @@ const PhoneAuth = observer(() => {
           <TouchableOpacity
             style={[
               styles.button,
-              { backgroundColor: currentTheme.primary },
+              { backgroundColor: primaryColor },
               viewModel.loading && { backgroundColor: currentTheme.border }
             ]}
             onPress={handleSignIn}
@@ -155,7 +155,7 @@ const PhoneAuth = observer(() => {
           <TouchableOpacity
             style={[
               styles.button,
-              { backgroundColor: currentTheme.primary },
+              { backgroundColor: primaryColor },
               viewModel.loading && { backgroundColor: currentTheme.border }
             ]}
             onPress={handleConfirmCode}
@@ -208,7 +208,7 @@ const PhoneAuth = observer(() => {
               ))}
             </ScrollView>
             <TouchableOpacity
-              style={[styles.closeButton, { backgroundColor: currentTheme.primary }]}
+              style={[styles.closeButton, { backgroundColor: primaryColor }]}
               onPress={() => viewModel.setShowCountryList(false)}>
               <Text style={[styles.closeButtonText, { color: currentTheme.background }]}>
                 Cerrar

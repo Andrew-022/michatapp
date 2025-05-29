@@ -46,7 +46,7 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [isPhotoExpanded, setIsPhotoExpanded] = useState(false);
-  const { isDark } = useTheme();
+  const { isDark, primaryColor } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
 
   useFocusEffect(
@@ -196,7 +196,7 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
       {item.photoURL ? (
         <Image source={{uri: item.photoURL}} style={styles.memberPhoto} />
       ) : (
-        <View style={[styles.memberPhotoPlaceholder, { backgroundColor: currentTheme.primary }]}>
+        <View style={[styles.memberPhotoPlaceholder, { backgroundColor: primaryColor }]}>
           <Text style={[styles.memberPhotoText, { color: currentTheme.background }]}>
             {item.name.charAt(0).toUpperCase()}
           </Text>
@@ -206,7 +206,7 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
         <View style={styles.memberNameContainer}>
           <Text style={[styles.memberName, { color: currentTheme.text }]}>{item.name}</Text>
           {item.isAdmin && (
-            <View style={[styles.adminBadge, { backgroundColor: currentTheme.primary }]}>
+            <View style={[styles.adminBadge, { backgroundColor: primaryColor }]}>
               <Text style={[styles.adminText, { color: currentTheme.background }]}>Admin</Text>
             </View>
           )}
@@ -226,7 +226,7 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
   if (viewModel.loading) {
     return (
       <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
-        <ActivityIndicator size="large" color={currentTheme.primary} />
+        <ActivityIndicator size="large" color={primaryColor} />
       </View>
     );
   }
@@ -250,7 +250,7 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={currentTheme.primary} />
+          <Ionicons name="arrow-back" size={24} color={primaryColor} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: currentTheme.text }]}>Detalles del Grupo</Text>
       </View>
@@ -267,7 +267,7 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
                 style={styles.groupPhoto}
               />
             ) : (
-              <View style={[styles.groupPhotoPlaceholder, { backgroundColor: currentTheme.primary }]}>
+              <View style={[styles.groupPhotoPlaceholder, { backgroundColor: primaryColor }]}>
                 <Text style={[styles.groupPhotoText, { color: currentTheme.background }]}>
                   {viewModel.groupData.name.charAt(0).toUpperCase()}
                 </Text>
@@ -301,7 +301,7 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
                   <Text style={[styles.editButtonText, { color: currentTheme.text }]}>Cancelar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.editButton, styles.saveButton, { backgroundColor: currentTheme.primary }]}
+                  style={[styles.editButton, styles.saveButton, { backgroundColor: primaryColor }]}
                   onPress={handleSaveName}>
                   <Text style={[styles.editButtonText, { color: currentTheme.background }]}>Guardar</Text>
                 </TouchableOpacity>
@@ -318,7 +318,7 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
               }}>
               <Text style={[styles.groupName, { color: currentTheme.text }]}>{viewModel.groupData.name}</Text>
               {viewModel.isAdmin && (
-                <MaterialIcons name="edit" size={16} color={currentTheme.primary} style={styles.editIcon} />
+                <MaterialIcons name="edit" size={16} color={primaryColor} style={styles.editIcon} />
               )}
             </TouchableOpacity>
           )}
@@ -350,7 +350,7 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
                       <Text style={[styles.editButtonText, { color: currentTheme.text }]}>Cancelar</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      style={[styles.editButton, styles.saveButton, { backgroundColor: currentTheme.primary }]}
+                      style={[styles.editButton, styles.saveButton, { backgroundColor: primaryColor }]}
                       onPress={handleSaveDescription}>
                       <Text style={[styles.editButtonText, { color: currentTheme.background }]}>Guardar</Text>
                     </TouchableOpacity>
@@ -369,7 +369,7 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
                     {viewModel.groupData.description || 'Sin descripción'}
                   </Text>
                   {viewModel.isAdmin && (
-                    <MaterialIcons name="edit" size={16} color={currentTheme.primary} style={styles.editIcon} />
+                    <MaterialIcons name="edit" size={16} color={primaryColor} style={styles.editIcon} />
                   )}
                 </TouchableOpacity>
               )}
@@ -390,7 +390,7 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
                   <MaterialIcons 
                     name={viewModel.groupData.isPublic ? "public" : "lock"} 
                     size={20} 
-                    color={currentTheme.primary} 
+                    color={primaryColor} 
                   />
                 </TouchableOpacity>
               ) : (
@@ -425,7 +425,7 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
                       Añadir ubicación
                     </Text>
                   )}
-                  <MaterialIcons name="edit-location" size={20} color={currentTheme.primary} />
+                  <MaterialIcons name="edit-location" size={20} color={primaryColor} />
                 </TouchableOpacity>
               ) : (
                 <View style={styles.locationInfo}>
@@ -460,7 +460,7 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
               <TouchableOpacity
                 style={styles.addMemberButton}
                 onPress={handleAddMember}>
-                <MaterialIcons name="person-add" size={24} color={currentTheme.primary} />
+                <MaterialIcons name="person-add" size={24} color={primaryColor} />
               </TouchableOpacity>
             )}
           </View>
@@ -520,15 +520,15 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
                 style={[styles.expandedEditPhotoButton, { 
                   backgroundColor: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.7)',
                   borderWidth: 1,
-                  borderColor: isDark ? currentTheme.primary : 'transparent'
+                  borderColor: isDark ? primaryColor : 'transparent'
                 }]}
                 onPress={() => {
                   setIsPhotoExpanded(false);
                   viewModel.pickAndUploadPhoto();
                 }}>
-                <MaterialIcons name="camera-alt" size={24} color={isDark ? currentTheme.primary : currentTheme.background} />
+                <MaterialIcons name="camera-alt" size={24} color={isDark ? primaryColor : currentTheme.background} />
                 <Text style={[styles.expandedEditPhotoText, { 
-                  color: isDark ? currentTheme.primary : currentTheme.background 
+                  color: isDark ? primaryColor : currentTheme.background 
                 }]}>
                   Cambiar foto del grupo
                 </Text>
@@ -541,7 +541,7 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
                 resizeMode="contain"
               />
             ) : (
-              <View style={[styles.expandedPhotoPlaceholder, { backgroundColor: currentTheme.primary }]}>
+              <View style={[styles.expandedPhotoPlaceholder, { backgroundColor: primaryColor }]}>
                 <Text style={[styles.expandedPhotoText, { color: currentTheme.background }]}>
                   {viewModel.groupData?.name.charAt(0).toUpperCase()}
                 </Text>

@@ -24,7 +24,7 @@ type NearbyGroupsNavigationProp = NativeStackNavigationProp<RootStackParamList, 
 const NearbyGroupsScreen = observer(() => {
   const navigation = useNavigation<NearbyGroupsNavigationProp>();
   const [viewModel] = React.useState(() => new NearbyGroupsViewModel());
-  const { isDark } = useTheme();
+  const { isDark, primaryColor } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
   const [showDistanceModal, setShowDistanceModal] = useState(false);
   const [maxDistance, setMaxDistance] = useState(10);
@@ -70,7 +70,7 @@ const NearbyGroupsScreen = observer(() => {
       <TouchableOpacity
         style={[
           styles.joinButton,
-          { backgroundColor: currentTheme.primary },
+          { backgroundColor: primaryColor },
           viewModel.isUserInGroup(item.id) && styles.joinedButton
         ]}
         onPress={() => handleJoinGroup(item.id)}
@@ -99,7 +99,7 @@ const NearbyGroupsScreen = observer(() => {
           <Text style={[styles.modalTitle, { color: currentTheme.text }]}>
             Distancia máxima
           </Text>
-          <Text style={[styles.distanceValue, { color: currentTheme.primary }]}>
+          <Text style={[styles.distanceValue, { color: primaryColor }]}>
             {tempDistance} km
           </Text>
           <Slider
@@ -109,12 +109,12 @@ const NearbyGroupsScreen = observer(() => {
             step={1}
             value={tempDistance}
             onValueChange={setTempDistance}
-            minimumTrackTintColor={currentTheme.primary}
+            minimumTrackTintColor={primaryColor}
             maximumTrackTintColor={currentTheme.border}
-            thumbTintColor={currentTheme.primary}
+            thumbTintColor={primaryColor}
           />
           <TouchableOpacity
-            style={[styles.closeButton, { backgroundColor: currentTheme.primary }]}
+            style={[styles.closeButton, { backgroundColor: primaryColor }]}
             onPress={handleAcceptDistance}
           >
             <Text style={[styles.closeButtonText, { color: currentTheme.background }]}>
@@ -129,7 +129,7 @@ const NearbyGroupsScreen = observer(() => {
   if (viewModel.loading) {
     return (
       <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
-        <ActivityIndicator size="large" color={currentTheme.primary} />
+        <ActivityIndicator size="large" color={primaryColor} />
       </View>
     );
   }
@@ -141,7 +141,7 @@ const NearbyGroupsScreen = observer(() => {
           {viewModel.error}
         </Text>
         <TouchableOpacity
-          style={[styles.retryButton, { backgroundColor: currentTheme.primary }]}
+          style={[styles.retryButton, { backgroundColor: primaryColor }]}
           onPress={() => viewModel.loadNearbyGroups(maxDistance)}
         >
           <Text style={[styles.retryButtonText, { color: currentTheme.background }]}>
@@ -158,13 +158,13 @@ const NearbyGroupsScreen = observer(() => {
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color={currentTheme.primary} />
+          <Icon name="arrow-back" size={24} color={primaryColor} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: currentTheme.text }]}>Grupos Cercanos</Text>
         <TouchableOpacity
           style={styles.filterButton}
           onPress={() => setShowDistanceModal(true)}>
-          <Icon name="filter-list" size={24} color={currentTheme.primary} />
+          <Icon name="filter-list" size={24} color={primaryColor} />
         </TouchableOpacity>
       </View>
 
@@ -177,7 +177,7 @@ const NearbyGroupsScreen = observer(() => {
           <RefreshControl
             refreshing={viewModel.loading}
             onRefresh={() => viewModel.loadNearbyGroups(maxDistance)}
-            colors={[currentTheme.primary]}
+            colors={[primaryColor]}
           />
         }
         ListEmptyComponent={

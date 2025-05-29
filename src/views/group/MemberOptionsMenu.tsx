@@ -32,7 +32,7 @@ const MemberOptionsMenu = ({
   memberName,
   isAdmin,
 }: MemberOptionsMenuProps) => {
-  const { isDark } = useTheme();
+  const { isDark, primaryColor } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
 
   return (
@@ -61,7 +61,7 @@ const MemberOptionsMenu = ({
                     onMakeAdmin();
                     onClose();
                   }}>
-                  <MaterialIcons name="admin-panel-settings" size={24} color={currentTheme.primary} />
+                  <MaterialIcons name="admin-panel-settings" size={24} color={primaryColor} />
                   <Text style={[styles.optionText, { color: currentTheme.text }]}>
                     Hacer administrador
                   </Text>

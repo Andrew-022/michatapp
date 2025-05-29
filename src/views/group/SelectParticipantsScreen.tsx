@@ -25,7 +25,7 @@ const SelectParticipantsScreen = observer(() => {
   const { viewModel } = route.params as { viewModel: CreateGroupViewModel };
   const [searchText, setSearchText] = useState('');
   const [loading, setLoading] = useState(false);
-  const { isDark } = useTheme();
+  const { isDark, primaryColor } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
 
   const handleCreateGroup = async () => {
@@ -90,7 +90,7 @@ const SelectParticipantsScreen = observer(() => {
         borderBottomColor: currentTheme.border 
       }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color={currentTheme.primary} />
+          <Icon name="arrow-back" size={24} color={primaryColor} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: currentTheme.text }]}>Seleccionar Participantes</Text>
         <View style={{ width: 24 }} />
@@ -120,11 +120,11 @@ const SelectParticipantsScreen = observer(() => {
                   backgroundColor: currentTheme.card,
                   borderBottomColor: currentTheme.border 
                 },
-                item.selected && { backgroundColor: currentTheme.primary + '20' }
+                item.selected && { backgroundColor: primaryColor + '20' }
               ]}
               onPress={() => viewModel.toggleContactSelection(item.recordID)}
             >
-              <View style={[styles.avatarContainer, { backgroundColor: currentTheme.primary }]}>
+              <View style={[styles.avatarContainer, { backgroundColor: primaryColor }]}>
                 <Text style={[styles.avatarText, { color: currentTheme.background }]}>
                   {(item.firstName?.[0] || '') + (item.lastName?.[0] || '')}
                 </Text>
@@ -140,13 +140,13 @@ const SelectParticipantsScreen = observer(() => {
                 ))}
               </View>
               {item.selected && (
-                <Text style={[styles.selectedMark, { color: currentTheme.primary }]}>✓</Text>
+                <Text style={[styles.selectedMark, { color: primaryColor }]}>✓</Text>
               )}
             </TouchableOpacity>
           )}
           ListEmptyComponent={
             viewModel.loading ? (
-              <ActivityIndicator size="large" color={currentTheme.primary} />
+              <ActivityIndicator size="large" color={primaryColor} />
             ) : (
               <Text style={[styles.emptyText, { color: currentTheme.secondary }]}>
                 No hay contactos
@@ -159,7 +159,7 @@ const SelectParticipantsScreen = observer(() => {
         <TouchableOpacity
           style={[
             styles.createButton,
-            { backgroundColor: currentTheme.primary },
+            { backgroundColor: primaryColor },
             loading && { backgroundColor: currentTheme.border }
           ]}
           onPress={handleCreateGroup}

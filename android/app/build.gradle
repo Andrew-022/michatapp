@@ -73,6 +73,21 @@ def enableProguardInReleaseBuilds = false
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+def getKeys() {
+    def keys = [:]
+    def keysFile = new File("${project.rootDir}/../src/config/keys.ts")
+    if (keysFile.exists()) {
+        def content = keysFile.text
+        def matcher = content =~ /GOOGLE_MAPS_API_KEY\s*=\s*['"]([^'"]+)['"]/
+        if (matcher.find()) {
+            keys.GOOGLE_MAPS_API_KEY = matcher.group(1)
+        }
+    }
+    return keys
+}
+
+def keys = getKeys()
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -86,6 +101,9 @@ android {
         versionCode 1
         versionName "1.0"
         vectorDrawables.useSupportLibrary = true
+        manifestPlaceholders = [
+            GOOGLE_MAPS_API_KEY: keys.GOOGLE_MAPS_API_KEY ?: ""
+        ]
     }
     signingConfigs {
         debug {

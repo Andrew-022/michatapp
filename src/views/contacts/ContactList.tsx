@@ -24,7 +24,7 @@ const ContactList = observer(() => {
   const navigation = useNavigation<ContactListNavigationProp>();
   const viewModel = React.useMemo(() => new ContactListViewModel(), []);
   const [searchText, setSearchText] = React.useState('');
-  const { isDark } = useTheme();
+  const { isDark, primaryColor } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
 
   const filteredContacts = React.useMemo(() => {
@@ -63,7 +63,7 @@ const ContactList = observer(() => {
         borderBottomColor: currentTheme.border 
       }]}
       onPress={() => handleStartChat(item)}>
-      <View style={[styles.avatarContainer, { backgroundColor: currentTheme.primary }]}>
+      <View style={[styles.avatarContainer, { backgroundColor: primaryColor }]}>
         <Text style={[styles.avatarText, { color: currentTheme.background }]}>
           {item.getInitials()}
         </Text>
@@ -84,7 +84,7 @@ const ContactList = observer(() => {
   if (viewModel.loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: currentTheme.background }]}>
-        <ActivityIndicator size="large" color={currentTheme.primary} />
+        <ActivityIndicator size="large" color={primaryColor} />
       </View>
     );
   }

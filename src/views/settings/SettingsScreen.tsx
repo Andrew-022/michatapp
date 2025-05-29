@@ -25,13 +25,14 @@ const colorOptions = [
 ];
 
 const SettingsScreen: React.FC = () => {
-  const {theme, isDark, setTheme, setSecondaryColor, secondaryColor} = useTheme();
+  const {theme, isDark, setTheme, setSecondaryColor, secondaryColor, setPrimaryColor, primaryColor} = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
   const settingsViewModel = SettingsViewModel.getInstance();
 
   const [tempTheme, setTempTheme] = useState(theme);
   const [tempIsDark, setTempIsDark] = useState(isDark);
   const [tempSecondaryColor, setTempSecondaryColor] = useState(secondaryColor);
+  const [tempPrimaryColor, setTempPrimaryColor] = useState(primaryColor);
 
   const handleSystemThemeChange = (value: boolean) => {
     const newTheme = value ? 'system' : (tempIsDark ? 'dark' : 'light');
@@ -49,12 +50,18 @@ const SettingsScreen: React.FC = () => {
     setSecondaryColor(color);
   };
 
+  const handlePrimaryColorSelect = (color: string) => {
+    setTempPrimaryColor(color);
+    setPrimaryColor(color);
+  };
+
   const handleSaveSettings = async () => {
     try {
       await settingsViewModel.saveAllSettings({
         theme: tempTheme,
         isDark: tempIsDark,
         secondaryColor: tempSecondaryColor,
+        primaryColor: tempPrimaryColor,
       });
       
       Alert.alert(
@@ -86,7 +93,7 @@ const SettingsScreen: React.FC = () => {
             <Switch
               value={tempTheme === 'system'}
               onValueChange={handleSystemThemeChange}
-              trackColor={{false: currentTheme.border, true: currentTheme.primary}}
+              trackColor={{false: currentTheme.border, true: primaryColor}}
             />
           </View>
 
@@ -97,9 +104,37 @@ const SettingsScreen: React.FC = () => {
             <Switch
               value={tempIsDark}
               onValueChange={handleDarkModeChange}
-              trackColor={{false: currentTheme.border, true: currentTheme.primary}}
+              trackColor={{false: currentTheme.border, true: primaryColor}}
               disabled={tempTheme === 'system'}
             />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, {color: currentTheme.text}]}>
+            Color principal
+          </Text>
+          <Text style={[styles.sectionDescription, {color: currentTheme.secondary}]}>
+            Selecciona el color principal de la aplicación
+          </Text>
+          
+          <View style={styles.colorGrid}>
+            {colorOptions.map((color) => (
+              <TouchableOpacity
+                key={color.value}
+                style={[
+                  styles.colorOption,
+                  { backgroundColor: color.value },
+                  tempPrimaryColor === color.value && styles.selectedColor,
+                ]}
+                onPress={() => handlePrimaryColorSelect(color.value)}>
+                {tempPrimaryColor === color.value && (
+                  <View style={styles.checkmark}>
+                    <Text style={styles.checkmarkText}>✓</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
@@ -108,7 +143,7 @@ const SettingsScreen: React.FC = () => {
             Color de los mensajes
           </Text>
           <Text style={[styles.sectionDescription, {color: currentTheme.secondary}]}>
-            Selecciona el color que se usará en los mensajes y elementos secundarios
+            Selecciona el color que se usará en los mensajes
           </Text>
           
           <View style={styles.colorGrid}>
@@ -132,7 +167,7 @@ const SettingsScreen: React.FC = () => {
         </View>
 
         <TouchableOpacity
-          style={[styles.saveButton, { backgroundColor: currentTheme.primary }]}
+          style={[styles.saveButton, { backgroundColor: primaryColor }]}
           onPress={handleSaveSettings}>
           <Text style={[styles.saveButtonText, { color: currentTheme.background }]}>
             Guardar Cambios

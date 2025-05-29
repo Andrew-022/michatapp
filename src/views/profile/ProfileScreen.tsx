@@ -31,7 +31,7 @@ const ProfileScreen = observer(() => {
   const [isPhotoExpanded, setIsPhotoExpanded] = useState(false);
   const [isEditingStatus, setIsEditingStatus] = useState(false);
   const [newStatus, setNewStatus] = useState('');
-  const { isDark } = useTheme();
+  const { isDark, primaryColor } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
 
   const handleSave = async () => {
@@ -53,7 +53,7 @@ const ProfileScreen = observer(() => {
   if (viewModel.loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: currentTheme.background }]}>
-        <ActivityIndicator size="large" color={currentTheme.primary} />
+        <ActivityIndicator size="large" color={primaryColor} />
       </View>
     );
   }
@@ -67,14 +67,14 @@ const ProfileScreen = observer(() => {
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={currentTheme.primary} />
+          <Ionicons name="arrow-back" size={24} color={primaryColor} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: currentTheme.text }]}>Perfil</Text>
       </View>
 
       <View style={styles.profileContainer}>
         <TouchableOpacity 
-          style={[styles.avatarContainer, { backgroundColor: currentTheme.primary }]}
+          style={[styles.avatarContainer, { backgroundColor: primaryColor }]}
           onPress={() => setIsPhotoExpanded(true)}
         >
           {viewModel.userData?.photoURL ? (
@@ -119,7 +119,7 @@ const ProfileScreen = observer(() => {
                   <Text style={[styles.editButtonText, { color: currentTheme.text }]}>Cancelar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.editButton, styles.saveButton, { backgroundColor: currentTheme.primary }]}
+                  style={[styles.editButton, styles.saveButton, { backgroundColor: primaryColor }]}
                   onPress={handleSave}>
                   <Text style={[styles.editButtonText, { color: currentTheme.background }]}>
                     Guardar
@@ -138,7 +138,7 @@ const ProfileScreen = observer(() => {
                   setNewName(viewModel.userData?.name || '');
                   setIsEditing(true);
                 }}>
-                <Icon name="edit" size={20} color={currentTheme.primary} />
+                <Icon name="edit" size={20} color={primaryColor} />
               </TouchableOpacity>
             </View>
           )}
@@ -173,7 +173,7 @@ const ProfileScreen = observer(() => {
                     <Text style={[styles.editButtonText, { color: currentTheme.text }]}>Cancelar</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.editButton, styles.saveButton, { backgroundColor: currentTheme.primary }]}
+                    style={[styles.editButton, styles.saveButton, { backgroundColor: primaryColor }]}
                     onPress={handleSaveStatus}>
                     <Text style={[styles.editButtonText, { color: currentTheme.background }]}>
                       Guardar
@@ -196,7 +196,7 @@ const ProfileScreen = observer(() => {
                       setNewStatus(viewModel.userData?.status || '');
                       setIsEditingStatus(true);
                     }}>
-                    <Icon name="edit" size={20} color={currentTheme.primary} />
+                    <Icon name="edit" size={20} color={primaryColor} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -218,15 +218,15 @@ const ProfileScreen = observer(() => {
               style={[styles.expandedEditPhotoButton, { 
                 backgroundColor: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.7)',
                 borderWidth: 1,
-                borderColor: isDark ? currentTheme.primary : 'transparent'
+                borderColor: isDark ? primaryColor : 'transparent'
               }]}
               onPress={() => {
                 setIsPhotoExpanded(false);
                 viewModel.pickAndUploadPhoto();
               }}>
-              <MaterialIcons name="camera-alt" size={24} color={isDark ? currentTheme.primary : currentTheme.background} />
+              <MaterialIcons name="camera-alt" size={24} color={isDark ? primaryColor : currentTheme.background} />
               <Text style={[styles.expandedEditPhotoText, { 
-                color: isDark ? currentTheme.primary : currentTheme.background 
+                color: isDark ? primaryColor : currentTheme.background 
               }]}>
                 Cambiar foto de perfil
               </Text>
@@ -238,7 +238,7 @@ const ProfileScreen = observer(() => {
                 resizeMode="contain"
               />
             ) : (
-              <View style={[styles.expandedPhotoPlaceholder, { backgroundColor: currentTheme.primary }]}>
+              <View style={[styles.expandedPhotoPlaceholder, { backgroundColor: primaryColor }]}>
                 <Text style={[styles.expandedPhotoText, { color: currentTheme.background }]}>
                   {viewModel.userData?.name?.charAt(0).toUpperCase() || '?'}
                 </Text>

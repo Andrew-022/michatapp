@@ -6,7 +6,7 @@ import ImagePicker, { Image } from 'react-native-image-crop-picker';
 import { Alert, Platform, PermissionsAndroid } from 'react-native';
 import Contacts from '@s77rt/react-native-contacts';
 import Geolocation from '@react-native-community/geolocation';
-import { GOOGLE_MAPS_API_KEY } from '../../android/app/src/config/keys';
+import { GOOGLE_MAPS_API_KEY } from '../config/keys';
 
 export interface GroupLocation {
   latitude: number;

@@ -39,7 +39,7 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
     [groupId]
   );
   const flatListRef = useRef<FlatList>(null);
-  const { isDark, secondaryColor } = useTheme();
+  const { isDark, secondaryColor, primaryColor } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
 
   useEffect(() => {
@@ -64,7 +64,7 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
       >
         <View style={styles.messageContentColumn}>
           {!isOwnMessage && (
-            <Text style={[styles.senderName, { color: currentTheme.primary }]}>
+            <Text style={[styles.senderName, { color: primaryColor }]}>
               {senderName}
             </Text>
           )}
@@ -94,7 +94,7 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
   if (viewModel.loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: currentTheme.background }]}>
-        <ActivityIndicator size="large" color={currentTheme.primary} />
+        <ActivityIndicator size="large" color={primaryColor} />
       </View>
     );
   }
@@ -113,7 +113,7 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color={currentTheme.primary} />
+          <Icon name="arrow-back" size={24} color={primaryColor} />
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.headerContent}
@@ -124,7 +124,7 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
               style={styles.headerPhoto}
             />
           ) : (
-            <View style={[styles.headerPhotoPlaceholder, { backgroundColor: currentTheme.primary }]}>
+            <View style={[styles.headerPhotoPlaceholder, { backgroundColor: primaryColor }]}>
               <Text style={[styles.headerPhotoText, { color: currentTheme.background }]}>
                 {viewModel.groupName?.charAt(0).toUpperCase() || '?'}
               </Text>

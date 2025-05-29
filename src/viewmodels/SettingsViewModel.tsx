@@ -5,6 +5,7 @@ class SettingsViewModel {
   private static instance: SettingsViewModel;
   private readonly THEME_KEY = '@theme';
   private readonly SECONDARY_COLOR_KEY = '@secondary_color';
+  private readonly PRIMARY_COLOR_KEY = '@primary_color';
   private readonly DARK_MODE_KEY = '@dark_mode';
 
   private constructor() {
@@ -72,21 +73,42 @@ class SettingsViewModel {
     }
   }
 
+  async savePrimaryColor(color: string): Promise<void> {
+    try {
+      await AsyncStorage.setItem(this.PRIMARY_COLOR_KEY, color);
+    } catch (error) {
+      console.error('Error al guardar el color principal:', error);
+    }
+  }
+
+  async loadPrimaryColor(): Promise<string> {
+    try {
+      const color = await AsyncStorage.getItem(this.PRIMARY_COLOR_KEY);
+      return color || '#007AFF';
+    } catch (error) {
+      console.error('Error al cargar el color principal:', error);
+      return '#007AFF';
+    }
+  }
+
   async loadAllSettings(): Promise<{
     theme: string;
     isDark: boolean;
     secondaryColor: string;
+    primaryColor: string;
   }> {
-    const [theme, isDark, secondaryColor] = await Promise.all([
+    const [theme, isDark, secondaryColor, primaryColor] = await Promise.all([
       this.loadTheme(),
       this.loadDarkMode(),
       this.loadSecondaryColor(),
+      this.loadPrimaryColor(),
     ]);
 
     return {
       theme,
       isDark,
       secondaryColor,
+      primaryColor,
     };
   }
 
@@ -94,11 +116,13 @@ class SettingsViewModel {
     theme: string;
     isDark: boolean;
     secondaryColor: string;
+    primaryColor: string;
   }): Promise<void> {
     await Promise.all([
       this.saveTheme(settings.theme),
       this.saveDarkMode(settings.isDark),
       this.saveSecondaryColor(settings.secondaryColor),
+      this.savePrimaryColor(settings.primaryColor),
     ]);
   }
 }

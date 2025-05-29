@@ -5,7 +5,7 @@ import { getFirestore, collection, getDocs, addDoc } from '@react-native-firebas
 import { getAuth } from '@react-native-firebase/auth';
 import { serverTimestamp } from '@react-native-firebase/firestore';
 import Geolocation from '@react-native-community/geolocation';
-import { GOOGLE_MAPS_API_KEY } from '../../android/app/src/config/keys';
+import { GOOGLE_MAPS_API_KEY } from '../config/keys';
 
 export interface GroupContact {
   recordID: string;

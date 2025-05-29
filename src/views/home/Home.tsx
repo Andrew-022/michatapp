@@ -65,7 +65,7 @@ const ChatItem = ({ item, onPress, currentTheme }: {
         borderBottomColor: currentTheme.border 
       }]}
       onPress={onPress}>
-      <View style={[styles.avatarContainer, { backgroundColor: currentTheme.primary }]}>
+      <View style={[styles.avatarContainer, { backgroundColor: primaryColor }]}>
         {item.otherParticipantPhoto ? (
           <Image 
             source={{ uri: item.otherParticipantPhoto }} 
@@ -83,7 +83,7 @@ const ChatItem = ({ item, onPress, currentTheme }: {
             {otherParticipantName || 'Usuario desconocido'}
           </Text>
           {item.unreadCount > 0 && (
-            <View style={[styles.unreadBadge, { backgroundColor: currentTheme.primary }]}>
+            <View style={[styles.unreadBadge, { backgroundColor: primaryColor }]}>
               <Text style={styles.unreadCount}>{item.unreadCount}</Text>
             </View>
           )}
@@ -101,7 +101,7 @@ const Home = observer(() => {
   const viewModel = React.useMemo(() => new HomeViewModel(), []);
   const [menuVisible, setMenuVisible] = useState(false);
   const slideAnim = React.useRef(new Animated.Value(-300)).current;
-  const { isDark, secondaryColor } = useTheme();
+  const { isDark, secondaryColor, primaryColor } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
 
   const toggleMenu = () => {
@@ -164,7 +164,7 @@ const Home = observer(() => {
             }
           }
         }}>
-        <View style={[styles.avatarContainer, { backgroundColor: currentTheme.primary }]}>
+        <View style={[styles.avatarContainer, { backgroundColor: primaryColor }]}>
           {isGroup ? (
             item.photoURL ? (
               <Image 
@@ -204,7 +204,7 @@ const Home = observer(() => {
                 </Text>
               )}
               {item.unreadCount > 0 && (
-                <View style={[styles.unreadBadge, { backgroundColor: currentTheme.primary }]}>
+                <View style={[styles.unreadBadge, { backgroundColor: primaryColor }]}>
                   <Text style={styles.unreadCount}>{item.unreadCount}</Text>
                 </View>
               )}
@@ -226,7 +226,7 @@ const Home = observer(() => {
   if (viewModel.loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: currentTheme.background }]}>
-        <ActivityIndicator size="large" color={currentTheme.primary} />
+        <ActivityIndicator size="large" color={primaryColor} />
       </View>
     );
   }
@@ -235,7 +235,7 @@ const Home = observer(() => {
     <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
       <View style={[styles.header, { backgroundColor: currentTheme.card, borderBottomColor: currentTheme.border }]}>
         <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
-          <Icon name="menu" size={24} color={currentTheme.primary} />
+          <Icon name="menu" size={24} color={primaryColor} />
         </TouchableOpacity>
         <View style={styles.titleContainer}>
           <Text style={[styles.title, { color: currentTheme.text }]}>Chats</Text>
@@ -256,7 +256,7 @@ const Home = observer(() => {
       />
 
       <TouchableOpacity
-        style={[styles.newChatButton, { backgroundColor: currentTheme.primary }]}
+        style={[styles.newChatButton, { backgroundColor: primaryColor }]}
         onPress={() => navigation.navigate('ContactList')}>
         <Text style={[styles.newChatButtonText, { color: currentTheme.background }]}>+</Text>
       </TouchableOpacity>
@@ -290,7 +290,7 @@ const Home = observer(() => {
                 navigation.navigate('Profile');
                 toggleMenu();
               }}>
-              <Icon name="person" size={24} color={secondaryColor} />
+              <Icon name="person" size={24} color={primaryColor} />
               <Text style={[styles.menuItemText, { color: currentTheme.text }]}>Perfil</Text>
             </TouchableOpacity>
             <TouchableOpacity 
@@ -299,7 +299,7 @@ const Home = observer(() => {
                 navigation.navigate('Settings');
                 toggleMenu();
               }}>
-              <Icon name="settings" size={24} color={secondaryColor} />
+              <Icon name="settings" size={24} color={primaryColor} />
               <Text style={[styles.menuItemText, { color: currentTheme.text }]}>Configuración</Text>
             </TouchableOpacity>
             <TouchableOpacity 
@@ -308,7 +308,7 @@ const Home = observer(() => {
                 navigation.navigate('CreateGroup');
                 toggleMenu();
               }}>
-              <Icon name="group-add" size={24} color={secondaryColor} />
+              <Icon name="group-add" size={24} color={primaryColor} />
               <Text style={[styles.menuItemText, { color: currentTheme.text }]}>Crear Grupo</Text>
             </TouchableOpacity>
             <TouchableOpacity 
@@ -317,7 +317,7 @@ const Home = observer(() => {
                 navigation.navigate('NearbyGroups');
                 toggleMenu();
               }}>
-              <Icon name="location-on" size={24} color={secondaryColor} />
+              <Icon name="location-on" size={24} color={primaryColor} />
               <Text style={[styles.menuItemText, { color: currentTheme.text }]}>Grupos Cercanos</Text>
             </TouchableOpacity>
             <TouchableOpacity 
