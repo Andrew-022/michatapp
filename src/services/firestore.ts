@@ -1,9 +1,10 @@
-import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, addDoc, query, where, onSnapshot, orderBy, serverTimestamp } from '@react-native-firebase/firestore';
+import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, addDoc, query, where, onSnapshot, orderBy, serverTimestamp, increment } from '@react-native-firebase/firestore';
 import { getAuth } from '@react-native-firebase/auth';
 import { User, UserModel } from '../models/User';
 import { Chat, ChatModel } from '../models/Chat';
 import { GroupChatModel } from '../models/GroupChat';
 import CryptoJS from 'crypto-js';
+import { Platform } from 'react-native';
 
 // Inicializar Firestore con configuración específica
 const db = getFirestore();
@@ -209,6 +210,101 @@ export const decryptMessage = (encryptedText: string, key: string): string => {
   } catch (error) {
     console.error('Error al descifrar mensaje:', error);
     return 'Mensaje cifrado';
+  }
+};
+
+// Funciones específicas de ChatViewModel
+export const loadOtherParticipantInfo = async (otherParticipantId: string) => {
+  try {
+    const userDocRef = doc(db, COLLECTIONS.USERS, otherParticipantId);
+    const userDoc = await getDoc(userDocRef);
+    const userData = userDoc.data();
+    
+    return {
+      name: userData?.name || 'Usuario',
+      photoURL: userData?.photoURL,
+    };
+  } catch (error) {
+    console.error('Error al cargar información del participante:', error);
+    return {
+      name: 'Usuario',
+      photoURL: undefined,
+    };
+  }
+};
+
+export const resetChatUnreadCount = async (chatId: string) => {
+  const auth = getAuth();
+  const currentUser = auth.currentUser;
+  if (!currentUser) return;
+
+  try {
+    const chatRef = doc(db, COLLECTIONS.CHATS, chatId);
+    await updateDoc(chatRef, {
+      [`unreadCount.${currentUser.uid}`]: 0
+    });
+  } catch (error) {
+    console.error('Error al reiniciar contador de mensajes no leídos:', error);
+  }
+};
+
+export const subscribeToChatMessages = (
+  chatId: string, 
+  onMessagesUpdate: (messages: any[]) => void,
+  onError: (error: any) => void
+) => {
+  const messagesRef = collection(db, COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES);
+  const q = query(messagesRef, orderBy('createdAt', 'desc'));
+
+  return onSnapshot(
+    q,
+    snapshot => {
+      const messages = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      onMessagesUpdate(messages);
+    },
+    error => {
+      console.error('Error al cargar mensajes:', error);
+      onError(error);
+    }
+  );
+};
+
+export const sendChatMessage = async (
+  chatId: string, 
+  messageText: string, 
+  senderId: string, 
+  otherParticipantId: string
+) => {
+  try {
+    const db = getFirestore();
+    const encryptedText = CryptoJS.AES.encrypt(messageText, chatId).toString();
+    
+    const messageData = {
+      text: encryptedText,
+      senderId: senderId,
+      createdAt: serverTimestamp(),
+    };
+
+    const messagesRef = collection(db, COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES);
+    await addDoc(messagesRef, messageData);
+
+    const chatRef = doc(db, COLLECTIONS.CHATS, chatId);
+    await updateDoc(chatRef, {
+      lastMessage: {
+        text: encryptedText,
+        createdAt: serverTimestamp(),
+      },
+      updatedAt: serverTimestamp(),
+      [`unreadCount.${otherParticipantId}`]: increment(1)
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Error al enviar mensaje:', error);
+    throw error;
   }
 };
 

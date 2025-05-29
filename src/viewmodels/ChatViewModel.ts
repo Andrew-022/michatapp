@@ -1,22 +1,16 @@
 import 'react-native-get-random-values';  // Importar primero
 import { makeAutoObservable, runInAction } from 'mobx';
 import { getAuth } from '@react-native-firebase/auth';
-import { 
-  getFirestore, 
-  collection, 
-  doc, 
-  getDoc, 
-  onSnapshot, 
-  orderBy, 
-  addDoc, 
-  updateDoc, 
-  serverTimestamp,
-  query,
-  increment
-} from '@react-native-firebase/firestore';
 import { Message, MessageModel } from '../models/Message';
 import CryptoJS from 'crypto-js';
 import { Platform } from 'react-native';
+import {
+  loadOtherParticipantInfo,
+  resetChatUnreadCount,
+  subscribeToChatMessages,
+  sendChatMessage,
+  decryptMessage
+} from '../services/firestore';
 
 export class ChatViewModel {
   messages: Message[] = [];
@@ -40,46 +34,15 @@ export class ChatViewModel {
   }
 
   private generateChatKey(chatId: string): string {
-    // Usamos solo el chatId como clave, así ambos usuarios tendrán la misma
     return chatId;
-  }
-
-  private encryptMessage(text: string): string {
-    try {
-      const key = this.encryptionKey;
-      const encrypted = CryptoJS.AES.encrypt(text, key).toString();
-      return encrypted;
-    } catch (error) {
-      console.error('Error al cifrar mensaje:', error);
-      return text;
-    }
-  }
-
-  private decryptMessage(encryptedText: string): string {
-    try {
-      const key = this.encryptionKey;
-      const decrypted = CryptoJS.AES.decrypt(encryptedText, key);
-      const text = decrypted.toString(CryptoJS.enc.Utf8);
-      return text || 'Mensaje cifrado';
-    } catch (error) {
-      console.error('Error al descifrar mensaje:', error);
-      return 'Mensaje cifrado';
-    }
   }
 
   private async loadOtherParticipantInfo() {
     try {
-      const db = getFirestore();
-      const userDocRef = doc(db, 'users', this.otherParticipantId);
-      const userDoc = await getDoc(userDocRef);
-      const userData = userDoc.data();
-      
+      const participantInfo = await loadOtherParticipantInfo(this.otherParticipantId);
       runInAction(() => {
-        if (Platform.OS === 'ios') {
-          // Configuraciones específicas de iOS
-        }
-        this.otherParticipantName = userData?.name || 'Usuario';
-        this.otherParticipantPhoto = userData?.photoURL;
+        this.otherParticipantName = participantInfo.name;
+        this.otherParticipantPhoto = participantInfo.photoURL;
       });
     } catch (error) {
       console.error('Error al cargar información del participante:', error);
@@ -94,33 +57,17 @@ export class ChatViewModel {
   }
 
   private async resetUnreadCount() {
-    const auth = getAuth();
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
-
-    try {
-      const db = getFirestore();
-      const chatRef = doc(db, 'chats', this.chatId);
-      await updateDoc(chatRef, {
-        [`unreadCount.${currentUser.uid}`]: 0
-      });
-    } catch (error) {
-      console.error('Error al reiniciar contador de mensajes no leídos:', error);
-    }
+    await resetChatUnreadCount(this.chatId);
   }
 
   private loadMessages() {
-    const db = getFirestore();
-    const messagesRef = collection(db, 'chats', this.chatId, 'messages');
-    const q = query(messagesRef, orderBy('createdAt', 'desc'));
-
-    this.unsubscribe = onSnapshot(
-      q,
-      snapshot => {
+    this.unsubscribe = subscribeToChatMessages(
+      this.chatId,
+      (messages) => {
         runInAction(() => {
-          this.messages = snapshot.docs.map(doc => {
-            const data = doc.data();
-            const decryptedText = this.decryptMessage(data.text);
+          this.messages = messages.map(doc => {
+            const data = doc;
+            const decryptedText = decryptMessage(data.text, this.encryptionKey);
             return MessageModel.fromFirestore(doc.id, {
               ...data,
               text: decryptedText
@@ -129,15 +76,13 @@ export class ChatViewModel {
           this.loading = false;
         });
       },
-      error => {
+      (error) => {
         console.error('Error al cargar mensajes:', error);
         runInAction(() => {
           this.loading = false;
         });
-      },
+      }
     );
-
-    return this.unsubscribe;
   }
 
   async sendMessage() {
@@ -153,27 +98,12 @@ export class ChatViewModel {
     });
 
     try {
-      const db = getFirestore();
-      const encryptedText = this.encryptMessage(messageToSend);
-      
-      const messageData = {
-        text: encryptedText,
-        senderId: currentUser.uid,
-        createdAt: serverTimestamp(),
-      };
-
-      const messagesRef = collection(db, 'chats', this.chatId, 'messages');
-      await addDoc(messagesRef, messageData);
-
-      const chatRef = doc(db, 'chats', this.chatId);
-      await updateDoc(chatRef, {
-        lastMessage: {
-          text: encryptedText,
-          createdAt: serverTimestamp(),
-        },
-        updatedAt: serverTimestamp(),
-        [`unreadCount.${this.otherParticipantId}`]: increment(1)
-      });
+      await sendChatMessage(
+        this.chatId,
+        messageToSend,
+        currentUser.uid,
+        this.otherParticipantId
+      );
     } catch (error) {
       console.error('Error al enviar mensaje:', error);
     }
