@@ -1,6 +1,6 @@
 import { makeAutoObservable, runInAction, action } from 'mobx';
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+import firestore, { getFirestore } from '@react-native-firebase/firestore';
 import { CountryModel } from '../models/Country';
 import { createUser, COLLECTIONS } from '../services/firestore';
 
@@ -80,17 +80,15 @@ export class AuthViewModel {
     }
   }
 
-  private async createUserIfNotExists(currentUser: FirebaseAuthTypes.User): Promise<void> {
+  private async createUserIfNotExists(currentUser: FirebaseAuthTypes.User): Promise<boolean> {
     console.log('Iniciando createUserIfNotExists para:', currentUser.uid);
-    const userDoc = await firestore()
+    const db = getFirestore();
+    const userDoc = await db
       .collection(COLLECTIONS.USERS)
       .doc(currentUser.uid)
       .get();
     
-    console.log('Usuario existe en Firestore:', userDoc.exists);
-    
-    if (!userDoc.exists) {
-      console.log('Creando nuevo usuario...');
+    if (!userDoc.exists()) {
       // Si el usuario no existe, lo creamos
       await createUser(currentUser.uid, {
         phoneNumber: currentUser.phoneNumber || '',
@@ -99,8 +97,9 @@ export class AuthViewModel {
         lastLogin: new Date(),
         photoURL: "https://i.pinimg.com/222x/57/70/f0/5770f01a32c3c53e90ecda61483ccb08.jpg"
       });
-      console.log('Usuario creado exitosamente');
+      return true; // Usuario fue creado
     }
+    return false; // Usuario ya existía
   }
 
   async confirmCode(): Promise<{ success: boolean; message: string }> {
@@ -138,8 +137,24 @@ export class AuthViewModel {
         return { success: false, message: 'Error al obtener el usuario actual' };
       }
 
-      // Crear usuario si no existe
-      await this.createUserIfNotExists(currentUser);
+      // Crear usuario si no existe y esperar a que se complete
+      const wasCreated = await this.createUserIfNotExists(currentUser);
+      
+      // Si el usuario fue creado, esperamos un poco más para asegurarnos de que todo esté sincronizado
+      if (wasCreated) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      // Verificar que el usuario existe en Firestore
+      const db = firestore();
+      const userDoc = await db
+        .collection(COLLECTIONS.USERS)
+        .doc(currentUser.uid)
+        .get();
+
+      if (!userDoc.exists) {
+        return { success: false, message: 'Error al crear el usuario' };
+      }
 
       // Limpiar el estado de confirmación
       runInAction(() => {

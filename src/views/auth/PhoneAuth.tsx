@@ -19,6 +19,8 @@ import { AuthViewModel } from '../../viewmodels/AuthViewModel';
 import { globalStyles } from '../../styles/globalStyles';
 import { useTheme } from '../../context/ThemeContext';
 import { lightTheme, darkTheme } from '../../constants/theme';
+import { getFirestore } from '@react-native-firebase/firestore';
+import { COLLECTIONS } from '../../services/firestore';
 
 type PhoneAuthNavigationProp = NativeStackNavigationProp<RootStackParamList, 'PhoneAuth'>;
 
@@ -50,8 +52,6 @@ const PhoneAuth = observer(() => {
     try {
       const result = await viewModel.confirmCode();
       if (result.success) {
-        // Esperamos un momento para asegurarnos de que se complete la creación del usuario
-        await new Promise(resolve => setTimeout(resolve, 2000));
         Alert.alert('Éxito', result.message);
         navigation.replace('Home');
       } else {
