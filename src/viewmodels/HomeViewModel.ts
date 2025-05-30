@@ -26,6 +26,7 @@ export class HomeViewModel {
     makeAutoObservable(this);
     this.loadUserData();
     this.loadAllChats();
+    this.requestNotificationPermission();
     this.setupFCMTokenListener();
   }
 
@@ -214,36 +215,45 @@ export class HomeViewModel {
   }
 
   async requestNotificationPermission(): Promise<void> {
-    try {
-      if (Platform.OS === 'android') {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
-          {
-            title: 'Permiso de Notificaciones',
-            message: 'La aplicación necesita acceso a las notificaciones para mantenerte informado de nuevos mensajes.',
-            buttonNeutral: 'Preguntar más tarde',
-            buttonNegative: 'Cancelar',
-            buttonPositive: 'OK',
+    if (Platform.OS === 'android') {
+      try {
+        // Verificar si estamos en Android 13 o superior
+        const androidVersion = Platform.Version;
+        if (androidVersion >= 33) {
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+            {
+              title: 'Permiso de Notificaciones',
+              message: 'La aplicación necesita acceso a las notificaciones para mantenerte informado de nuevos mensajes.',
+              buttonNeutral: 'Preguntar más tarde',
+              buttonNegative: 'Cancelar',
+              buttonPositive: 'Aceptar',
+            }
+          );
+          
+          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+            console.log('Permiso de notificaciones denegado');
+            return;
           }
-        );
-        
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+          
           console.log('Permiso de notificaciones concedido');
-          await this.saveFCMToken();
         }
-      } else {
-        const messaging = getMessaging();
-        const authStatus = await messaging.requestPermission();
-        const enabled =
-          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-
-        if (enabled) {
-          await this.saveFCMToken();
-        }
+        // En versiones anteriores de Android, no es necesario solicitar el permiso
+        await this.saveFCMToken();
+      } catch (error) {
+        console.error('Error al solicitar permiso de notificaciones:', error);
+        return;
       }
-    } catch (error) {
-      console.error('Error al solicitar permiso de notificaciones:', error);
+    } else {
+      const messaging = getMessaging();
+      const authStatus = await messaging.requestPermission();
+      const enabled =
+        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+      if (enabled) {
+        await this.saveFCMToken();
+      }
     }
   }
 
