@@ -4,6 +4,8 @@ import { getAuth } from '@react-native-firebase/auth';
 import { Platform } from 'react-native';
 import ImagePicker, { Image } from 'react-native-image-crop-picker';
 import { loadUserProfile, updateUserName, updateUserStatus, uploadUserPhoto } from '../services/firestore';
+import storage from '@react-native-firebase/storage';
+import { getFirestore, doc, updateDoc } from '@react-native-firebase/firestore';
 
 export class ProfileViewModel {
   userData: User | null = null;
@@ -107,7 +109,24 @@ export class ProfileViewModel {
         this.uploadingPhoto = true;
       });
 
-      const downloadURL = await uploadUserPhoto(currentUser.uid, image);
+      const reference = storage().ref(`user_photos/${currentUser.uid}`);
+      
+      // Convertir la URI a Blob
+      const response = await fetch(image.path);
+      const blob = await response.blob();
+
+      // Subir el archivo
+      await reference.put(blob);
+      
+      // Obtener la URL de descarga
+      const downloadURL = await reference.getDownloadURL();
+
+      // Actualizar Firestore
+      const db = getFirestore();
+      const userRef = doc(db, 'users', currentUser.uid);
+      await updateDoc(userRef, {
+        photoURL: downloadURL,
+      });
 
       runInAction(() => {
         if (this.userData) {
