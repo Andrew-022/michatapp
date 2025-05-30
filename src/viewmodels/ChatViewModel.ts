@@ -9,7 +9,8 @@ import {
   resetChatUnreadCount,
   subscribeToChatMessages,
   sendChatMessage,
-  decryptMessage
+  decryptMessage,
+  getUser
 } from '../services/firestore';
 
 export class ChatViewModel {
@@ -98,11 +99,19 @@ export class ChatViewModel {
     });
 
     try {
+      // Obtener el nombre del usuario desde Firestore
+      const userDoc = await getUser(currentUser.uid);
+      const userName = userDoc?.name || 'Usuario';
+
       await sendChatMessage(
         this.chatId,
         messageToSend,
         currentUser.uid,
-        this.otherParticipantId
+        this.otherParticipantId,
+        {
+          fromName: userName,
+          to: this.otherParticipantId
+        }
       );
     } catch (error) {
       console.error('Error al enviar mensaje:', error);

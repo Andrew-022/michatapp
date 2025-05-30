@@ -26,6 +26,7 @@ export class HomeViewModel {
     makeAutoObservable(this);
     this.loadUserData();
     this.loadAllChats();
+    this.setupFCMTokenListener();
   }
 
   private async loadUserData() {
@@ -258,5 +259,21 @@ export class HomeViewModel {
     } catch (error) {
       console.error('Error al guardar token FCM:', error);
     }
+  }
+
+  private setupFCMTokenListener() {
+    const messaging = getMessaging();
+    messaging.onTokenRefresh(async (token) => {
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        try {
+          await saveUserFCMToken(currentUser.uid, token);
+          console.log('Token FCM actualizado exitosamente');
+        } catch (error) {
+          console.error('Error al actualizar token FCM:', error);
+        }
+      }
+    });
   }
 } 

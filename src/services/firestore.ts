@@ -280,7 +280,11 @@ export const sendChatMessage = async (
   chatId: string, 
   messageText: string, 
   senderId: string, 
-  otherParticipantId: string
+  otherParticipantId: string,
+  notificationData: {
+    fromName: string;
+    to: string;
+  }
 ) => {
   try {
     const db = getFirestore();
@@ -290,6 +294,8 @@ export const sendChatMessage = async (
       text: encryptedText,
       senderId: senderId,
       createdAt: serverTimestamp(),
+      fromName: notificationData.fromName,
+      to: notificationData.to
     };
 
     const messagesRef = collection(db, COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES);

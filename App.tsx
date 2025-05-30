@@ -15,7 +15,24 @@ import { getMessaging } from '@react-native-firebase/messaging';
 // Configurar el manejador de mensajes en segundo plano
 getMessaging().setBackgroundMessageHandler(async remoteMessage => {
   console.log('Mensaje recibido en segundo plano:', remoteMessage);
+  
   // Aquí puedes manejar la notificación como necesites
+  if (remoteMessage.notification) {
+    // Mostrar la notificación
+    const { title, body } = remoteMessage.notification;
+    console.log('Notificación recibida:', { title, body });
+  }
+});
+
+// Configurar el manejador de mensajes en primer plano
+getMessaging().onMessage(async remoteMessage => {
+  console.log('Mensaje recibido en primer plano:', remoteMessage);
+  
+  if (remoteMessage.notification) {
+    // Mostrar la notificación
+    const { title, body } = remoteMessage.notification;
+    console.log('Notificación recibida:', { title, body });
+  }
 });
 
 function AppContent(): React.JSX.Element {
