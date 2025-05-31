@@ -12,6 +12,7 @@ import {
   decryptMessage,
   getUser
 } from '../services/firestore';
+import { setCurrentChatId } from '../../App';
 
 export class ChatViewModel {
   messages: Message[] = [];
@@ -32,6 +33,7 @@ export class ChatViewModel {
     this.loadMessages();
     this.loadOtherParticipantInfo();
     this.resetUnreadCount();
+    setCurrentChatId(chatId);
   }
 
   private generateChatKey(chatId: string): string {
@@ -123,6 +125,7 @@ export class ChatViewModel {
       this.unsubscribe();
     }
     this.resetUnreadCount();
+    setCurrentChatId(null);
   }
 
   isOwnMessage(message: Message): boolean {

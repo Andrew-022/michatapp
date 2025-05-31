@@ -10,6 +10,7 @@ exports.sendMessageNotification = functions.firestore
     const receiverId = message.to; // ID del destinatario
     const senderName = message.fromName;
     const chatId = context.params.chatId; // Obtener el ID del chat
+    const senderId = message.senderId; // ID del remitente
 
     // Descifrar el mensaje
     let decryptedText;
@@ -38,6 +39,11 @@ exports.sendMessageNotification = functions.firestore
       notification: {
         title: `${senderName} te ha enviado un mensaje`,
         body: decryptedText,
+      },
+      data: {
+        chatId: chatId,
+        type: 'chat_message',
+        otherParticipantId: senderId, // ID del remitente para la navegación
       },
       token: fcmToken,
     };
