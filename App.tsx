@@ -13,6 +13,7 @@ import {lightTheme, darkTheme} from './src/constants/theme';
 import { getMessaging } from '@react-native-firebase/messaging';
 import Toast from 'react-native-toast-message';
 import { getAuth } from '@react-native-firebase/auth';
+import { getNavigation } from './src/services/navigation';
 
 // Variable global para rastrear el chat actual
 let currentChatId: string | null = null;
@@ -43,6 +44,7 @@ getMessaging().onMessage(async remoteMessage => {
     const { title, body } = remoteMessage.notification;
     // Verificar si el mensaje es para el chat actual
     const data = remoteMessage.data;
+    
     if (data && data.chatId && data.chatId === currentChatId) {
       // Si estamos en el chat correspondiente, no mostramos la notificación
       console.log('Mensaje recibido en el chat actual, no se muestra notificación');
@@ -57,9 +59,55 @@ getMessaging().onMessage(async remoteMessage => {
       visibilityTime: 4000,
       autoHide: true,
       topOffset: Platform.OS === 'ios' ? 50 : 30,
+      onPress: () => {
+        // Cuando se presiona el Toast, navegar al chat
+        if (data && data.chatId) {
+          const navigation = getNavigation();
+          if (navigation) {
+            navigation.navigate('Chat', {
+              chatId: data.chatId,
+              otherParticipantId: data.otherParticipantId
+            });
+          }
+        }
+      }
     });
   }
 });
+
+// Agregar el manejador para cuando se abre la app desde una notificación
+getMessaging().onNotificationOpenedApp(remoteMessage => {
+  console.log('App abierta desde notificación:', remoteMessage);
+  
+  if (remoteMessage.data && remoteMessage.data.chatId) {
+    const navigation = getNavigation();
+    if (navigation) {
+      navigation.navigate('Chat', {
+        chatId: remoteMessage.data.chatId,
+        otherParticipantId: remoteMessage.data.otherParticipantId
+      });
+    }
+  }
+});
+
+// Verificar si la app fue abierta desde una notificación
+getMessaging()
+  .getInitialNotification()
+  .then(remoteMessage => {
+    if (remoteMessage) {
+      console.log('App abierta desde notificación en estado cerrado:', remoteMessage);
+      
+      if (remoteMessage.data && remoteMessage.data.chatId) {
+        const navigation = getNavigation();
+        if (navigation) {
+          navigation.navigate('Chat', {
+            chatId: remoteMessage.data.chatId,
+            otherParticipantId: remoteMessage.data.otherParticipantId
+          });
+        }
+      }
+    }
+  });
 
 function AppContent(): React.JSX.Element {
   const {isDark} = useTheme();

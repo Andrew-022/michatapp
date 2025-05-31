@@ -15,6 +15,7 @@ import SettingsScreen from '../views/settings/SettingsScreen';
 import NearbyGroupsScreen from '../views/group/NearbyGroupsScreen';
 import SelectParticipantsScreen from '../views/group/SelectParticipantsScreen';
 import { CreateGroupViewModel } from '../viewmodels/CreateGroupViewModel';
+import { navigationRef } from '../services/navigation';
 
 export type RootStackParamList = {
   Home: undefined;
@@ -49,7 +50,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const AppNavigator = () => {
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         initialRouteName="PhoneAuth"
         screenOptions={{
