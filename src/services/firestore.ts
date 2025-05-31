@@ -561,7 +561,8 @@ export const sendGroupMessage = async (
   groupId: string,
   messageText: string,
   senderId: string,
-  participants: { id: string }[]
+  participants: { id: string }[],
+  senderName: string
 ) => {
   try {
     const db = getFirestore();
@@ -570,6 +571,7 @@ export const sendGroupMessage = async (
     const messageData = {
       text: encryptedText,
       senderId: senderId,
+      fromName: senderName,
       createdAt: serverTimestamp(),
     };
 

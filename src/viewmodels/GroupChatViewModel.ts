@@ -7,7 +7,8 @@ import {
   loadParticipantsInfo, 
   loadGroupMessages, 
   resetGroupUnreadCount, 
-  sendGroupMessage 
+  sendGroupMessage,
+  getUser
 } from '../services/firestore';
 
 export class GroupChatViewModel {
@@ -107,7 +108,16 @@ export class GroupChatViewModel {
     });
 
     try {
-      await sendGroupMessage(this.groupId, messageToSend, currentUser.uid, this.participants);
+      const userDoc = await getUser(currentUser.uid);
+      const userName = userDoc?.name || 'Usuario';
+
+      await sendGroupMessage(
+        this.groupId,
+        messageToSend,
+        currentUser.uid,
+        this.participants,
+        userName
+      );
     } catch (error) {
       console.error('Error al enviar mensaje:', error);
     }
