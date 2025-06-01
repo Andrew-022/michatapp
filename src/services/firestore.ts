@@ -573,6 +573,8 @@ export const sendGroupMessage = async (
       senderId: senderId,
       fromName: senderName,
       createdAt: serverTimestamp(),
+      isGroup: true,
+      groupId: groupId
     };
 
     const messagesRef = collection(db, COLLECTIONS.GROUP_CHATS, groupId, COLLECTIONS.MESSAGES);
@@ -585,6 +587,8 @@ export const sendGroupMessage = async (
         text: encryptedText,
         createdAt: serverTimestamp(),
         senderId: senderId,
+        isGroup: true,
+        groupId: groupId
       },
       updatedAt: serverTimestamp(),
     };

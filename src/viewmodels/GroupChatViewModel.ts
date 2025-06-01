@@ -10,6 +10,7 @@ import {
   sendGroupMessage,
   getUser
 } from '../services/firestore';
+import { setCurrentChatId } from '../../App';
 
 export class GroupChatViewModel {
   messages: Message[] = [];
@@ -28,6 +29,7 @@ export class GroupChatViewModel {
     makeAutoObservable(this);
     this.initialize();
     this.resetUnreadCount();
+    setCurrentChatId(groupId);
   }
 
   private generateGroupKey(groupId: string): string {
@@ -138,5 +140,6 @@ export class GroupChatViewModel {
       this.unsubscribe();
     }
     this.resetUnreadCount();
+    setCurrentChatId(null);
   }
 }

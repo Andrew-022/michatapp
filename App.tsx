@@ -37,7 +37,6 @@ getMessaging().setBackgroundMessageHandler(async remoteMessage => {
 
 // Configurar el manejador de mensajes en primer plano
 getMessaging().onMessage(async remoteMessage => {
-  console.log('Mensaje recibido en primer plano:', remoteMessage);
   
   if (remoteMessage.notification) {
     // Mostrar la notificación como un pop-up
@@ -45,9 +44,8 @@ getMessaging().onMessage(async remoteMessage => {
     // Verificar si el mensaje es para el chat actual
     const data = remoteMessage.data;
     
-    if (data && data.chatId && data.chatId === currentChatId) {
+    if (data && (data.chatId === currentChatId || data.groupId === currentChatId)) {
       // Si estamos en el chat correspondiente, no mostramos la notificación
-      console.log('Mensaje recibido en el chat actual, no se muestra notificación');
       return;
     }
     // Si no estamos en el chat correspondiente, mostramos la notificación
@@ -61,13 +59,19 @@ getMessaging().onMessage(async remoteMessage => {
       topOffset: Platform.OS === 'ios' ? 50 : 30,
       onPress: () => {
         // Cuando se presiona el Toast, navegar al chat
-        if (data && data.chatId) {
+        if (data && (data.chatId || data.groupId)) {
           const navigation = getNavigation();
           if (navigation) {
-            navigation.navigate('Chat', {
-              chatId: data.chatId,
-              otherParticipantId: data.otherParticipantId
-            });
+            if (data.type === 'group_message') {
+              navigation.navigate('GroupChat', {
+                groupId: String(data.groupId)
+              });
+            } else if (data.type === 'chat_message') {
+              navigation.navigate('Chat', {
+                chatId: String(data.chatId),
+                otherParticipantId: String(data.otherParticipantId)
+              });
+            }
           }
         }
       }
@@ -77,15 +81,21 @@ getMessaging().onMessage(async remoteMessage => {
 
 // Agregar el manejador para cuando se abre la app desde una notificación
 getMessaging().onNotificationOpenedApp(remoteMessage => {
-  console.log('App abierta desde notificación:', remoteMessage);
   
-  if (remoteMessage.data && remoteMessage.data.chatId) {
+  if (remoteMessage.data && (remoteMessage.data.chatId || remoteMessage.data.groupId)) {
     const navigation = getNavigation();
     if (navigation) {
-      navigation.navigate('Chat', {
-        chatId: remoteMessage.data.chatId,
-        otherParticipantId: remoteMessage.data.otherParticipantId
-      });
+      if (remoteMessage.data.type === 'group_message') {
+        console.log('Navegando a GroupChat' + remoteMessage.data.groupId);
+        navigation.navigate('GroupChat', {
+          groupId: String(remoteMessage.data.groupId)
+        });
+      } else if (remoteMessage.data.type === 'chat_message') {
+        navigation.navigate('Chat', {
+          chatId: String(remoteMessage.data.chatId),
+          otherParticipantId: String(remoteMessage.data.otherParticipantId)
+        });
+      }
     }
   }
 });
@@ -97,13 +107,19 @@ getMessaging()
     if (remoteMessage) {
       console.log('App abierta desde notificación en estado cerrado:', remoteMessage);
       
-      if (remoteMessage.data && remoteMessage.data.chatId) {
+      if (remoteMessage.data && (remoteMessage.data.chatId || remoteMessage.data.groupId)) {
         const navigation = getNavigation();
         if (navigation) {
-          navigation.navigate('Chat', {
-            chatId: remoteMessage.data.chatId,
-            otherParticipantId: remoteMessage.data.otherParticipantId
-          });
+          if (remoteMessage.data.type === 'group_message') {
+            navigation.navigate('GroupChat', {
+              groupId: String(remoteMessage.data.groupId)
+            });
+          } else if (remoteMessage.data.type === 'chat_message') {
+            navigation.navigate('Chat', {
+              chatId: String(remoteMessage.data.chatId),
+              otherParticipantId: String(remoteMessage.data.otherParticipantId)
+            });
+          }
         }
       }
     }
