@@ -11,6 +11,7 @@ export interface GroupChat {
     text: string;
     createdAt: Date;
     senderId: string;
+    type: string;
   };
 }
 
@@ -27,6 +28,7 @@ export class GroupChatModel implements GroupChat {
     text: string;
     createdAt: Date;
     senderId: string;
+    type: string;
   };
 
   constructor(data: Partial<GroupChat>) {
@@ -69,6 +71,7 @@ export class GroupChatModel implements GroupChat {
             text: data.lastMessage.text,
             createdAt: data.lastMessage.createdAt?.toDate(),
             senderId: data.lastMessage.senderId,
+            type: data.lastMessage.type,
           }
         : undefined,
     });

@@ -24,6 +24,7 @@ import { RootStackParamList } from '../../navigation/AppNavigator';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../context/ThemeContext';
 import { lightTheme, darkTheme } from '../../constants/theme';
+import { CacheService } from '../../services/cache';
 
 type GroupChatNavigationProp = NativeStackNavigationProp<RootStackParamList, 'GroupChat'>;
 
@@ -200,6 +201,15 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
                     source={{ uri: item.imageUrl }}
                     style={styles.messageImage}
                     resizeMode="cover"
+                    onLoadStart={() => {
+                      CacheService.getLocalImage(item.imageUrl, groupId)
+                        .then(localPath => {
+                          if (localPath) {
+                            item.imageUrl = localPath;
+                          }
+                        })
+                        .catch(console.error);
+                    }}
                   />
                 </TouchableOpacity>
               ) : (
