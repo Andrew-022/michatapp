@@ -1,6 +1,6 @@
 import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, addDoc, query, where, onSnapshot, orderBy, serverTimestamp, increment, getDocs, deleteDoc, arrayUnion, arrayRemove } from '@react-native-firebase/firestore';
 import { getAuth } from '@react-native-firebase/auth';
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from '@react-native-firebase/storage';
+import storage from '@react-native-firebase/storage';
 import { User, UserModel } from '../models/User';
 import { Chat, ChatModel } from '../models/Chat';
 import { GroupChatModel } from '../models/GroupChat';
@@ -714,13 +714,12 @@ export const updateGroupName = async (groupId: string, newName: string) => {
 export const deleteGroupChat = async (groupId: string, photoURL?: string) => {
   try {
     const db = getFirestore();
-    const storage = getStorage();
     const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
     
     if (photoURL) {
       try {
-        const photoRef = ref(storage, photoURL);
-        await deleteObject(photoRef);
+        const storageRef = storage().ref(photoURL);
+        await storageRef.delete();
       } catch (error) {
         console.error('Error al eliminar la foto del grupo:', error);
       }
@@ -928,20 +927,17 @@ export const loadGroupCreationContacts = async (currentUserId: string): Promise<
 export const uploadGroupPhoto = async (groupId: string, image: Image): Promise<string> => {
   try {
     const db = getFirestore();
-    const storage = getStorage();
+    const storageRef = storage().ref(`groupPhotos/${groupId}/${Date.now()}`);
     
     // Convertir la imagen a Blob
     const response = await fetch(image.uri);
     const blob = await response.blob();
     
-    // Crear una referencia única para la imagen
-    const photoRef = ref(storage, `groupPhotos/${groupId}/${Date.now()}`);
-    
     // Subir la imagen
-    await uploadBytes(photoRef, blob);
+    await storageRef.put(blob);
     
     // Obtener la URL de la imagen
-    const photoURL = await getDownloadURL(photoRef);
+    const photoURL = await storageRef.getDownloadURL();
     
     // Actualizar el documento del grupo con la nueva URL de la foto
     const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
@@ -1084,18 +1080,17 @@ export const updateUserStatus = async (userId: string, newStatus: string) => {
 
 export const uploadUserPhoto = async (userId: string, image: Image): Promise<string> => {
   try {
-    const storage = getStorage();
-    const reference = ref(storage, `profile_photos/${userId}`);
+    const storageRef = storage().ref(`profile_photos/${userId}`);
     
     // Convertir la URI a Blob
     const response = await fetch(image.path);
     const blob = await response.blob();
 
     // Subir el archivo usando put
-    await reference.put(blob);
+    await storageRef.put(blob);
     
     // Obtener la URL de descarga
-    const downloadURL = await getDownloadURL(reference);
+    const downloadURL = await storageRef.getDownloadURL();
 
     // Actualizar Firestore
     const db = getFirestore();
@@ -1181,18 +1176,17 @@ export const saveUserFCMToken = async (userId: string, token: string): Promise<v
 
 export const uploadChatImage = async (chatId: string, imageAsset: ImageAsset): Promise<string> => {
   try {
-    const storage = getStorage();
-    const reference = ref(storage, `chat_images/${chatId}/${Date.now()}`);
+    const storageRef = storage().ref(`chat_images/${chatId}/${Date.now()}`);
     
     // Convertir la URI a Blob
     const response = await fetch(imageAsset.path);
     const blob = await response.blob();
 
     // Subir el archivo usando put
-    await reference.put(blob);
+    await storageRef.put(blob);
     
     // Obtener la URL de descarga
-    return await getDownloadURL(reference);
+    return await storageRef.getDownloadURL();
   } catch (error) {
     console.error('Error al subir imagen del chat:', error);
     throw error;
@@ -1255,8 +1249,8 @@ export const deleteMessage = async (chatId: string, messageId: string): Promise<
 
 export const deleteImageFromStorage = async (imageUrl: string): Promise<void> => {
   try {
-    const imageRef = storage().refFromURL(imageUrl);
-    await imageRef.delete();
+    const storageRef = storage().refFromURL(imageUrl);
+    await storageRef.delete();
   } catch (error) {
     console.error('Error al eliminar imagen de Firebase Storage:', error);
     throw error;
