@@ -95,10 +95,18 @@ export class GroupChatViewModel {
         try {
           // Obtener mensajes del caché
           const cachedMessages = await CacheService.getChatMessages(this.groupId) || [];
+          const auth = getAuth();
+          const currentUserId = auth.currentUser?.uid;
           
-          // Procesar solo los mensajes nuevos
+          // Procesar solo los mensajes nuevos que no han sido leídos por el usuario actual
           const processedNewMessages = await Promise.all(newMessages
-            .filter(newMsg => !cachedMessages.some(cachedMsg => cachedMsg.id === newMsg.id))
+            .filter(newMsg => {
+              // Filtrar mensajes que no están en caché y no han sido leídos por el usuario actual
+              const isNotInCache = !cachedMessages.some(cachedMsg => cachedMsg.id === newMsg.id);
+              const readBy = newMsg.readBy || {};
+              const isNotReadByCurrentUser = currentUserId ? !readBy[currentUserId] : true;
+              return isNotInCache && isNotReadByCurrentUser;
+            })
             .map(async doc => {
               const data = doc;
               if (data.type === 'image' && data.imageUrl) {
@@ -130,9 +138,6 @@ export class GroupChatViewModel {
           await CacheService.saveChatMessages(this.groupId, allMessages);
 
           // Marcar mensajes como leídos
-          const auth = getAuth();
-          const currentUserId = auth.currentUser?.uid;
-          
           if (currentUserId) {
             // Filtrar mensajes que necesitan ser marcados como leídos
             const messagesToMarkAsRead = newMessages.filter(message => {
@@ -147,18 +152,6 @@ export class GroupChatViewModel {
               await Promise.all(
                 batch.map(message => markGroupMessageAsRead(this.groupId, message.id, currentUserId))
               );
-            }
-
-            // Verificar mensajes para eliminar
-            for (const message of newMessages) {
-              try {
-                const canDelete = await canDeleteGroupMessage(this.groupId, message.id);
-                if (canDelete) {
-                  await processAndDeleteGroupMessage(message, this.groupId, currentUserId);
-                }
-              } catch (error) {
-                console.error('Error al procesar mensaje:', error);
-              }
             }
           }
 
@@ -371,32 +364,19 @@ export class GroupChatViewModel {
 
   async deleteMessage(message: Message) {
     try {
-      const auth = getAuth();
-      const currentUserId = auth.currentUser?.uid;
-      if (!currentUserId) return;
-
-      // Verificar si todos han leído el mensaje
-      const canDelete = await canDeleteGroupMessage(this.groupId, message.id);
-      if (!canDelete) {
-        Alert.alert(
-          'No se puede eliminar',
-          'Espera a que todos los participantes lean el mensaje antes de eliminarlo.'
-        );
-        return;
-      }
-
       // Actualizar mensajes en caché
       const updatedMessages = this.messages.filter(m => m.id !== message.id);
       await CacheService.saveChatMessages(this.groupId, updatedMessages);
-      
-      // Eliminar mensaje y su imagen si existe
-      await processAndDeleteGroupMessage(message, this.groupId, currentUserId);
       
       runInAction(() => {
         this.messages = updatedMessages;
       });
     } catch (error) {
       console.error('Error al eliminar mensaje:', error);
+      Alert.alert(
+        'Error',
+        'No se pudo eliminar el mensaje. Por favor, inténtalo de nuevo.'
+      );
     }
   }
 
