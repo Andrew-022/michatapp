@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,9 @@ import {
   Platform,
   ActivityIndicator,
   Image,
+  Modal,
+  Dimensions,
+  Animated,
 } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { GroupChatViewModel } from '../../viewmodels/GroupChatViewModel';
@@ -41,12 +44,35 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
   const flatListRef = useRef<FlatList>(null);
   const { isDark, secondaryColor, primaryColor } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showImageMenu, setShowImageMenu] = useState(false);
+  const menuAnimation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     return () => {
       viewModel.cleanup();
     };
   }, [viewModel]);
+
+  const toggleImageMenu = () => {
+    const toValue = showImageMenu ? 0 : 1;
+    Animated.spring(menuAnimation, {
+      toValue,
+      useNativeDriver: true,
+      tension: 50,
+      friction: 7,
+    }).start();
+    setShowImageMenu(!showImageMenu);
+  };
+
+  const handleImageOption = (option: 'gallery' | 'camera') => {
+    toggleImageMenu();
+    if (option === 'gallery') {
+      viewModel.pickAndSendImage();
+    } else {
+      viewModel.takeAndSendPhoto();
+    }
+  };
 
   const renderMessage = ({ item }: { item: any }) => {
     const isOwnMessage = viewModel.isOwnMessage(item);
@@ -69,14 +95,24 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
             </Text>
           )}
           <View style={styles.messageContentRow}>
-            <Text
-              style={[
-                styles.messageText,
-                { color: isOwnMessage ? currentTheme.background : currentTheme.text }
-              ]}
-            >
-              {item.text}
-            </Text>
+            {item.type === 'image' ? (
+              <TouchableOpacity onPress={() => setSelectedImage(item.imageUrl)}>
+                <Image
+                  source={{ uri: item.imageUrl }} 
+                  style={styles.messageImage}
+                  resizeMode="cover"
+                />
+              </TouchableOpacity>
+            ) : (
+              <Text
+                style={[
+                  styles.messageText,
+                  { color: isOwnMessage ? currentTheme.background : currentTheme.text }
+                ]}
+              >
+                {item.text}
+              </Text>
+            )}
             <Text
               style={[
                 styles.messageTime,
@@ -150,6 +186,11 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
         backgroundColor: currentTheme.card,
         borderTopColor: currentTheme.border 
       }]}>
+        <TouchableOpacity
+          style={styles.attachButton}
+          onPress={toggleImageMenu}>
+          <Icon name="attach" size={24} color={primaryColor} />
+        </TouchableOpacity>
         <TextInput
           style={[styles.input, { 
             backgroundColor: currentTheme.background,
@@ -174,6 +215,79 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Menú de opciones de imagen */}
+      <Modal
+        visible={showImageMenu}
+        transparent={true}
+        animationType="none"
+        onRequestClose={toggleImageMenu}>
+        <TouchableOpacity 
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={toggleImageMenu}>
+          <Animated.View 
+            style={[
+              styles.menuContainer,
+              {
+                backgroundColor: currentTheme.card,
+                transform: [{
+                  translateY: menuAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [100, 0]
+                  })
+                }]
+              }
+            ]}>
+            <View style={styles.menuContent}>
+              <TouchableOpacity 
+                style={[styles.menuOption, { borderBottomColor: currentTheme.border }]}
+                onPress={() => handleImageOption('gallery')}>
+                <Icon name="images" size={24} color={primaryColor} />
+                <Text style={[styles.menuOptionText, { color: currentTheme.text }]}>
+                  Galería
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.menuOption}
+                onPress={() => handleImageOption('camera')}>
+                <Icon name="camera" size={24} color={primaryColor} />
+                <Text style={[styles.menuOptionText, { color: currentTheme.text }]}>
+                  Cámara
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </TouchableOpacity>
+      </Modal>
+
+      {viewModel.uploadingImage && (
+        <View style={styles.uploadingOverlay}>
+          <ActivityIndicator size="large" color={primaryColor} />
+          <Text style={[styles.uploadingText, { color: currentTheme.text }]}>
+            Subiendo imagen...
+          </Text>
+        </View>
+      )}
+
+      <Modal
+        visible={!!selectedImage}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setSelectedImage(null)}>
+        <View style={styles.modalContainer}>
+          <Image
+            source={{ uri: selectedImage || '' }}
+            style={styles.fullScreenImage}
+            resizeMode="contain"
+          />
+          <TouchableOpacity 
+            style={styles.closeButton}
+            onPress={() => setSelectedImage(null)}>
+            <Icon name="close" size={30} color="white" />
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 });
@@ -285,6 +399,80 @@ const styles = StyleSheet.create({
   sendButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  messageImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 10,
+  },
+  attachButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploadingText: {
+    marginTop: 10,
+    fontSize: 16,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    padding: 10,
+    zIndex: 1000,
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  menuContainer: {
+    position: 'absolute',
+    bottom: 80,
+    left: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  menuContent: {
+    padding: 8,
+  },
+  menuOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    minWidth: 150,
+    borderBottomWidth: 1,
+  },
+  menuOptionText: {
+    fontSize: 16,
+    marginLeft: 12,
   },
 });
 

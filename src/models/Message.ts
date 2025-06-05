@@ -5,6 +5,8 @@ export interface Message {
   createdAt: Date;
   type?: 'text' | 'image';
   imageUrl?: string;
+  fromName?: string;
+  groupId?: string;
 }
 
 export class MessageModel implements Message {
@@ -14,6 +16,8 @@ export class MessageModel implements Message {
   createdAt: Date;
   type: 'text' | 'image';
   imageUrl?: string;
+  fromName?: string;
+  groupId?: string;
 
   constructor(data: Partial<Message>) {
     this.id = data.id || '';
@@ -22,6 +26,8 @@ export class MessageModel implements Message {
     this.createdAt = data.createdAt || new Date();
     this.type = data.type || 'text';
     this.imageUrl = data.imageUrl;
+    this.fromName = data.fromName;
+    this.groupId = data.groupId;
   }
 
   toFirestore() {
@@ -31,6 +37,8 @@ export class MessageModel implements Message {
       createdAt: this.createdAt,
       type: this.type,
       imageUrl: this.imageUrl,
+      fromName: this.fromName,
+      groupId: this.groupId
     };
   }
 
@@ -42,6 +50,8 @@ export class MessageModel implements Message {
       createdAt: data.createdAt?.toDate() || new Date(),
       type: data.type || 'text',
       imageUrl: data.imageUrl,
+      fromName: data.fromName,
+      groupId: data.groupId
     });
   }
 } 

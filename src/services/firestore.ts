@@ -9,6 +9,7 @@ import { Platform } from 'react-native';
 import { Message, MessageModel } from '../models/Message';
 import Contacts from '@s77rt/react-native-contacts';
 import { Image } from 'react-native';
+import { getStorage, ref, uploadBytes, getDownloadURL } from '@react-native-firebase/storage';
 
 // Inicializar Firestore con configuración específica
 const db = getFirestore();
@@ -1174,17 +1175,18 @@ export const saveUserFCMToken = async (userId: string, token: string): Promise<v
   }
 };
 
-export const uploadChatImage = async (chatId: string, imageAsset: ImageAsset): Promise<string> => {
+export const uploadChatImage = async (chatId: string, imageAsset: ImageAsset, isGroup: boolean = false): Promise<string> => {
   try {
-    const storageRef = storage().ref(`chat_images/${chatId}/${Date.now()}`);
-    
+    const path = isGroup ? `group_images/${chatId}/${Date.now()}` : `chat_images/${chatId}/${Date.now()}`;
+    const storageRef = storage().ref(path);
+
     // Convertir la URI a Blob
     const response = await fetch(imageAsset.path);
     const blob = await response.blob();
 
     // Subir el archivo usando put
     await storageRef.put(blob);
-    
+
     // Obtener la URL de descarga
     return await storageRef.getDownloadURL();
   } catch (error) {
@@ -1273,6 +1275,90 @@ export const processAndDeleteMessage = async (
     }
   } catch (error) {
     console.error('Error al procesar y eliminar mensaje:', error);
+    throw error;
+  }
+};
+
+export const sendGroupImage = async (
+  groupId: string,
+  imageUrl: string,
+  senderId: string,
+  participants: { id: string }[],
+  notificationData: {
+    fromName: string;
+    to: string;
+  }
+) => {
+  try {
+    const db = getFirestore();
+    
+    const messageData = {
+      type: 'image',
+      imageUrl: imageUrl,
+      senderId: senderId,
+      createdAt: serverTimestamp(),
+      fromName: notificationData.fromName,
+      to: notificationData.to,
+      groupId: groupId
+    };
+
+    const messagesRef = collection(db, COLLECTIONS.GROUP_CHATS, groupId, COLLECTIONS.MESSAGES);
+    await addDoc(messagesRef, messageData);
+
+    const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
+    const updates: any = {
+      lastMessage: {
+        type: 'image',
+        text: '📷 Imagen',
+        createdAt: serverTimestamp(),
+        senderId: senderId
+      },
+      updatedAt: serverTimestamp()
+    };
+
+    // Incrementar contador de mensajes no leídos para todos los participantes excepto el remitente
+    participants.forEach(participant => {
+      if (participant.id !== senderId) {
+        updates[`unreadCount.${participant.id}`] = increment(1);
+      }
+    });
+
+    await updateDoc(groupRef, updates);
+
+    return true;
+  } catch (error) {
+    console.error('Error al enviar imagen al grupo:', error);
+    throw error;
+  }
+};
+
+export const deleteGroupMessage = async (groupId: string, messageId: string): Promise<void> => {
+  try {
+    const db = getFirestore();
+    const messageRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId, COLLECTIONS.MESSAGES, messageId);
+    await deleteDoc(messageRef);
+  } catch (error) {
+    console.error('Error al eliminar mensaje del grupo:', error);
+    throw error;
+  }
+};
+
+export const processAndDeleteGroupMessage = async (
+  message: any,
+  groupId: string,
+  currentUserId: string
+): Promise<void> => {
+  try {
+    if (message.senderId !== currentUserId) {
+      // Si es una imagen, eliminar de Firebase Storage
+      if (message.type === 'image') {
+        await deleteImageFromStorage(message.imageUrl);
+      }
+      // Eliminar el mensaje de Firestore
+      await deleteGroupMessage(groupId, message.id);
+    }
+  } catch (error) {
+    console.error('Error al procesar y eliminar mensaje del grupo:', error);
     throw error;
   }
 };

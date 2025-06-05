@@ -10,7 +10,8 @@ import {
   sendGroupMessage,
   getUser,
   uploadChatImage,
-  sendChatImage
+  sendChatImage,
+  sendGroupImage
 } from '../services/firestore';
 import { setCurrentChatId } from '../../App';
 import { CacheService } from '../services/cache';
@@ -237,33 +238,34 @@ export class GroupChatViewModel {
         path: imageAsset.uri || imageAsset.path,
         type: imageAsset.type,
         fileName: imageAsset.fileName
-      });
+      }, true);
 
       // Guardar imagen localmente
       const localPath = await CacheService.saveImageLocally(imageUrl, this.groupId);
       
       // Enviar mensaje con la URL de Firebase
-      await sendChatImage(
+      await sendGroupImage(
         this.groupId,
         imageUrl,
         currentUser.uid,
-        this.participants.map(p => p.id).join(','),
+        this.participants,
         {
           fromName: userName,
           to: this.groupId
         }
       );
 
-      // Guardar mensaje en caché con la ruta local
-      const newMessage = MessageModel.fromFirestore(Date.now().toString(), {
-        type: 'image',
+      // Crear mensaje temporal con ID único y timestamp
+      const newMessage: Message = {
+        id: Date.now().toString(),
+        type: 'image' as const,
         imageUrl: localPath || imageUrl,
         senderId: currentUser.uid,
         createdAt: new Date(),
         fromName: userName,
         groupId: this.groupId,
         text: '' // Campo requerido por Message
-      });
+      };
 
       // Actualizar mensajes en caché
       const cachedMessages = await CacheService.getChatMessages(this.groupId) || [];
