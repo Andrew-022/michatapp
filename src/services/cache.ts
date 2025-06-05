@@ -11,7 +11,7 @@ const CACHE_KEYS = {
 
 const IMAGE_CACHE_DIR = Platform.select({
   ios: `${RNFS.DocumentDirectoryPath}/image_cache`,
-  android: `${RNFS.ExternalDirectoryPath}/image_cache`,
+  android: `${RNFS.CachesDirectoryPath}/image_cache`,
 }) || '';
 
 export class CacheService {
@@ -37,12 +37,28 @@ export class CacheService {
       const localPath = `${IMAGE_CACHE_DIR}/${imageName}`;
 
       // Descargar y guardar la imagen
-      await RNFS.downloadFile({
+      const downloadResult = await RNFS.downloadFile({
         fromUrl: imageUrl,
         toFile: localPath,
+        background: true,
+        begin: (res) => {
+          console.log('Iniciando descarga:', res);
+        },
+        progress: (res) => {
+          console.log('Progreso:', res);
+        }
       }).promise;
 
-      return localPath;
+      if (downloadResult.statusCode === 200) {
+        // Verificar que el archivo existe
+        const exists = await RNFS.exists(localPath);
+        if (exists) {
+          // En Android, necesitamos usar file:// para las rutas
+          return Platform.OS === 'android' ? `file://${localPath}` : localPath;
+        }
+      }
+      
+      return null;
     } catch (error) {
       console.error('Error al guardar imagen localmente:', error);
       return null;
@@ -58,8 +74,10 @@ export class CacheService {
       const imageInfo = images.find(img => img.url === imageUrl);
       if (!imageInfo?.localPath) return null;
 
-      const exists = await RNFS.exists(imageInfo.localPath);
-      return exists ? imageInfo.localPath : null;
+      // En Android, necesitamos usar file:// para las rutas
+      const path = Platform.OS === 'android' ? imageInfo.localPath : imageInfo.localPath;
+      const exists = await RNFS.exists(path.replace('file://', ''));
+      return exists ? path : null;
     } catch (error) {
       console.error('Error al obtener imagen local:', error);
       return null;

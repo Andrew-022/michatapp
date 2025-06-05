@@ -13,11 +13,13 @@ import {
   getUser,
   uploadChatImage,
   sendChatImage,
-  deleteMessage
+  deleteMessage,
+  processAndDeleteMessage
 } from '../services/firestore';
 import { setCurrentChatId } from '../../App';
 import * as ImagePicker from 'react-native-image-picker';
 import { CacheService } from '../services/cache';
+import storage from '@react-native-firebase/storage';
 
 export class ChatViewModel {
   messages: Message[] = [];
@@ -106,19 +108,27 @@ export class ChatViewModel {
           const cachedMessages = await CacheService.getChatMessages(this.chatId) || [];
           
           // Procesar solo los mensajes nuevos
-          const processedNewMessages = newMessages
+          const processedNewMessages = await Promise.all(newMessages
             .filter(newMsg => !cachedMessages.some(cachedMsg => cachedMsg.id === newMsg.id))
-            .map(doc => {
+            .map(async doc => {
               const data = doc;
               if (data.type === 'image') {
-                return MessageModel.fromFirestore(doc.id, data);
+                // Guardar imagen localmente
+                const localPath = await CacheService.saveImageLocally(data.imageUrl, this.chatId);
+                if (localPath) {
+                  // Actualizar la URL de la imagen a la local
+                  return MessageModel.fromFirestore(doc.id, {
+                    ...data,
+                    imageUrl: localPath
+                  });
+                }
               }
               const decryptedText = decryptMessage(data.text, this.encryptionKey);
               return MessageModel.fromFirestore(doc.id, {
                 ...data,
                 text: decryptedText
               });
-            });
+            }));
 
           // Combinar mensajes del caché con los nuevos y ordenar por fecha (más recientes primero)
           const allMessages = [...cachedMessages, ...processedNewMessages].sort((a, b) => {
@@ -130,17 +140,15 @@ export class ChatViewModel {
           // Guardar todos los mensajes en caché
           await CacheService.saveChatMessages(this.chatId, allMessages);
 
-          // Eliminar solo los mensajes que no son del usuario actual
+          // Eliminar mensajes y sus imágenes de Firebase
           const auth = getAuth();
           const currentUserId = auth.currentUser?.uid;
           
           for (const message of newMessages) {
-            if (message.senderId !== currentUserId) {
-              try {
-                await deleteMessage(this.chatId, message.id);
-              } catch (error) {
-                console.error('Error al eliminar mensaje de Firestore:', error);
-              }
+            try {
+              await processAndDeleteMessage(message, this.chatId, currentUserId || '');
+            } catch (error) {
+              console.error('Error al procesar mensaje:', error);
             }
           }
 
@@ -247,15 +255,17 @@ export class ChatViewModel {
       const userDoc = await getUser(currentUser.uid);
       const userName = userDoc?.name || 'Usuario';
 
+      // Subir imagen a Firebase Storage
       const imageUrl = await uploadChatImage(this.chatId, {
         path: imageAsset.uri || imageAsset.path,
         type: imageAsset.type,
         fileName: imageAsset.fileName
       });
 
-      // Guardar URL de imagen en caché
-      await CacheService.saveChatImage(this.chatId, imageUrl);
-
+      // Guardar imagen localmente
+      const localPath = await CacheService.saveImageLocally(imageUrl, this.chatId);
+      
+      // Enviar mensaje con la URL de Firebase (para que el otro dispositivo pueda descargarla)
       await sendChatImage(
         this.chatId,
         imageUrl,
@@ -266,6 +276,32 @@ export class ChatViewModel {
           to: this.otherParticipantId
         }
       );
+
+      // Guardar mensaje en caché con la ruta local
+      const newMessage = {
+        id: Date.now().toString(), // ID temporal
+        type: 'image',
+        imageUrl: localPath || imageUrl, // Usar ruta local si está disponible
+        senderId: currentUser.uid,
+        createdAt: new Date(),
+        fromName: userName,
+        to: this.otherParticipantId
+      };
+
+      // Actualizar mensajes en caché
+      const cachedMessages = await CacheService.getChatMessages(this.chatId) || [];
+      const updatedMessages = [...cachedMessages, newMessage].sort((a, b) => {
+        const dateA = a.createdAt?.getTime() || 0;
+        const dateB = b.createdAt?.getTime() || 0;
+        return dateB - dateA;
+      });
+      
+      await CacheService.saveChatMessages(this.chatId, updatedMessages);
+
+      runInAction(() => {
+        this.messages = updatedMessages;
+      });
+
     } catch (error) {
       console.error('Error al enviar imagen:', error);
     } finally {

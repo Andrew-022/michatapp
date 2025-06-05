@@ -1253,4 +1253,34 @@ export const deleteMessage = async (chatId: string, messageId: string): Promise<
   }
 };
 
+export const deleteImageFromStorage = async (imageUrl: string): Promise<void> => {
+  try {
+    const imageRef = storage().refFromURL(imageUrl);
+    await imageRef.delete();
+  } catch (error) {
+    console.error('Error al eliminar imagen de Firebase Storage:', error);
+    throw error;
+  }
+};
+
+export const processAndDeleteMessage = async (
+  message: any,
+  chatId: string,
+  currentUserId: string
+): Promise<void> => {
+  try {
+    if (message.senderId !== currentUserId) {
+      // Si es una imagen, eliminar de Firebase Storage
+      if (message.type === 'image') {
+        await deleteImageFromStorage(message.imageUrl);
+      }
+      // Eliminar el mensaje de Firestore
+      await deleteMessage(chatId, message.id);
+    }
+  } catch (error) {
+    console.error('Error al procesar y eliminar mensaje:', error);
+    throw error;
+  }
+};
+
 export default db;
