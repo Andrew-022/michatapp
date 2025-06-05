@@ -13,17 +13,22 @@ exports.sendMessageNotification = functions.firestore
     const chatId = context.params.chatId; // Obtener el ID del chat
     const senderId = message.senderId; // ID del remitente
 
-    // Descifrar el mensaje
-    let decryptedText;
-    try {
-      const decrypted = CryptoJS.AES.decrypt(message.text, chatId);
-      decryptedText = decrypted.toString(CryptoJS.enc.Utf8);
-      if (!decryptedText) {
-        decryptedText = 'Mensaje cifrado';
+    // Determinar el texto de la notificación
+    let notificationText;
+    if (message.type === 'image') {
+      notificationText = '📷 Imagen';
+    } else {
+      // Descifrar el mensaje
+      try {
+        const decrypted = CryptoJS.AES.decrypt(message.text, chatId);
+        notificationText = decrypted.toString(CryptoJS.enc.Utf8);
+        if (!notificationText) {
+          notificationText = 'Mensaje cifrado';
+        }
+      } catch (error) {
+        console.error('Error al descifrar mensaje:', error);
+        notificationText = 'Mensaje cifrado';
       }
-    } catch (error) {
-      console.error('Error al descifrar mensaje:', error);
-      decryptedText = 'Mensaje cifrado';
     }
 
     // Obtener token del usuario receptor
@@ -39,7 +44,7 @@ exports.sendMessageNotification = functions.firestore
     const payload = {
       notification: {
         title: `${senderName} te ha enviado un mensaje`,
-        body: decryptedText,
+        body: notificationText,
       },
       data: {
         chatId: chatId,
@@ -73,18 +78,23 @@ exports.sendGroupMessageNotification = functions.firestore
     const senderId = message.senderId;
     console.log('Datos básicos:', { senderName, groupId, senderId });
 
-    // Descifrar el mensaje
-    let decryptedText;
-    try {
-      const decrypted = CryptoJS.AES.decrypt(message.text, groupId);
-      decryptedText = decrypted.toString(CryptoJS.enc.Utf8);
-      if (!decryptedText) {
-        decryptedText = 'Mensaje cifrado';
+    // Determinar el texto de la notificación
+    let notificationText;
+    if (message.type === 'image') {
+      notificationText = '📷 Imagen';
+    } else {
+      // Descifrar el mensaje
+      try {
+        const decrypted = CryptoJS.AES.decrypt(message.text, groupId);
+        notificationText = decrypted.toString(CryptoJS.enc.Utf8);
+        if (!notificationText) {
+          notificationText = 'Mensaje cifrado';
+        }
+        console.log('Mensaje descifrado:', notificationText);
+      } catch (error) {
+        console.error('Error al descifrar mensaje:', error);
+        notificationText = 'Mensaje cifrado';
       }
-      console.log('Mensaje descifrado:', decryptedText);
-    } catch (error) {
-      console.error('Error al descifrar mensaje:', error);
-      decryptedText = 'Mensaje cifrado';
     }
 
     // Obtener información del grupo
@@ -124,7 +134,7 @@ exports.sendGroupMessageNotification = functions.firestore
       const message = {
         notification: {
           title: `${senderName} en ${groupData.name}`,
-          body: decryptedText,
+          body: notificationText,
         },
         data: {
           groupId: groupId,
