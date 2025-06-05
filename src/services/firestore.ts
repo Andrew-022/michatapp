@@ -21,6 +21,12 @@ export const COLLECTIONS = {
   GROUP_CHATS: 'groupChats',
 };
 
+interface ImageAsset {
+  path: string;
+  type?: string;
+  fileName?: string;
+}
+
 // Funciones de usuario
 export const createUser = async (userId: string, userData: any) => {
   try {
@@ -1085,8 +1091,8 @@ export const uploadUserPhoto = async (userId: string, image: Image): Promise<str
     const response = await fetch(image.path);
     const blob = await response.blob();
 
-    // Subir el archivo
-    await uploadBytes(reference, blob);
+    // Subir el archivo usando put
+    await reference.put(blob);
     
     // Obtener la URL de descarga
     const downloadURL = await getDownloadURL(reference);
@@ -1170,6 +1176,69 @@ export const saveUserFCMToken = async (userId: string, token: string): Promise<v
     });
   } catch (error) {
     console.error('Error al guardar token FCM:', error);
+  }
+};
+
+export const uploadChatImage = async (chatId: string, imageAsset: ImageAsset): Promise<string> => {
+  try {
+    const storage = getStorage();
+    const reference = ref(storage, `chat_images/${chatId}/${Date.now()}`);
+    
+    // Convertir la URI a Blob
+    const response = await fetch(imageAsset.path);
+    const blob = await response.blob();
+
+    // Subir el archivo usando put
+    await reference.put(blob);
+    
+    // Obtener la URL de descarga
+    return await getDownloadURL(reference);
+  } catch (error) {
+    console.error('Error al subir imagen del chat:', error);
+    throw error;
+  }
+};
+
+export const sendChatImage = async (
+  chatId: string,
+  imageUrl: string,
+  senderId: string,
+  otherParticipantId: string,
+  notificationData: {
+    fromName: string;
+    to: string;
+  }
+) => {
+  try {
+    const db = getFirestore();
+    
+    const messageData = {
+      type: 'image',
+      imageUrl: imageUrl,
+      senderId: senderId,
+      createdAt: serverTimestamp(),
+      fromName: notificationData.fromName,
+      to: notificationData.to
+    };
+
+    const messagesRef = collection(db, COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES);
+    await addDoc(messagesRef, messageData);
+
+    const chatRef = doc(db, COLLECTIONS.CHATS, chatId);
+    await updateDoc(chatRef, {
+      lastMessage: {
+        type: 'image',
+        text: '📷 Imagen',
+        createdAt: serverTimestamp(),
+      },
+      updatedAt: serverTimestamp(),
+      [`unreadCount.${otherParticipantId}`]: increment(1)
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Error al enviar imagen:', error);
+    throw error;
   }
 };
 

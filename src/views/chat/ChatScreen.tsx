@@ -1,4 +1,4 @@
-import React, {useRef, useEffect} from 'react';
+import React, {useRef, useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,9 @@ import {
   Platform,
   ActivityIndicator,
   Image,
+  Alert,
+  Modal,
+  Dimensions,
 } from 'react-native';
 import {observer} from 'mobx-react-lite';
 import {ChatViewModel} from '../../viewmodels/ChatViewModel';
@@ -20,6 +23,7 @@ import {RootStackParamList} from '../../navigation/AppNavigator';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../context/ThemeContext';
 import { lightTheme, darkTheme } from '../../constants/theme';
+import { Message } from '../../models/Message';
 
 type ChatNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Chat'>;
 
@@ -42,6 +46,7 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
   const flatListRef = useRef<FlatList>(null);
   const { isDark, secondaryColor, primaryColor } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -51,7 +56,6 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
 
   const renderMessage = ({item}: {item: any}) => {
     const isOwnMessage = viewModel.isOwnMessage(item);
-
     return (
       <View
         style={[
@@ -62,14 +66,24 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
           }
         ]}>
         <View style={styles.messageContent}>
-          <Text 
-            selectable={true}
-            style={[
-              styles.messageText,
-              { color: isOwnMessage ? currentTheme.background : currentTheme.text }
-            ]}>
-            {item.text}
-          </Text>
+          {item.type === 'image' ? (
+            <TouchableOpacity onPress={() => setSelectedImage(item.imageUrl)}>
+              <Image
+                source={{ uri: item.imageUrl }} 
+                style={styles.messageImage}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
+          ) : (
+            <Text 
+              selectable={true}
+              style={[
+                styles.messageText,
+                { color: isOwnMessage ? currentTheme.background : currentTheme.text }
+              ]}>
+              {item.text}
+            </Text>
+          )}
           <Text style={[
             styles.messageTime,
             { color: isOwnMessage ? currentTheme.background : currentTheme.secondary }
@@ -138,6 +152,30 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
         backgroundColor: currentTheme.card,
         borderTopColor: currentTheme.border 
       }]}>
+        <TouchableOpacity
+          style={styles.attachButton}
+          onPress={() => {
+            Alert.alert(
+              'Enviar imagen',
+              '¿Cómo quieres enviar la imagen?',
+              [
+                {
+                  text: 'Galería',
+                  onPress: () => viewModel.pickAndSendImage()
+                },
+                {
+                  text: 'Cámara',
+                  onPress: () => viewModel.takeAndSendPhoto()
+                },
+                {
+                  text: 'Cancelar',
+                  style: 'cancel'
+                }
+              ]
+            );
+          }}>
+          <Icon name="attach" size={24} color={primaryColor} />
+        </TouchableOpacity>
         <TextInput
           style={[styles.input, { 
             backgroundColor: currentTheme.background,
@@ -161,6 +199,32 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
           </Text>
         </TouchableOpacity>
       </View>
+      {viewModel.uploadingImage && (
+        <View style={styles.uploadingOverlay}>
+          <ActivityIndicator size="large" color={primaryColor} />
+          <Text style={[styles.uploadingText, { color: currentTheme.text }]}>
+            Subiendo imagen...
+          </Text>
+        </View>
+      )}
+      <Modal
+        visible={!!selectedImage}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setSelectedImage(null)}>
+        <View style={styles.modalContainer}>
+          <Image
+            source={{ uri: selectedImage || '' }}
+            style={styles.fullScreenImage}
+            resizeMode="contain"
+          />
+          <TouchableOpacity 
+            style={styles.closeButton}
+            onPress={() => setSelectedImage(null)}>
+            <Icon name="close" size={30} color="white" />
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 });
@@ -263,6 +327,46 @@ const styles = StyleSheet.create({
   sendButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  messageImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 10,
+  },
+  attachButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploadingText: {
+    marginTop: 10,
+    fontSize: 16,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    padding: 10,
+    zIndex: 1000,
   },
 });
 
