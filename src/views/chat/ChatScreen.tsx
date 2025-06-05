@@ -183,7 +183,16 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
           ]}>
           <View style={styles.messageContent}>
             {item.type === 'image' ? (
-              <TouchableOpacity onPress={() => setSelectedImage(item.imageUrl)}>
+              <TouchableOpacity 
+                onPress={() => {
+                  if (selectedMessages.length > 0) {
+                    handleMessageSelect(item.id);
+                  } else {
+                    setSelectedImage(item.imageUrl);
+                  }
+                }}
+                onLongPress={() => handleLongPress(item.id)}
+                delayLongPress={200}>
                 <Image
                   source={{ uri: item.imageUrl }} 
                   style={styles.messageImage}

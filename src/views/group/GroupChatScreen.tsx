@@ -186,9 +186,18 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
             )}
             <View style={styles.messageContentRow}>
               {item.type === 'image' ? (
-                <TouchableOpacity onPress={() => setSelectedImage(item.imageUrl)}>
+                <TouchableOpacity 
+                  onPress={() => {
+                    if (selectedMessages.length > 0) {
+                      handleMessageSelect(item.id);
+                    } else {
+                      setSelectedImage(item.imageUrl);
+                    }
+                  }}
+                  onLongPress={() => handleLongPress(item.id)}
+                  delayLongPress={200}>
                   <Image
-                    source={{ uri: item.imageUrl }} 
+                    source={{ uri: item.imageUrl }}
                     style={styles.messageImage}
                     resizeMode="cover"
                   />
