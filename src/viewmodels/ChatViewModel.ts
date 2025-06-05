@@ -12,10 +12,12 @@ import {
   decryptMessage,
   getUser,
   uploadChatImage,
-  sendChatImage
+  sendChatImage,
+  deleteMessage
 } from '../services/firestore';
 import { setCurrentChatId } from '../../App';
 import * as ImagePicker from 'react-native-image-picker';
+import { CacheService } from '../services/cache';
 
 export class ChatViewModel {
   messages: Message[] = [];
@@ -28,16 +30,44 @@ export class ChatViewModel {
   private readonly encryptionKey: string;
   private unsubscribe: (() => void) | null = null;
   uploadingImage: boolean = false;
+  private lastSyncTime: Date | null = null;
 
   constructor(chatId: string, otherParticipantId: string) {
     this.chatId = chatId;
     this.otherParticipantId = otherParticipantId;
     this.encryptionKey = this.generateChatKey(chatId);
     makeAutoObservable(this);
-    this.loadMessages();
-    this.loadOtherParticipantInfo();
-    this.resetUnreadCount();
-    setCurrentChatId(chatId);
+    this.initializeChat();
+  }
+
+  private async initializeChat() {
+    try {
+      // Cargar mensajes desde caché primero
+      const cachedMessages = await CacheService.getChatMessages(this.chatId);
+      if (cachedMessages) {
+        runInAction(() => {
+          this.messages = cachedMessages;
+          this.loading = false;
+        });
+      }
+
+      // Cargar información del participante
+      await this.loadOtherParticipantInfo();
+      
+      // Suscribirse a nuevos mensajes
+      this.subscribeToMessages();
+      
+      // Resetear contador de mensajes no leídos
+      await this.resetUnreadCount();
+      
+      // Actualizar chat actual
+      setCurrentChatId(this.chatId);
+    } catch (error) {
+      console.error('Error al inicializar chat:', error);
+      runInAction(() => {
+        this.loading = false;
+      });
+    }
   }
 
   private generateChatKey(chatId: string): string {
@@ -67,25 +97,63 @@ export class ChatViewModel {
     await resetChatUnreadCount(this.chatId);
   }
 
-  private loadMessages() {
+  private subscribeToMessages() {
     this.unsubscribe = subscribeToChatMessages(
       this.chatId,
-      (messages) => {
-        runInAction(() => {
-          this.messages = messages.map(doc => {
-            const data = doc;
-            // Solo descifrar si es un mensaje de texto
-            if (data.type === 'image') {
-              return MessageModel.fromFirestore(doc.id, data);
-            }
-            const decryptedText = decryptMessage(data.text, this.encryptionKey);
-            return MessageModel.fromFirestore(doc.id, {
-              ...data,
-              text: decryptedText
+      async (newMessages) => {
+        try {
+          // Obtener mensajes del caché
+          const cachedMessages = await CacheService.getChatMessages(this.chatId) || [];
+          
+          // Procesar solo los mensajes nuevos
+          const processedNewMessages = newMessages
+            .filter(newMsg => !cachedMessages.some(cachedMsg => cachedMsg.id === newMsg.id))
+            .map(doc => {
+              const data = doc;
+              if (data.type === 'image') {
+                return MessageModel.fromFirestore(doc.id, data);
+              }
+              const decryptedText = decryptMessage(data.text, this.encryptionKey);
+              return MessageModel.fromFirestore(doc.id, {
+                ...data,
+                text: decryptedText
+              });
             });
+
+          // Combinar mensajes del caché con los nuevos y ordenar por fecha (más recientes primero)
+          const allMessages = [...cachedMessages, ...processedNewMessages].sort((a, b) => {
+            const dateA = a.createdAt?.getTime() || 0;
+            const dateB = b.createdAt?.getTime() || 0;
+            return dateB - dateA;
           });
-          this.loading = false;
-        });
+
+          // Guardar todos los mensajes en caché
+          await CacheService.saveChatMessages(this.chatId, allMessages);
+
+          // Eliminar solo los mensajes que no son del usuario actual
+          const auth = getAuth();
+          const currentUserId = auth.currentUser?.uid;
+          
+          for (const message of newMessages) {
+            if (message.senderId !== currentUserId) {
+              try {
+                await deleteMessage(this.chatId, message.id);
+              } catch (error) {
+                console.error('Error al eliminar mensaje de Firestore:', error);
+              }
+            }
+          }
+
+          runInAction(() => {
+            this.messages = allMessages;
+            this.loading = false;
+          });
+        } catch (error) {
+          console.error('Error al procesar mensajes:', error);
+          runInAction(() => {
+            this.loading = false;
+          });
+        }
       },
       (error) => {
         console.error('Error al cargar mensajes:', error);
@@ -176,18 +244,18 @@ export class ChatViewModel {
         this.uploadingImage = true;
       });
 
-      // Obtener el nombre del usuario desde Firestore
       const userDoc = await getUser(currentUser.uid);
       const userName = userDoc?.name || 'Usuario';
 
-      // Subir la imagen y obtener la URL
       const imageUrl = await uploadChatImage(this.chatId, {
         path: imageAsset.uri || imageAsset.path,
         type: imageAsset.type,
         fileName: imageAsset.fileName
       });
 
-      // Enviar el mensaje con la imagen
+      // Guardar URL de imagen en caché
+      await CacheService.saveChatImage(this.chatId, imageUrl);
+
       await sendChatImage(
         this.chatId,
         imageUrl,

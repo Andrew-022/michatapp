@@ -24,6 +24,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../context/ThemeContext';
 import { lightTheme, darkTheme } from '../../constants/theme';
 import { Message } from '../../models/Message';
+import { CacheService } from '../../services/cache';
 
 type ChatNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Chat'>;
 
@@ -72,6 +73,17 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
                 source={{ uri: item.imageUrl }} 
                 style={styles.messageImage}
                 resizeMode="cover"
+                onLoadStart={() => {
+                  // Intentar cargar la imagen local primero
+                  CacheService.getLocalImage(item.imageUrl, chatId)
+                    .then(localPath => {
+                      if (localPath) {
+                        // Si existe localmente, actualizar la fuente
+                        item.imageUrl = localPath;
+                      }
+                    })
+                    .catch(console.error);
+                }}
               />
             </TouchableOpacity>
           ) : (

@@ -1242,4 +1242,15 @@ export const sendChatImage = async (
   }
 };
 
+export const deleteMessage = async (chatId: string, messageId: string): Promise<void> => {
+  try {
+    const db = getFirestore();
+    const messageRef = doc(db, COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, messageId);
+    await deleteDoc(messageRef);
+  } catch (error) {
+    console.error('Error al eliminar mensaje:', error);
+    throw error;
+  }
+};
+
 export default db;
