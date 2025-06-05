@@ -50,13 +50,28 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
   const currentTheme = isDark ? darkTheme : lightTheme;
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showImageMenu, setShowImageMenu] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const menuAnimation = useRef(new Animated.Value(0)).current;
+  const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
+  const [selectedMessagePosition, setSelectedMessagePosition] = useState({ x: 0, y: 0 });
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
       viewModel.cleanup();
     };
   }, [viewModel]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (selectedMessages.length > 0) {
+        e.preventDefault();
+        setSelectedMessages([]);
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation, selectedMessages]);
 
   const toggleImageMenu = () => {
     const toValue = showImageMenu ? 0 : 1;
@@ -78,55 +93,131 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
     }
   };
 
+  const handleLongPress = (messageId: string) => {
+    handleMessageSelect(messageId);
+  };
+
+  const handleMessageSelect = (messageId: string) => {
+    setSelectedMessages(prev => {
+      if (prev.includes(messageId)) {
+        return prev.filter(id => id !== messageId);
+      } else {
+        return [...prev, messageId];
+      }
+    });
+  };
+
+  const handleDeleteMessages = async () => {
+    if (selectedMessages.length === 0) return;
+
+    Alert.alert(
+      'Eliminar mensajes',
+      `¿Estás seguro de que quieres eliminar ${selectedMessages.length} mensaje${selectedMessages.length > 1 ? 's' : ''}?`,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel'
+        },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            for (const messageId of selectedMessages) {
+              const message = viewModel.messages.find(m => m.id === messageId);
+              if (message) {
+                await viewModel.deleteMessage(message);
+              }
+            }
+            setSelectedMessages([]);
+          }
+        }
+      ]
+    );
+  };
+
+  const handleDeleteAllMessages = async () => {
+    Alert.alert(
+      'Eliminar todos los mensajes',
+      '¿Estás seguro de que quieres eliminar todos los mensajes de este chat?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel'
+        },
+        {
+          text: 'Eliminar todo',
+          style: 'destructive',
+          onPress: async () => {
+            for (const message of viewModel.messages) {
+              await viewModel.deleteMessage(message);
+            }
+            setSelectedMessages([]);
+          }
+        }
+      ]
+    );
+  };
+
   const renderMessage = ({item}: {item: any}) => {
     const isOwnMessage = viewModel.isOwnMessage(item);
+    const isSelected = selectedMessages.includes(item.id);
+
     return (
-      <View
-        style={[
-          styles.messageContainer,
-          isOwnMessage ? styles.ownMessage : styles.otherMessage,
-          {
-            backgroundColor: isOwnMessage ? secondaryColor : currentTheme.card,
+      <TouchableOpacity
+        onLongPress={() => handleLongPress(item.id)}
+        onPress={() => {
+          if (selectedMessages.length > 0) {
+            handleMessageSelect(item.id);
           }
-        ]}>
-        <View style={styles.messageContent}>
-          {item.type === 'image' ? (
-            <TouchableOpacity onPress={() => setSelectedImage(item.imageUrl)}>
-              <Image
-                source={{ uri: item.imageUrl }} 
-                style={styles.messageImage}
-                resizeMode="cover"
-                onLoadStart={() => {
-                  // Intentar cargar la imagen local primero
-                  CacheService.getLocalImage(item.imageUrl, chatId)
-                    .then(localPath => {
-                      if (localPath) {
-                        // Si existe localmente, actualizar la fuente
-                        item.imageUrl = localPath;
-                      }
-                    })
-                    .catch(console.error);
-                }}
-              />
-            </TouchableOpacity>
-          ) : (
-            <Text 
-              selectable={true}
-              style={[
-                styles.messageText,
-                { color: isOwnMessage ? currentTheme.background : currentTheme.text }
-              ]}>
-              {item.text}
-            </Text>
-          )}
-          <Text style={[
-            styles.messageTime,
-            { color: isOwnMessage ? currentTheme.background : currentTheme.secondary }
+        }}
+        delayLongPress={200}>
+        <View
+          style={[
+            styles.messageContainer,
+            isOwnMessage ? styles.ownMessage : styles.otherMessage,
+            {
+              backgroundColor: isOwnMessage ? secondaryColor : currentTheme.card,
+              borderWidth: isSelected ? 2 : 0,
+              borderColor: primaryColor,
+            }
           ]}>
-            {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
-          </Text>
+          <View style={styles.messageContent}>
+            {item.type === 'image' ? (
+              <TouchableOpacity onPress={() => setSelectedImage(item.imageUrl)}>
+                <Image
+                  source={{ uri: item.imageUrl }} 
+                  style={styles.messageImage}
+                  resizeMode="cover"
+                  onLoadStart={() => {
+                    CacheService.getLocalImage(item.imageUrl, chatId)
+                      .then(localPath => {
+                        if (localPath) {
+                          item.imageUrl = localPath;
+                        }
+                      })
+                      .catch(console.error);
+                  }}
+                />
+              </TouchableOpacity>
+            ) : (
+              <Text 
+                selectable={true}
+                style={[
+                  styles.messageText,
+                  { color: isOwnMessage ? currentTheme.background : currentTheme.text }
+                ]}>
+                {item.text}
+              </Text>
+            )}
+            <Text style={[
+              styles.messageTime,
+              { color: isOwnMessage ? currentTheme.background : currentTheme.secondary }
+            ]}>
+              {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
+            </Text>
+          </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -150,31 +241,64 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
       }]}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color={primaryColor} />
+          onPress={() => {
+            if (selectedMessages.length > 0) {
+              setSelectedMessages([]);
+            } else {
+              navigation.goBack();
+            }
+          }}>
+          <Icon 
+            name={selectedMessages.length > 0 ? "close" : "arrow-back"} 
+            size={24} 
+            color={primaryColor} 
+          />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          {viewModel.otherParticipantPhoto ? (
-            <Image 
-              source={{ uri: viewModel.otherParticipantPhoto }} 
-              style={styles.headerPhoto}
-            />
-          ) : (
-            <View style={[styles.headerPhotoPlaceholder, { backgroundColor: primaryColor }]}>
-              <Text style={[styles.headerPhotoText, { color: currentTheme.background }]}>
-                {viewModel.otherParticipantName?.charAt(0).toUpperCase() || '?'}
+          {selectedMessages.length > 0 ? (
+            <View style={styles.selectionHeader}>
+              <Text style={[styles.selectionText, { color: currentTheme.text }]}>
+                {selectedMessages.length} mensaje{selectedMessages.length > 1 ? 's' : ''} seleccionado{selectedMessages.length > 1 ? 's' : ''}
               </Text>
+              <View style={styles.headerActions}>
+                <TouchableOpacity
+                  style={[styles.headerButton, { backgroundColor: '#ff4444' }]}
+                  onPress={handleDeleteMessages}>
+                  <Icon name="trash" size={24} color="white" />
+                </TouchableOpacity>
+              </View>
             </View>
+          ) : (
+            <>
+              {viewModel.otherParticipantPhoto ? (
+                <Image 
+                  source={{ uri: viewModel.otherParticipantPhoto }} 
+                  style={styles.headerPhoto}
+                />
+              ) : (
+                <View style={[styles.headerPhotoPlaceholder, { backgroundColor: primaryColor }]}>
+                  <Text style={[styles.headerPhotoText, { color: currentTheme.background }]}>
+                    {viewModel.otherParticipantName?.charAt(0).toUpperCase() || '?'}
+                  </Text>
+                </View>
+              )}
+              <TouchableOpacity 
+                onPress={() => navigation.navigate('UserProfile', { userId: otherParticipantId })}
+                style={styles.headerTitleContainer}>
+                <Text style={[styles.headerTitle, { color: currentTheme.text }]}>
+                  {viewModel.otherParticipantName}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuButton}
+                onPress={() => setShowOptionsMenu(true)}>
+                <Icon name="ellipsis-vertical" size={24} color={primaryColor} />
+              </TouchableOpacity>
+            </>
           )}
-          <TouchableOpacity 
-            onPress={() => navigation.navigate('UserProfile', { userId: otherParticipantId })}
-            style={styles.headerTitleContainer}>
-            <Text style={[styles.headerTitle, { color: currentTheme.text }]}>
-              {viewModel.otherParticipantName}
-            </Text>
-          </TouchableOpacity>
         </View>
       </View>
+
       <FlatList
         ref={flatListRef}
         data={viewModel.messages}
@@ -286,6 +410,32 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
             <Icon name="close" size={30} color="white" />
           </TouchableOpacity>
         </View>
+      </Modal>
+
+      {/* Menú de opciones */}
+      <Modal
+        visible={showOptionsMenu}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowOptionsMenu(false)}>
+        <TouchableOpacity 
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setShowOptionsMenu(false)}>
+          <View style={[styles.optionsMenuContainer, { backgroundColor: currentTheme.card }]}>
+            <TouchableOpacity 
+              style={[styles.menuOption, { borderBottomColor: currentTheme.border }]}
+              onPress={() => {
+                setShowOptionsMenu(false);
+                handleDeleteAllMessages();
+              }}>
+              <Icon name="trash-outline" size={24} color="#ff4444" />
+              <Text style={[styles.menuOptionText, { color: '#ff4444' }]}>
+                Vaciar chat
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       </Modal>
     </KeyboardAvoidingView>
   );
@@ -463,6 +613,57 @@ const styles = StyleSheet.create({
   menuOptionText: {
     fontSize: 16,
     marginLeft: 12,
+  },
+  selectionHeader: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingRight: 10,
+  },
+  selectionText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerButton: {
+    padding: 8,
+    borderRadius: 20,
+  },
+  messageMenuContainer: {
+    position: 'absolute',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    minWidth: 150,
+  },
+  menuButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  optionsMenuContainer: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    minWidth: 150,
   },
 });
 

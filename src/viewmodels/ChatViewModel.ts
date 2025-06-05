@@ -14,12 +14,14 @@ import {
   uploadChatImage,
   sendChatImage,
   deleteMessage,
-  processAndDeleteMessage
+  processAndDeleteMessage,
+  COLLECTIONS
 } from '../services/firestore';
 import { setCurrentChatId } from '../../App';
 import * as ImagePicker from 'react-native-image-picker';
 import { CacheService } from '../services/cache';
 import storage from '@react-native-firebase/storage';
+import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 
 export class ChatViewModel {
   messages: Message[] = [];
@@ -308,6 +310,20 @@ export class ChatViewModel {
       runInAction(() => {
         this.uploadingImage = false;
       });
+    }
+  }
+
+  async deleteMessage(message: Message) {
+    try {
+      // Actualizar mensajes en caché
+      const updatedMessages = this.messages.filter(m => m.id !== message.id);
+      await CacheService.saveChatMessages(this.chatId, updatedMessages);
+      
+      runInAction(() => {
+        this.messages = updatedMessages;
+      });
+    } catch (error) {
+      console.error('Error al eliminar mensaje:', error);
     }
   }
 
