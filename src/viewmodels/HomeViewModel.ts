@@ -79,7 +79,7 @@ export class HomeViewModel {
         }
 
         let lastMessage = chatModel.lastMessage;
-        if (lastMessage && lastMessage.text) {
+        if (lastMessage && lastMessage.text && lastMessage.type !== 'image') {
           lastMessage = {
             ...lastMessage,
             text: decryptMessage(lastMessage.text, chat.id)
@@ -102,7 +102,7 @@ export class HomeViewModel {
       const processedGroups = groups.map(group => {
         const groupModel = GroupChatModel.fromFirestore(group.id, group);
         let lastMessage = groupModel.lastMessage;
-        if (lastMessage && lastMessage.text) {
+        if (lastMessage && lastMessage.text && lastMessage.type !== 'image') {
           lastMessage = {
             ...lastMessage,
             text: decryptMessage(lastMessage.text, group.id),

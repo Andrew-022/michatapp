@@ -5,6 +5,7 @@ export interface Chat {
   lastMessage?: {
     text: string;
     createdAt: Date;
+    type: string;
   };
   unreadCount?: { [userId: string]: number };
 }
@@ -16,6 +17,7 @@ export class ChatModel implements Chat {
   lastMessage?: {
     text: string;
     createdAt: Date;
+    type: string;
   };
   unreadCount?: { [userId: string]: number };
 
@@ -44,6 +46,7 @@ export class ChatModel implements Chat {
       lastMessage: data.lastMessage
         ? {
             text: data.lastMessage.text,
+            type: data.lastMessage.type,
             createdAt: data.lastMessage.createdAt?.toDate(),
           }
         : undefined,

@@ -31,75 +31,6 @@ import { saveUserFCMToken } from '../../services/firestore';
 
 type HomeNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
-const ChatItem = ({ item, onPress, currentTheme }: { 
-  item: any; 
-  onPress: () => void;
-  currentTheme: any;
-}) => {
-  const viewModel = React.useMemo(() => new HomeViewModel(), []);
-  const [otherParticipantName, setOtherParticipantName] = useState('');
-  const [decryptedLastMessage, setDecryptedLastMessage] = useState('');
-
-  useEffect(() => {
-    const loadParticipantInfo = async () => {
-      const name = await viewModel.getOtherParticipantName(item);
-      setOtherParticipantName(name);
-    };
-    loadParticipantInfo();
-  }, [item]);
-
-  useEffect(() => {
-    if (item.lastMessage?.text) {
-      try {
-        const key = item.id;
-        const decrypted = CryptoJS.AES.decrypt(item.lastMessage.text, key);
-        const text = decrypted.toString(CryptoJS.enc.Utf8);
-        setDecryptedLastMessage(text || 'Mensaje cifrado');
-      } catch (error) {
-        console.error('Error al descifrar mensaje:', error);
-        setDecryptedLastMessage('Mensaje cifrado');
-      }
-    }
-  }, [item.lastMessage?.text]);
-
-  return (
-    <TouchableOpacity
-      style={[styles.chatItem, { 
-        backgroundColor: currentTheme.card,
-        borderBottomColor: currentTheme.border 
-      }]}
-      onPress={onPress}>
-      <View style={[styles.avatarContainer, { backgroundColor: primaryColor }]}>
-        {item.otherParticipantPhoto ? (
-          <Image 
-            source={{ uri: item.otherParticipantPhoto }} 
-            style={styles.avatarImage}
-          />
-        ) : (
-          <Text style={[styles.avatarText, { color: currentTheme.background }]}>
-            {otherParticipantName.charAt(0).toUpperCase() || '?'}
-          </Text>
-        )}
-      </View>
-      <View style={styles.chatInfo}>
-        <View style={styles.chatHeader}>
-          <Text style={[styles.chatName, { color: currentTheme.text }]}>
-            {otherParticipantName || 'Usuario desconocido'}
-          </Text>
-          {item.unreadCount > 0 && (
-            <View style={[styles.unreadBadge, { backgroundColor: primaryColor }]}>
-              <Text style={styles.unreadCount}>{item.unreadCount}</Text>
-            </View>
-          )}
-        </View>
-        <Text style={[styles.lastMessage, { color: currentTheme.text }]} numberOfLines={1}>
-          {decryptedLastMessage || 'No hay mensajes'}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
-};
-
 const Home = observer(() => {
   const navigation = useNavigation<HomeNavigationProp>();
   const viewModel = React.useMemo(() => new HomeViewModel(), []);
@@ -151,6 +82,14 @@ const Home = observer(() => {
 
   const renderChatItem = ({item}: {item: any}) => {
     const isGroup = !!item.adminIds;
+    let lastMessageText = 'No hay mensajes';
+    if (item.lastMessage) {
+      if (item.lastMessage.type === 'image') {
+        lastMessageText = '📷 Imagen';
+      } else if (item.lastMessage.text) {
+        lastMessageText = item.lastMessage.text;
+      }
+    }
 
     return (
       <TouchableOpacity
@@ -221,9 +160,7 @@ const Home = observer(() => {
             style={[styles.lastMessage, { color: currentTheme.text }]} 
             numberOfLines={1}
             ellipsizeMode="tail">
-            {item.lastMessage?.text
-              ? item.lastMessage.text
-              : 'No hay mensajes'}
+            {lastMessageText}
           </Text>
         </View>
       </TouchableOpacity>
