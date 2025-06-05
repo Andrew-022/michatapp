@@ -13,6 +13,7 @@ import {
   Alert,
   Modal,
   Dimensions,
+  Animated,
 } from 'react-native';
 import {observer} from 'mobx-react-lite';
 import {ChatViewModel} from '../../viewmodels/ChatViewModel';
@@ -48,12 +49,34 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
   const { isDark, secondaryColor, primaryColor } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showImageMenu, setShowImageMenu] = useState(false);
+  const menuAnimation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     return () => {
       viewModel.cleanup();
     };
   }, [viewModel]);
+
+  const toggleImageMenu = () => {
+    const toValue = showImageMenu ? 0 : 1;
+    Animated.spring(menuAnimation, {
+      toValue,
+      useNativeDriver: true,
+      tension: 50,
+      friction: 7,
+    }).start();
+    setShowImageMenu(!showImageMenu);
+  };
+
+  const handleImageOption = (option: 'gallery' | 'camera') => {
+    toggleImageMenu();
+    if (option === 'gallery') {
+      viewModel.pickAndSendImage();
+    } else {
+      viewModel.takeAndSendPhoto();
+    }
+  };
 
   const renderMessage = ({item}: {item: any}) => {
     const isOwnMessage = viewModel.isOwnMessage(item);
@@ -166,26 +189,7 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
       }]}>
         <TouchableOpacity
           style={styles.attachButton}
-          onPress={() => {
-            Alert.alert(
-              'Enviar imagen',
-              '¿Cómo quieres enviar la imagen?',
-              [
-                {
-                  text: 'Galería',
-                  onPress: () => viewModel.pickAndSendImage()
-                },
-                {
-                  text: 'Cámara',
-                  onPress: () => viewModel.takeAndSendPhoto()
-                },
-                {
-                  text: 'Cancelar',
-                  style: 'cancel'
-                }
-              ]
-            );
-          }}>
+          onPress={toggleImageMenu}>
           <Icon name="attach" size={24} color={primaryColor} />
         </TouchableOpacity>
         <TextInput
@@ -211,6 +215,52 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Menú de opciones de imagen */}
+      <Modal
+        visible={showImageMenu}
+        transparent={true}
+        animationType="none"
+        onRequestClose={toggleImageMenu}>
+        <TouchableOpacity 
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={toggleImageMenu}>
+          <Animated.View 
+            style={[
+              styles.menuContainer,
+              {
+                backgroundColor: currentTheme.card,
+                transform: [{
+                  translateY: menuAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [100, 0]
+                  })
+                }]
+              }
+            ]}>
+            <View style={styles.menuContent}>
+              <TouchableOpacity 
+                style={[styles.menuOption, { borderBottomColor: currentTheme.border }]}
+                onPress={() => handleImageOption('gallery')}>
+                <Icon name="images" size={24} color={primaryColor} />
+                <Text style={[styles.menuOptionText, { color: currentTheme.text }]}>
+                  Galería
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.menuOption}
+                onPress={() => handleImageOption('camera')}>
+                <Icon name="camera" size={24} color={primaryColor} />
+                <Text style={[styles.menuOptionText, { color: currentTheme.text }]}>
+                  Cámara
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </TouchableOpacity>
+      </Modal>
+
       {viewModel.uploadingImage && (
         <View style={styles.uploadingOverlay}>
           <ActivityIndicator size="large" color={primaryColor} />
@@ -379,6 +429,40 @@ const styles = StyleSheet.create({
     right: 20,
     padding: 10,
     zIndex: 1000,
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  menuContainer: {
+    position: 'absolute',
+    bottom: 80, // Altura aproximada del área de entrada de mensajes
+    left: 20,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  menuContent: {
+    padding: 8,
+  },
+  menuOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    minWidth: 150,
+    borderBottomWidth: 1,
+  },
+  menuOptionText: {
+    fontSize: 16,
+    marginLeft: 12,
   },
 });
 
