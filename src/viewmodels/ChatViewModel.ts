@@ -191,6 +191,21 @@ export class ChatViewModel {
       const userDoc = await getUser(currentUser.uid);
       const userName = userDoc?.name || 'Usuario';
 
+      // Crear mensaje temporal para actualización inmediata
+      const tempMessage: Message = {
+        id: Date.now().toString(),
+        text: messageToSend,
+        senderId: currentUser.uid,
+        createdAt: new Date(),
+        fromName: userName,
+        to: this.otherParticipantId
+      };
+
+      // Actualizar estado inmediatamente
+      runInAction(() => {
+        this.messages = [tempMessage, ...this.messages];
+      });
+
       await sendChatMessage(
         this.chatId,
         messageToSend,
@@ -203,6 +218,10 @@ export class ChatViewModel {
       );
     } catch (error) {
       console.error('Error al enviar mensaje:', error);
+      // En caso de error, revertir el mensaje temporal
+      runInAction(() => {
+        this.messages = this.messages.filter(m => m.id !== Date.now().toString());
+      });
     }
   }
 
@@ -267,7 +286,24 @@ export class ChatViewModel {
       // Guardar imagen localmente
       const localPath = await CacheService.saveImageLocally(imageUrl, this.chatId);
       
-      // Enviar mensaje con la URL de Firebase (para que el otro dispositivo pueda descargarla)
+      // Crear mensaje temporal para actualización inmediata
+      const tempMessage: Message = {
+        id: Date.now().toString(),
+        type: 'image',
+        imageUrl: localPath || imageUrl,
+        senderId: currentUser.uid,
+        createdAt: new Date(),
+        fromName: userName,
+        to: this.otherParticipantId,
+        text: '' // Campo requerido por Message
+      };
+
+      // Actualizar estado inmediatamente
+      runInAction(() => {
+        this.messages = [tempMessage, ...this.messages];
+      });
+
+      // Enviar mensaje con la URL de Firebase
       await sendChatImage(
         this.chatId,
         imageUrl,
@@ -279,33 +315,12 @@ export class ChatViewModel {
         }
       );
 
-      // Guardar mensaje en caché con la ruta local
-      const newMessage = {
-        id: Date.now().toString(), // ID temporal
-        type: 'image',
-        imageUrl: localPath || imageUrl, // Usar ruta local si está disponible
-        senderId: currentUser.uid,
-        createdAt: new Date(),
-        fromName: userName,
-        to: this.otherParticipantId
-      };
-
-      // Actualizar mensajes en caché
-      const cachedMessages = await CacheService.getChatMessages(this.chatId) || [];
-      const updatedMessages = [...cachedMessages, newMessage].sort((a, b) => {
-        const dateA = a.createdAt?.getTime() || 0;
-        const dateB = b.createdAt?.getTime() || 0;
-        return dateB - dateA;
-      });
-      
-      await CacheService.saveChatMessages(this.chatId, updatedMessages);
-
-      runInAction(() => {
-        this.messages = updatedMessages;
-      });
-
     } catch (error) {
       console.error('Error al enviar imagen:', error);
+      // En caso de error, revertir el mensaje temporal
+      runInAction(() => {
+        this.messages = this.messages.filter(m => m.id !== Date.now().toString());
+      });
     } finally {
       runInAction(() => {
         this.uploadingImage = false;

@@ -11,11 +11,15 @@ import {
   getUser,
   uploadChatImage,
   sendChatImage,
-  sendGroupImage
+  sendGroupImage,
+  processAndDeleteGroupMessage,
+  canDeleteGroupMessage,
+  markGroupMessageAsRead
 } from '../services/firestore';
 import { setCurrentChatId } from '../../App';
 import { CacheService } from '../services/cache';
 import * as ImagePicker from 'react-native-image-picker';
+import { Alert } from 'react-native';
 
 export class GroupChatViewModel {
   messages: Message[] = [];
@@ -115,16 +119,48 @@ export class GroupChatViewModel {
               };
             }));
 
-          // Combinar mensajes del caché con los nuevos
+          // Combinar mensajes del caché con los nuevos y ordenar por fecha (más recientes primero)
           const allMessages = [...cachedMessages, ...processedNewMessages].sort((a, b) => {
-            // Convertir timestamps a fechas
-            const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
-            const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
-            return dateB.getTime() - dateA.getTime();
+            const dateA = a.createdAt?.getTime() || 0;
+            const dateB = b.createdAt?.getTime() || 0;
+            return dateB - dateA;
           });
 
           // Guardar todos los mensajes en caché
           await CacheService.saveChatMessages(this.groupId, allMessages);
+
+          // Marcar mensajes como leídos
+          const auth = getAuth();
+          const currentUserId = auth.currentUser?.uid;
+          
+          if (currentUserId) {
+            // Filtrar mensajes que necesitan ser marcados como leídos
+            const messagesToMarkAsRead = newMessages.filter(message => {
+              const readBy = message.readBy || {};
+              return !readBy[currentUserId];
+            });
+
+            // Marcar mensajes como leídos en lotes de 10
+            const batchSize = 10;
+            for (let i = 0; i < messagesToMarkAsRead.length; i += batchSize) {
+              const batch = messagesToMarkAsRead.slice(i, i + batchSize);
+              await Promise.all(
+                batch.map(message => markGroupMessageAsRead(this.groupId, message.id, currentUserId))
+              );
+            }
+
+            // Verificar mensajes para eliminar
+            for (const message of newMessages) {
+              try {
+                const canDelete = await canDeleteGroupMessage(this.groupId, message.id);
+                if (canDelete) {
+                  await processAndDeleteGroupMessage(message, this.groupId, currentUserId);
+                }
+              } catch (error) {
+                console.error('Error al procesar mensaje:', error);
+              }
+            }
+          }
 
           runInAction(() => {
             this.messages = allMessages;
@@ -170,15 +206,40 @@ export class GroupChatViewModel {
       const userDoc = await getUser(currentUser.uid);
       const userName = userDoc?.name || 'Usuario';
 
+      // Crear objeto readBy con el remitente
+      const readBy = { [currentUser.uid]: new Date() };
+
+      // Crear mensaje temporal para actualización inmediata
+      const tempMessage: Message = {
+        id: Date.now().toString(),
+        text: messageToSend,
+        senderId: currentUser.uid,
+        createdAt: new Date(),
+        fromName: userName,
+        groupId: this.groupId,
+        readBy
+      };
+
+      // Actualizar estado inmediatamente
+      runInAction(() => {
+        this.messages = [tempMessage, ...this.messages];
+      });
+
+      // Enviar mensaje a Firestore
       await sendGroupMessage(
         this.groupId,
         messageToSend,
         currentUser.uid,
         this.participants,
-        userName
+        userName,
+        readBy
       );
     } catch (error) {
       console.error('Error al enviar mensaje:', error);
+      // En caso de error, revertir el mensaje temporal
+      runInAction(() => {
+        this.messages = this.messages.filter(m => m.id !== Date.now().toString());
+      });
     }
   }
 
@@ -243,6 +304,27 @@ export class GroupChatViewModel {
       // Guardar imagen localmente
       const localPath = await CacheService.saveImageLocally(imageUrl, this.groupId);
       
+      // Crear objeto readBy con el remitente
+      const readBy = { [currentUser.uid]: new Date() };
+
+      // Crear mensaje temporal para actualización inmediata
+      const tempMessage: Message = {
+        id: Date.now().toString(),
+        type: 'image',
+        imageUrl: localPath || imageUrl,
+        senderId: currentUser.uid,
+        createdAt: new Date(),
+        fromName: userName,
+        groupId: this.groupId,
+        text: '',
+        readBy
+      };
+
+      // Actualizar estado inmediatamente
+      runInAction(() => {
+        this.messages = [tempMessage, ...this.messages];
+      });
+      
       // Enviar mensaje con la URL de Firebase
       await sendGroupImage(
         this.groupId,
@@ -252,33 +334,16 @@ export class GroupChatViewModel {
         {
           fromName: userName,
           to: this.groupId
-        }
+        },
+        readBy
       );
-
-      // Crear mensaje temporal con ID único y timestamp
-      const newMessage: Message = {
-        id: Date.now().toString(),
-        type: 'image' as const,
-        imageUrl: localPath || imageUrl,
-        senderId: currentUser.uid,
-        createdAt: new Date(),
-        fromName: userName,
-        groupId: this.groupId,
-        text: '' // Campo requerido por Message
-      };
-
-      // Actualizar mensajes en caché
-      const cachedMessages = await CacheService.getChatMessages(this.groupId) || [];
-      const updatedMessages = [...cachedMessages, newMessage];
-      
-      await CacheService.saveChatMessages(this.groupId, updatedMessages);
-
-      runInAction(() => {
-        this.messages = updatedMessages;
-      });
 
     } catch (error) {
       console.error('Error al enviar imagen:', error);
+      // En caso de error, revertir el mensaje temporal
+      runInAction(() => {
+        this.messages = this.messages.filter(m => m.id !== Date.now().toString());
+      });
     } finally {
       runInAction(() => {
         this.uploadingImage = false;
@@ -302,5 +367,49 @@ export class GroupChatViewModel {
     }
     this.resetUnreadCount();
     setCurrentChatId(null);
+  }
+
+  async deleteMessage(message: Message) {
+    try {
+      const auth = getAuth();
+      const currentUserId = auth.currentUser?.uid;
+      if (!currentUserId) return;
+
+      // Verificar si todos han leído el mensaje
+      const canDelete = await canDeleteGroupMessage(this.groupId, message.id);
+      if (!canDelete) {
+        Alert.alert(
+          'No se puede eliminar',
+          'Espera a que todos los participantes lean el mensaje antes de eliminarlo.'
+        );
+        return;
+      }
+
+      // Actualizar mensajes en caché
+      const updatedMessages = this.messages.filter(m => m.id !== message.id);
+      await CacheService.saveChatMessages(this.groupId, updatedMessages);
+      
+      // Eliminar mensaje y su imagen si existe
+      await processAndDeleteGroupMessage(message, this.groupId, currentUserId);
+      
+      runInAction(() => {
+        this.messages = updatedMessages;
+      });
+    } catch (error) {
+      console.error('Error al eliminar mensaje:', error);
+    }
+  }
+
+  // Marcar mensaje como leído cuando se visualiza
+  async markMessageAsRead(messageId: string) {
+    try {
+      const auth = getAuth();
+      const currentUserId = auth.currentUser?.uid;
+      if (!currentUserId) return;
+
+      await markGroupMessageAsRead(this.groupId, messageId, currentUserId);
+    } catch (error) {
+      console.error('Error al marcar mensaje como leído:', error);
+    }
   }
 }
