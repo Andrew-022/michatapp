@@ -95,18 +95,10 @@ export class GroupChatViewModel {
         try {
           // Obtener mensajes del caché
           const cachedMessages = await CacheService.getChatMessages(this.groupId) || [];
-          const auth = getAuth();
-          const currentUserId = auth.currentUser?.uid;
           
-          // Procesar solo los mensajes nuevos que no han sido leídos por el usuario actual
+          // Procesar solo los mensajes nuevos que no están en caché
           const processedNewMessages = await Promise.all(newMessages
-            .filter(newMsg => {
-              // Filtrar mensajes que no están en caché y no han sido leídos por el usuario actual
-              const isNotInCache = !cachedMessages.some(cachedMsg => cachedMsg.id === newMsg.id);
-              const readBy = newMsg.readBy || {};
-              const isNotReadByCurrentUser = currentUserId ? !readBy[currentUserId] : true;
-              return isNotInCache && isNotReadByCurrentUser;
-            })
+            .filter(newMsg => !cachedMessages.some(cachedMsg => cachedMsg.id === newMsg.id))
             .map(async doc => {
               const data = doc;
               if (data.type === 'image' && data.imageUrl) {
@@ -136,24 +128,6 @@ export class GroupChatViewModel {
 
           // Guardar todos los mensajes en caché
           await CacheService.saveChatMessages(this.groupId, allMessages);
-
-          // Marcar mensajes como leídos
-          if (currentUserId) {
-            // Filtrar mensajes que necesitan ser marcados como leídos
-            const messagesToMarkAsRead = newMessages.filter(message => {
-              const readBy = message.readBy || {};
-              return !readBy[currentUserId];
-            });
-
-            // Marcar mensajes como leídos en lotes de 10
-            const batchSize = 10;
-            for (let i = 0; i < messagesToMarkAsRead.length; i += batchSize) {
-              const batch = messagesToMarkAsRead.slice(i, i + batchSize);
-              await Promise.all(
-                batch.map(message => markGroupMessageAsRead(this.groupId, message.id, currentUserId))
-              );
-            }
-          }
 
           runInAction(() => {
             this.messages = allMessages;
@@ -199,9 +173,6 @@ export class GroupChatViewModel {
       const userDoc = await getUser(currentUser.uid);
       const userName = userDoc?.name || 'Usuario';
 
-      // Crear objeto readBy con el remitente
-      const readBy = { [currentUser.uid]: new Date() };
-
       // Crear mensaje temporal para actualización inmediata
       const tempMessage: Message = {
         id: Date.now().toString(),
@@ -209,8 +180,7 @@ export class GroupChatViewModel {
         senderId: currentUser.uid,
         createdAt: new Date(),
         fromName: userName,
-        groupId: this.groupId,
-        readBy
+        groupId: this.groupId
       };
 
       // Actualizar estado inmediatamente
@@ -224,8 +194,7 @@ export class GroupChatViewModel {
         messageToSend,
         currentUser.uid,
         this.participants,
-        userName,
-        readBy
+        userName
       );
     } catch (error) {
       console.error('Error al enviar mensaje:', error);
@@ -297,9 +266,6 @@ export class GroupChatViewModel {
       // Guardar imagen localmente
       const localPath = await CacheService.saveImageLocally(imageUrl, this.groupId);
       
-      // Crear objeto readBy con el remitente
-      const readBy = { [currentUser.uid]: new Date() };
-
       // Crear mensaje temporal para actualización inmediata
       const tempMessage: Message = {
         id: Date.now().toString(),
@@ -309,8 +275,7 @@ export class GroupChatViewModel {
         createdAt: new Date(),
         fromName: userName,
         groupId: this.groupId,
-        text: '',
-        readBy
+        text: ''
       };
 
       // Actualizar estado inmediatamente
@@ -327,8 +292,7 @@ export class GroupChatViewModel {
         {
           fromName: userName,
           to: this.groupId
-        },
-        readBy
+        }
       );
 
     } catch (error) {

@@ -569,8 +569,7 @@ export const sendGroupMessage = async (
   messageText: string,
   senderId: string,
   participants: { id: string }[],
-  senderName: string,
-  readBy: { [userId: string]: Date } = {}
+  senderName: string
 ) => {
   try {
     const db = getFirestore();
@@ -582,8 +581,7 @@ export const sendGroupMessage = async (
       fromName: senderName,
       createdAt: serverTimestamp(),
       isGroup: true,
-      groupId: groupId,
-      readBy
+      groupId: groupId
     };
 
     const messagesRef = collection(db, COLLECTIONS.GROUP_CHATS, groupId, COLLECTIONS.MESSAGES);
@@ -1291,8 +1289,7 @@ export const sendGroupImage = async (
   notificationData: {
     fromName: string;
     to: string;
-  },
-  readBy: { [userId: string]: Date } = {}
+  }
 ) => {
   try {
     const db = getFirestore();
@@ -1304,8 +1301,7 @@ export const sendGroupImage = async (
       createdAt: serverTimestamp(),
       fromName: notificationData.fromName,
       to: notificationData.to,
-      groupId: groupId,
-      readBy
+      groupId: groupId
     };
 
     const messagesRef = collection(db, COLLECTIONS.GROUP_CHATS, groupId, COLLECTIONS.MESSAGES);
@@ -1366,48 +1362,6 @@ export const processAndDeleteGroupMessage = async (
   } catch (error) {
     console.error('Error al procesar y eliminar mensaje del grupo:', error);
     throw error;
-  }
-};
-
-export const markGroupMessageAsRead = async (groupId: string, messageId: string, userId: string): Promise<void> => {
-  try {
-    const db = getFirestore();
-    const messageRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId, COLLECTIONS.MESSAGES, messageId);
-    await updateDoc(messageRef, {
-      [`readBy.${userId}`]: serverTimestamp()
-    });
-  } catch (error) {
-    console.error('Error al marcar mensaje como leído:', error);
-    throw error;
-  }
-};
-
-export const canDeleteGroupMessage = async (groupId: string, messageId: string): Promise<boolean> => {
-  try {
-    const db = getFirestore();
-    const messageRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId, COLLECTIONS.MESSAGES, messageId);
-    const messageDoc = await getDoc(messageRef);
-    const messageData = messageDoc.data();
-    
-    if (!messageData) return false;
-
-    // Obtener la lista de participantes del grupo
-    const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
-    const groupDoc = await getDoc(groupRef);
-    const groupData = groupDoc.data();
-    
-    if (!groupData || !groupData.participants) return false;
-
-    // Verificar si todos los participantes han leído el mensaje
-    const readBy = messageData.readBy || {};
-    const allParticipantsHaveRead = groupData.participants.every(
-      participantId => readBy[participantId]
-    );
-
-    return allParticipantsHaveRead;
-  } catch (error) {
-    console.error('Error al verificar si se puede eliminar el mensaje:', error);
-    return false;
   }
 };
 

@@ -7,7 +7,6 @@ export interface Message {
   imageUrl?: string;
   fromName?: string;
   groupId?: string;
-  readBy?: { [userId: string]: Date };
 }
 
 export class MessageModel implements Message {
@@ -19,7 +18,6 @@ export class MessageModel implements Message {
   imageUrl?: string;
   fromName?: string;
   groupId?: string;
-  readBy?: { [userId: string]: Date };
 
   constructor(data: Partial<Message>) {
     this.id = data.id || '';
@@ -30,7 +28,6 @@ export class MessageModel implements Message {
     this.imageUrl = data.imageUrl;
     this.fromName = data.fromName;
     this.groupId = data.groupId;
-    this.readBy = data.readBy || {};
   }
 
   toFirestore() {
@@ -42,7 +39,6 @@ export class MessageModel implements Message {
       imageUrl: this.imageUrl,
       fromName: this.fromName,
       groupId: this.groupId,
-      readBy: this.readBy
     };
   }
 
@@ -56,7 +52,6 @@ export class MessageModel implements Message {
       imageUrl: data.imageUrl,
       fromName: data.fromName,
       groupId: data.groupId,
-      readBy: data.readBy || {}
     });
   }
 } 
