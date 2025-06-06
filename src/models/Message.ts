@@ -7,6 +7,7 @@ export interface Message {
   imageUrl?: string;
   fromName?: string;
   groupId?: string;
+  to?: string;
 }
 
 export class MessageModel implements Message {
@@ -18,6 +19,7 @@ export class MessageModel implements Message {
   imageUrl?: string;
   fromName?: string;
   groupId?: string;
+  to?: string;
 
   constructor(data: Partial<Message>) {
     this.id = data.id || '';
@@ -28,6 +30,7 @@ export class MessageModel implements Message {
     this.imageUrl = data.imageUrl;
     this.fromName = data.fromName;
     this.groupId = data.groupId;
+    this.to = data.to;
   }
 
   toFirestore() {
@@ -39,6 +42,7 @@ export class MessageModel implements Message {
       imageUrl: this.imageUrl,
       fromName: this.fromName,
       groupId: this.groupId,
+      to: this.to
     };
   }
 
@@ -52,6 +56,7 @@ export class MessageModel implements Message {
       imageUrl: data.imageUrl,
       fromName: data.fromName,
       groupId: data.groupId,
+      to: data.to
     });
   }
 } 

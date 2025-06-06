@@ -109,12 +109,24 @@ export class ChatViewModel {
           // Obtener mensajes del caché
           const cachedMessages = await CacheService.getChatMessages(this.chatId) || [];
           
+          // Si no hay mensajes nuevos ni en caché, actualizar el estado de carga
+          if (newMessages.length === 0 && cachedMessages.length === 0) {
+            runInAction(() => {
+              this.loading = false;
+            });
+            return;
+          }
+
           // Filtrar solo mensajes nuevos que no están en caché
           const uniqueNewMessages = newMessages.filter(
             newMsg => !cachedMessages.some(cachedMsg => cachedMsg.id === newMsg.id)
           );
 
           if (uniqueNewMessages.length === 0) {
+            runInAction(() => {
+              this.messages = cachedMessages;
+              this.loading = false;
+            });
             return;
           }
 
@@ -270,7 +282,7 @@ export class ChatViewModel {
     }
   }
 
-  private async sendImage(imageAsset: ImagePicker.ImagePickerAsset) {
+  private async sendImage(imageAsset: any) {
     const auth = getAuth();
     const currentUser = auth.currentUser;
     if (!currentUser) return;
@@ -294,7 +306,7 @@ export class ChatViewModel {
       const tempMessage: Message = {
         id: Date.now().toString(),
         type: 'image',
-        imageUrl: imageUrl, // Usar la URL de Firebase directamente
+        imageUrl: imageUrl,
         senderId: currentUser.uid,
         createdAt: new Date(),
         fromName: userName,

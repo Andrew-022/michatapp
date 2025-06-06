@@ -14,7 +14,7 @@ import {
   sendGroupImage,
   processAndDeleteGroupMessage,
   canDeleteGroupMessage,
-  markGroupMessageAsRead
+  markMessagesAsRead
 } from '../services/firestore';
 import { setCurrentChatId } from '../../App';
 import { CacheService } from '../services/cache';
@@ -96,12 +96,24 @@ export class GroupChatViewModel {
           // Obtener mensajes del caché
           const cachedMessages = await CacheService.getChatMessages(this.groupId) || [];
           
+          // Si no hay mensajes nuevos ni en caché, actualizar el estado de carga
+          if (newMessages.length === 0 && cachedMessages.length === 0) {
+            runInAction(() => {
+              this.loading = false;
+            });
+            return;
+          }
+
           // Filtrar solo mensajes nuevos que no están en caché
           const uniqueNewMessages = newMessages.filter(
             newMsg => !cachedMessages.some(cachedMsg => cachedMsg.id === newMsg.id)
           );
 
           if (uniqueNewMessages.length === 0) {
+            runInAction(() => {
+              this.messages = cachedMessages;
+              this.loading = false;
+            });
             return;
           }
 
@@ -137,7 +149,7 @@ export class GroupChatViewModel {
           await CacheService.saveChatMessages(this.groupId, allMessages);
 
           // Eliminar mensajes y sus imágenes de Firebase solo para mensajes nuevos
-          const auth = getAuth();
+          /*const auth = getAuth();
           const currentUserId = auth.currentUser?.uid;
           
           for (const message of uniqueNewMessages) {
@@ -146,7 +158,7 @@ export class GroupChatViewModel {
             } catch (error) {
               console.error('Error al procesar mensaje:', error);
             }
-          }
+          }*/
 
           runInAction(() => {
             this.messages = allMessages;
@@ -370,7 +382,7 @@ export class GroupChatViewModel {
       const currentUserId = auth.currentUser?.uid;
       if (!currentUserId) return;
 
-      await markGroupMessageAsRead(this.groupId, messageId, currentUserId);
+      await markMessagesAsRead(this.groupId, true);
     } catch (error) {
       console.error('Error al marcar mensaje como leído:', error);
     }
