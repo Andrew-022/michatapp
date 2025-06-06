@@ -132,27 +132,51 @@ export class ChatViewModel {
 
           // Procesar solo los mensajes nuevos
           const processedNewMessages = await Promise.all(uniqueNewMessages.map(async doc => {
-            const data = doc;
-            if (data.type === 'image') {
-              // Guardar imagen localmente
-              const localPath = await CacheService.saveImageLocally(data.imageUrl, this.chatId);
-              if (localPath) {
-                // Actualizar la URL de la imagen a la local
-                return MessageModel.fromFirestore(doc.id, {
-                  ...data,
-                  imageUrl: localPath
-                });
+            try {
+              const data = doc;
+              if (!data) {
+                console.log('Mensaje no encontrado en Firestore, probablemente ya fue leído y eliminado');
+                return null;
               }
+
+              if (data.type === 'image') {
+                // Guardar imagen localmente
+                const localPath = await CacheService.saveImageLocally(data.imageUrl, this.chatId);
+                if (localPath) {
+                  // Actualizar la URL de la imagen a la local
+                  return MessageModel.fromFirestore(doc.id, {
+                    ...data,
+                    imageUrl: localPath
+                  });
+                }
+              }
+
+              // Solo intentar descifrar si hay texto
+              if (data.text) {
+                try {
+                  const decryptedText = decryptMessage(data.text, this.encryptionKey);
+                  return MessageModel.fromFirestore(doc.id, {
+                    ...data,
+                    text: decryptedText
+                  });
+                } catch (error) {
+                  console.error('Error al descifrar mensaje:', error);
+                  // Si falla el descifrado, devolver el mensaje sin descifrar
+                  return MessageModel.fromFirestore(doc.id, data);
+                }
+              }
+
+              // Si no hay texto ni imagen, devolver el mensaje tal cual
+              return MessageModel.fromFirestore(doc.id, data);
+            } catch (error) {
+              console.error('Error al procesar mensaje:', error);
+              return null;
             }
-            const decryptedText = decryptMessage(data.text, this.encryptionKey);
-            return MessageModel.fromFirestore(doc.id, {
-              ...data,
-              text: decryptedText
-            });
           }));
 
-          // Combinar mensajes del caché con los nuevos y ordenar por fecha (más recientes primero)
-          const allMessages = [...cachedMessages, ...processedNewMessages].sort((a, b) => {
+          // Filtrar mensajes nulos y combinar con los existentes
+          const validNewMessages = processedNewMessages.filter(msg => msg !== null);
+          const allMessages = [...cachedMessages, ...validNewMessages].sort((a, b) => {
             const dateA = a.createdAt?.getTime() || 0;
             const dateB = b.createdAt?.getTime() || 0;
             return dateB - dateA;
@@ -167,7 +191,9 @@ export class ChatViewModel {
           
           for (const message of uniqueNewMessages) {
             try {
-              await processAndDeleteMessage(message, this.chatId, currentUserId || '');
+              if (message) {
+                await processAndDeleteMessage(message, this.chatId, currentUserId || '');
+              }
             } catch (error) {
               console.error('Error al procesar mensaje:', error);
             }
