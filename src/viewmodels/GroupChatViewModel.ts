@@ -96,28 +96,35 @@ export class GroupChatViewModel {
           // Obtener mensajes del caché
           const cachedMessages = await CacheService.getChatMessages(this.groupId) || [];
           
-          // Procesar solo los mensajes nuevos que no están en caché
-          const processedNewMessages = await Promise.all(newMessages
-            .filter(newMsg => !cachedMessages.some(cachedMsg => cachedMsg.id === newMsg.id))
-            .map(async doc => {
-              const data = doc;
-              if (data.type === 'image' && data.imageUrl) {
-                // Guardar imagen localmente
-                const localPath = await CacheService.saveImageLocally(data.imageUrl, this.groupId);
-                if (localPath) {
-                  // Actualizar la URL de la imagen a la local
-                  return {
-                    ...data,
-                    imageUrl: localPath
-                  };
-                }
+          // Filtrar solo mensajes nuevos que no están en caché
+          const uniqueNewMessages = newMessages.filter(
+            newMsg => !cachedMessages.some(cachedMsg => cachedMsg.id === newMsg.id)
+          );
+
+          if (uniqueNewMessages.length === 0) {
+            return;
+          }
+
+          // Procesar solo los mensajes nuevos
+          const processedNewMessages = await Promise.all(uniqueNewMessages.map(async doc => {
+            const data = doc;
+            if (data.type === 'image' && data.imageUrl) {
+              // Guardar imagen localmente
+              const localPath = await CacheService.saveImageLocally(data.imageUrl, this.groupId);
+              if (localPath) {
+                // Actualizar la URL de la imagen a la local
+                return {
+                  ...data,
+                  imageUrl: localPath
+                };
               }
-              const decryptedText = this.decryptMessage(data.text);
-              return {
-                ...data,
-                text: decryptedText
-              };
-            }));
+            }
+            const decryptedText = this.decryptMessage(data.text);
+            return {
+              ...data,
+              text: decryptedText
+            };
+          }));
 
           // Combinar mensajes del caché con los nuevos y ordenar por fecha (más recientes primero)
           const allMessages = [...cachedMessages, ...processedNewMessages].sort((a, b) => {
@@ -128,6 +135,18 @@ export class GroupChatViewModel {
 
           // Guardar todos los mensajes en caché
           await CacheService.saveChatMessages(this.groupId, allMessages);
+
+          // Eliminar mensajes y sus imágenes de Firebase solo para mensajes nuevos
+          const auth = getAuth();
+          const currentUserId = auth.currentUser?.uid;
+          
+          for (const message of uniqueNewMessages) {
+            try {
+              await processAndDeleteGroupMessage(message, this.groupId, currentUserId || '');
+            } catch (error) {
+              console.error('Error al procesar mensaje:', error);
+            }
+          }
 
           runInAction(() => {
             this.messages = allMessages;

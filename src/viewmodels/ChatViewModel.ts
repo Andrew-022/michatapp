@@ -109,28 +109,35 @@ export class ChatViewModel {
           // Obtener mensajes del caché
           const cachedMessages = await CacheService.getChatMessages(this.chatId) || [];
           
+          // Filtrar solo mensajes nuevos que no están en caché
+          const uniqueNewMessages = newMessages.filter(
+            newMsg => !cachedMessages.some(cachedMsg => cachedMsg.id === newMsg.id)
+          );
+
+          if (uniqueNewMessages.length === 0) {
+            return;
+          }
+
           // Procesar solo los mensajes nuevos
-          const processedNewMessages = await Promise.all(newMessages
-            .filter(newMsg => !cachedMessages.some(cachedMsg => cachedMsg.id === newMsg.id))
-            .map(async doc => {
-              const data = doc;
-              if (data.type === 'image') {
-                // Guardar imagen localmente
-                const localPath = await CacheService.saveImageLocally(data.imageUrl, this.chatId);
-                if (localPath) {
-                  // Actualizar la URL de la imagen a la local
-                  return MessageModel.fromFirestore(doc.id, {
-                    ...data,
-                    imageUrl: localPath
-                  });
-                }
+          const processedNewMessages = await Promise.all(uniqueNewMessages.map(async doc => {
+            const data = doc;
+            if (data.type === 'image') {
+              // Guardar imagen localmente
+              const localPath = await CacheService.saveImageLocally(data.imageUrl, this.chatId);
+              if (localPath) {
+                // Actualizar la URL de la imagen a la local
+                return MessageModel.fromFirestore(doc.id, {
+                  ...data,
+                  imageUrl: localPath
+                });
               }
-              const decryptedText = decryptMessage(data.text, this.encryptionKey);
-              return MessageModel.fromFirestore(doc.id, {
-                ...data,
-                text: decryptedText
-              });
-            }));
+            }
+            const decryptedText = decryptMessage(data.text, this.encryptionKey);
+            return MessageModel.fromFirestore(doc.id, {
+              ...data,
+              text: decryptedText
+            });
+          }));
 
           // Combinar mensajes del caché con los nuevos y ordenar por fecha (más recientes primero)
           const allMessages = [...cachedMessages, ...processedNewMessages].sort((a, b) => {
@@ -142,11 +149,11 @@ export class ChatViewModel {
           // Guardar todos los mensajes en caché
           await CacheService.saveChatMessages(this.chatId, allMessages);
 
-          // Eliminar mensajes y sus imágenes de Firebase
+          // Eliminar mensajes y sus imágenes de Firebase solo para mensajes nuevos
           const auth = getAuth();
           const currentUserId = auth.currentUser?.uid;
           
-          for (const message of newMessages) {
+          for (const message of uniqueNewMessages) {
             try {
               await processAndDeleteMessage(message, this.chatId, currentUserId || '');
             } catch (error) {
@@ -283,14 +290,11 @@ export class ChatViewModel {
         fileName: imageAsset.fileName
       });
 
-      // Guardar imagen localmente
-      const localPath = await CacheService.saveImageLocally(imageUrl, this.chatId);
-      
       // Crear mensaje temporal para actualización inmediata
       const tempMessage: Message = {
         id: Date.now().toString(),
         type: 'image',
-        imageUrl: localPath || imageUrl,
+        imageUrl: imageUrl, // Usar la URL de Firebase directamente
         senderId: currentUser.uid,
         createdAt: new Date(),
         fromName: userName,
@@ -314,6 +318,9 @@ export class ChatViewModel {
           to: this.otherParticipantId
         }
       );
+
+      // Guardar imagen localmente después de enviar el mensaje
+      await CacheService.saveChatImage(this.chatId, imageUrl);
 
     } catch (error) {
       console.error('Error al enviar imagen:', error);

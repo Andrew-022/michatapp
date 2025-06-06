@@ -26,6 +26,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { lightTheme, darkTheme } from '../../constants/theme';
 import { Message } from '../../models/Message';
 import { CacheService } from '../../services/cache';
+import { runInAction } from 'mobx';
 
 type ChatNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Chat'>;
 
@@ -197,11 +198,15 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
                   source={{ uri: item.imageUrl }} 
                   style={styles.messageImage}
                   resizeMode="cover"
-                  onLoadStart={() => {
+                  onError={(error) => {
+                    console.error('Error al cargar imagen:', error.nativeEvent);
+                    // Intentar cargar la imagen local si falla la carga remota
                     CacheService.getLocalImage(item.imageUrl, chatId)
                       .then(localPath => {
                         if (localPath) {
-                          item.imageUrl = localPath;
+                          runInAction(() => {
+                            item.imageUrl = localPath;
+                          });
                         }
                       })
                       .catch(console.error);

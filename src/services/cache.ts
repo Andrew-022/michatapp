@@ -15,20 +15,22 @@ const IMAGE_CACHE_DIR = Platform.select({
 }) || '';
 
 export class CacheService {
-  // Inicializar el directorio de caché de imágenes
-  static async initializeImageCache(): Promise<void> {
-    try {
-      const exists = await RNFS.exists(IMAGE_CACHE_DIR);
-      if (!exists) {
-        await RNFS.mkdir(IMAGE_CACHE_DIR);
-      }
-    } catch (error) {
-      console.error('Error al inicializar directorio de caché:', error);
-    }
-  }
+  private static imageProcessingQueue: Array<{
+    imageUrl: string;
+    chatId: string;
+    resolve: (value: string | null) => void;
+    reject: (reason?: any) => void;
+  }> = [];
+  private static isProcessingQueue = false;
 
-  // Guardar imagen localmente
-  static async saveImageLocally(imageUrl: string, chatId: string): Promise<string | null> {
+  private static async processNextImage(): Promise<void> {
+    if (this.isProcessingQueue || this.imageProcessingQueue.length === 0) {
+      return;
+    }
+
+    this.isProcessingQueue = true;
+    const { imageUrl, chatId, resolve, reject } = this.imageProcessingQueue[0];
+
     try {
       await this.initializeImageCache();
       
@@ -54,15 +56,41 @@ export class CacheService {
         const exists = await RNFS.exists(localPath);
         if (exists) {
           // En Android, necesitamos usar file:// para las rutas
-          return Platform.OS === 'android' ? `file://${localPath}` : localPath;
+          resolve(Platform.OS === 'android' ? `file://${localPath}` : localPath);
+        } else {
+          resolve(null);
         }
+      } else {
+        resolve(null);
       }
-      
-      return null;
     } catch (error) {
       console.error('Error al guardar imagen localmente:', error);
-      return null;
+      reject(error);
+    } finally {
+      this.imageProcessingQueue.shift();
+      this.isProcessingQueue = false;
+      this.processNextImage();
     }
+  }
+
+  // Inicializar el directorio de caché de imágenes
+  static async initializeImageCache(): Promise<void> {
+    try {
+      const exists = await RNFS.exists(IMAGE_CACHE_DIR);
+      if (!exists) {
+        await RNFS.mkdir(IMAGE_CACHE_DIR);
+      }
+    } catch (error) {
+      console.error('Error al inicializar directorio de caché:', error);
+    }
+  }
+
+  // Guardar imagen localmente
+  static async saveImageLocally(imageUrl: string, chatId: string): Promise<string | null> {
+    return new Promise((resolve, reject) => {
+      this.imageProcessingQueue.push({ imageUrl, chatId, resolve, reject });
+      this.processNextImage();
+    });
   }
 
   // Obtener imagen local
@@ -74,8 +102,13 @@ export class CacheService {
       const imageInfo = images.find(img => img.url === imageUrl);
       if (!imageInfo?.localPath) return null;
 
-      // En Android, necesitamos usar file:// para las rutas
-      const path = Platform.OS === 'android' ? imageInfo.localPath : imageInfo.localPath;
+      // Manejar correctamente las rutas en Android
+      const path = Platform.OS === 'android' 
+        ? imageInfo.localPath.startsWith('file://') 
+          ? imageInfo.localPath 
+          : `file://${imageInfo.localPath}`
+        : imageInfo.localPath;
+
       const exists = await RNFS.exists(path.replace('file://', ''));
       return exists ? path : null;
     } catch (error) {
@@ -90,15 +123,17 @@ export class CacheService {
       const images = await this.getChatImages(chatId) || [];
       if (!images.some(img => img.url === imageUrl)) {
         const localPath = await this.saveImageLocally(imageUrl, chatId);
-        images.push({
-          url: imageUrl,
-          localPath,
-          timestamp: new Date().toISOString()
-        });
-        await AsyncStorage.setItem(
-          CACHE_KEYS.CHAT_IMAGES(chatId),
-          JSON.stringify(images)
-        );
+        if (localPath) {
+          images.push({
+            url: imageUrl,
+            localPath,
+            timestamp: new Date().toISOString()
+          });
+          await AsyncStorage.setItem(
+            CACHE_KEYS.CHAT_IMAGES(chatId),
+            JSON.stringify(images)
+          );
+        }
       }
     } catch (error) {
       console.error('Error al guardar imagen en caché:', error);
@@ -124,7 +159,7 @@ export class CacheService {
       
       for (const file of files) {
         const stats = await RNFS.stat(file.path);
-        const fileAge = now - stats.mtime?.getTime() || 0;
+        const fileAge = now - (stats.mtime || now);
         
         if (fileAge > maxAge) {
           await RNFS.unlink(file.path);

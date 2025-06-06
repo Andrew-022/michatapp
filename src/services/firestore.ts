@@ -1254,6 +1254,7 @@ export const deleteMessage = async (chatId: string, messageId: string): Promise<
 export const deleteImageFromStorage = async (imageUrl: string): Promise<void> => {
   try {
     const storageRef = storage().refFromURL(imageUrl);
+    console.log('Eliminando imagen de Firebase Storage:', imageUrl);
     await storageRef.delete();
   } catch (error) {
     console.error('Error al eliminar imagen de Firebase Storage:', error);
