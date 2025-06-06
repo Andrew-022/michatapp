@@ -121,14 +121,11 @@ export class ChatViewModel {
           const currentUserId = auth.currentUser?.uid;
           const filteredNewMessages = newMessages.filter(msg => msg.senderId !== currentUserId);
 
-          // Obtener mensajes propios del estado actual
-          const ownMessages = this.messages.filter(msg => msg.senderId === currentUserId);
-
           // Crear un Set para mantener IDs únicos
           const messageIds = new Set<string>();
-          ownMessages.forEach(msg => messageIds.add(msg.id));
+          this.messages.forEach(msg => messageIds.add(msg.id));
 
-          // Filtrar solo mensajes nuevos que no están en caché ni en mensajes propios
+          // Filtrar solo mensajes nuevos que no están en caché ni en mensajes actuales
           const uniqueNewMessages = filteredNewMessages.filter(
             newMsg => !cachedMessages.some(cachedMsg => cachedMsg.id === newMsg.id) && 
                      !messageIds.has(newMsg.id)
@@ -136,7 +133,7 @@ export class ChatViewModel {
 
           if (uniqueNewMessages.length === 0) {
             runInAction(() => {
-              this.messages = [...ownMessages, ...cachedMessages.filter(msg => !messageIds.has(msg.id))];
+              this.messages = [...this.messages, ...cachedMessages.filter(msg => !messageIds.has(msg.id))];
               this.loading = false;
             });
             return;
@@ -191,21 +188,17 @@ export class ChatViewModel {
             }
           }));
 
-          // Filtrar mensajes nulos y combinar con los existentes
+          // Filtrar mensajes nulos
           const validNewMessages = processedNewMessages.filter((msg): msg is MessageModel => msg !== null);
           
-          // Filtrar mensajes en caché que no sean propios
+          // Filtrar mensajes en caché que no estén en los mensajes actuales
           const otherCachedMessages = cachedMessages.filter(msg => !messageIds.has(msg.id));
           
-          // Combinar mensajes de otros usuarios
-          const otherMessages = [...otherCachedMessages, ...validNewMessages].sort((a, b) => {
-            const dateA = a.createdAt?.getTime() || 0;
-            const dateB = b.createdAt?.getTime() || 0;
-            return dateB - dateA;
-          });
+          // Combinar todos los mensajes
+          const allMessages = [...this.messages, ...otherCachedMessages, ...validNewMessages];
 
-          // Combinar mensajes propios con los demás mensajes
-          const allMessages = [...ownMessages, ...otherMessages].sort((a, b) => {
+          // Ordenar mensajes por fecha de creación (más recientes primero)
+          allMessages.sort((a, b) => {
             const dateA = a.createdAt?.getTime() || 0;
             const dateB = b.createdAt?.getTime() || 0;
             return dateB - dateA;
@@ -215,7 +208,6 @@ export class ChatViewModel {
           await CacheService.saveChatMessages(this.chatId, allMessages);
 
           // Eliminar mensajes y sus imágenes de Firebase solo para mensajes nuevos
-          
           for (const message of uniqueNewMessages) {
             try {
               if (message) {
