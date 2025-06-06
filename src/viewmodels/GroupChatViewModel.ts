@@ -13,7 +13,6 @@ import {
   sendChatImage,
   sendGroupImage,
   processAndDeleteGroupMessage,
-  canDeleteGroupMessage,
   markMessagesAsRead
 } from '../services/firestore';
 import { setCurrentChatId } from '../../App';
@@ -119,27 +118,61 @@ export class GroupChatViewModel {
 
           // Procesar solo los mensajes nuevos
           const processedNewMessages = await Promise.all(uniqueNewMessages.map(async doc => {
-            const data = doc;
-            if (data.type === 'image' && data.imageUrl) {
-              // Guardar imagen localmente
-              const localPath = await CacheService.saveImageLocally(data.imageUrl, this.groupId);
-              if (localPath) {
-                // Actualizar la URL de la imagen a la local
-                return {
-                  ...data,
-                  imageUrl: localPath
-                };
+            try {
+              const data = doc;
+              if (!data) {
+                console.log('Mensaje no encontrado en Firestore, probablemente ya fue leído y eliminado');
+                return null;
               }
+
+              const messageData = {
+                ...data,
+                createdAt: data.createdAt instanceof Date ? data.createdAt : new Date()
+              };
+
+              // Si es un mensaje propio, no procesar la imagen
+              if (this.isOwnMessage(data) && data.type === 'image') {
+                return messageData;
+              }
+
+              if (data.type === 'image' && data.imageUrl) {
+                // Guardar imagen localmente
+                const localPath = await CacheService.saveImageLocally(data.imageUrl, this.groupId);
+                if (localPath) {
+                  // Actualizar la URL de la imagen a la local
+                  return {
+                    ...messageData,
+                    imageUrl: localPath
+                  };
+                }
+              }
+
+              // Solo intentar descifrar si hay texto
+              if (data.text) {
+                try {
+                  const decryptedText = this.decryptMessage(data.text);
+                  return {
+                    ...messageData,
+                    text: decryptedText
+                  };
+                } catch (error) {
+                  console.error('Error al descifrar mensaje:', error);
+                  // Si falla el descifrado, devolver el mensaje sin descifrar
+                  return messageData;
+                }
+              }
+
+              // Si no hay texto ni imagen, devolver el mensaje tal cual
+              return messageData;
+            } catch (error) {
+              console.error('Error al procesar mensaje:', error);
+              return null;
             }
-            const decryptedText = this.decryptMessage(data.text);
-            return {
-              ...data,
-              text: decryptedText
-            };
           }));
 
-          // Combinar mensajes del caché con los nuevos y ordenar por fecha (más recientes primero)
-          const allMessages = [...cachedMessages, ...processedNewMessages].sort((a, b) => {
+          // Filtrar mensajes nulos y combinar con los existentes
+          const validNewMessages = processedNewMessages.filter((msg): msg is Message => msg !== null);
+          const allMessages = [...cachedMessages, ...validNewMessages].sort((a, b) => {
             const dateA = a.createdAt?.getTime() || 0;
             const dateB = b.createdAt?.getTime() || 0;
             return dateB - dateA;

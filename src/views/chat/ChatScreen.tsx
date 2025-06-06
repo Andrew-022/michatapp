@@ -198,18 +198,21 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
                   source={{ uri: item.imageUrl }} 
                   style={styles.messageImage}
                   resizeMode="cover"
-                  onError={(error) => {
+                  onError={async (error) => {
                     console.error('Error al cargar imagen:', error.nativeEvent);
                     // Intentar cargar la imagen local si falla la carga remota
-                    CacheService.getLocalImage(item.imageUrl, chatId)
-                      .then(localPath => {
-                        if (localPath) {
-                          runInAction(() => {
-                            item.imageUrl = localPath;
-                          });
+                    const localPath = await CacheService.getLocalImage(item.imageUrl, chatId);
+                    if (localPath) {
+                      runInAction(() => {
+                        const messageIndex = viewModel.messages.findIndex(m => m.id === item.id);
+                        if (messageIndex !== -1) {
+                          viewModel.messages[messageIndex] = {
+                            ...viewModel.messages[messageIndex],
+                            imageUrl: localPath
+                          };
                         }
-                      })
-                      .catch(console.error);
+                      });
+                    }
                   }}
                 />
               </TouchableOpacity>
@@ -223,12 +226,22 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
                 {item.text}
               </Text>
             )}
-            <Text style={[
-              styles.messageTime,
-              { color: isOwnMessage ? currentTheme.background : currentTheme.secondary }
-            ]}>
-              {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
-            </Text>
+            <View style={styles.messageFooter}>
+              <Text style={[
+                styles.messageTime,
+                { color: isOwnMessage ? currentTheme.background : currentTheme.secondary }
+              ]}>
+                {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
+              </Text>
+              {isOwnMessage && (
+                <Icon 
+                  name={item.status === 'sending' ? 'time-outline' : 'checkmark-done'} 
+                  size={16} 
+                  color={isOwnMessage ? currentTheme.background : currentTheme.secondary}
+                  style={styles.messageStatus}
+                />
+              )}
+            </View>
           </View>
         </View>
       </TouchableOpacity>
@@ -399,14 +412,6 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
         </TouchableOpacity>
       </Modal>
 
-      {viewModel.uploadingImage && (
-        <View style={styles.uploadingOverlay}>
-          <ActivityIndicator size="large" color={primaryColor} />
-          <Text style={[styles.uploadingText, { color: currentTheme.text }]}>
-            Subiendo imagen...
-          </Text>
-        </View>
-      )}
       <Modal
         visible={!!selectedImage}
         transparent={true}
@@ -678,6 +683,14 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     minWidth: 150,
+  },
+  messageFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  messageStatus: {
+    marginLeft: 4,
   },
 });
 

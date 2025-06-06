@@ -33,7 +33,6 @@ export class ChatViewModel {
   otherParticipantPhoto: string | undefined;
   private readonly encryptionKey: string;
   private unsubscribe: (() => void) | null = null;
-  uploadingImage: boolean = false;
   private lastSyncTime: Date | null = null;
 
   constructor(chatId: string, otherParticipantId: string) {
@@ -137,6 +136,11 @@ export class ChatViewModel {
               if (!data) {
                 console.log('Mensaje no encontrado en Firestore, probablemente ya fue leído y eliminado');
                 return null;
+              }
+
+              // Si es un mensaje propio, no procesar la imagen
+              if (this.isOwnMessage(data) && data.type === 'image') {
+                return MessageModel.fromFirestore(doc.id, data);
               }
 
               if (data.type === 'image') {
@@ -243,7 +247,8 @@ export class ChatViewModel {
         senderId: currentUser.uid,
         createdAt: new Date(),
         fromName: userName,
-        to: this.otherParticipantId
+        to: this.otherParticipantId,
+        status: 'sending'
       };
 
       // Actualizar estado inmediatamente
@@ -261,11 +266,28 @@ export class ChatViewModel {
           to: this.otherParticipantId
         }
       );
+
+      // Actualizar el estado del mensaje a enviado
+      runInAction(() => {
+        const messageIndex = this.messages.findIndex(m => m.id === tempMessage.id);
+        if (messageIndex !== -1) {
+          this.messages[messageIndex] = {
+            ...this.messages[messageIndex],
+            status: 'sent'
+          };
+        }
+      });
     } catch (error) {
       console.error('Error al enviar mensaje:', error);
-      // En caso de error, revertir el mensaje temporal
+      // En caso de error, actualizar el estado del mensaje
       runInAction(() => {
-        this.messages = this.messages.filter(m => m.id !== Date.now().toString());
+        const messageIndex = this.messages.findIndex(m => m.id === Date.now().toString());
+        if (messageIndex !== -1) {
+          this.messages[messageIndex] = {
+            ...this.messages[messageIndex],
+            status: 'error'
+          };
+        }
       });
     }
   }
@@ -314,35 +336,32 @@ export class ChatViewModel {
     if (!currentUser) return;
 
     try {
-      runInAction(() => {
-        this.uploadingImage = true;
-      });
-
       const userDoc = await getUser(currentUser.uid);
       const userName = userDoc?.name || 'Usuario';
+
+      // Crear mensaje temporal para actualización inmediata
+      const tempMessage: Message = {
+        id: Date.now().toString(),
+        type: 'image',
+        imageUrl: imageAsset.uri || imageAsset.path,
+        senderId: currentUser.uid,
+        createdAt: new Date(),
+        fromName: userName,
+        to: this.otherParticipantId,
+        text: '', // Campo requerido por Message
+        status: 'sending'
+      };
+
+      // Actualizar estado inmediatamente
+      runInAction(() => {
+        this.messages = [tempMessage, ...this.messages];
+      });
 
       // Subir imagen a Firebase Storage
       const imageUrl = await uploadChatImage(this.chatId, {
         path: imageAsset.uri || imageAsset.path,
         type: imageAsset.type,
         fileName: imageAsset.fileName
-      });
-
-      // Crear mensaje temporal para actualización inmediata
-      const tempMessage: Message = {
-        id: Date.now().toString(),
-        type: 'image',
-        imageUrl: imageUrl,
-        senderId: currentUser.uid,
-        createdAt: new Date(),
-        fromName: userName,
-        to: this.otherParticipantId,
-        text: '' // Campo requerido por Message
-      };
-
-      // Actualizar estado inmediatamente
-      runInAction(() => {
-        this.messages = [tempMessage, ...this.messages];
       });
 
       // Enviar mensaje con la URL de Firebase
@@ -357,18 +376,32 @@ export class ChatViewModel {
         }
       );
 
+      // Actualizar el mensaje con la URL final y el estado de enviado
+      runInAction(() => {
+        const messageIndex = this.messages.findIndex(m => m.id === tempMessage.id);
+        if (messageIndex !== -1) {
+          this.messages[messageIndex] = {
+            ...this.messages[messageIndex],
+            imageUrl,
+            status: 'sent'
+          };
+        }
+      });
+
       // Guardar imagen localmente después de enviar el mensaje
       await CacheService.saveChatImage(this.chatId, imageUrl);
 
     } catch (error) {
       console.error('Error al enviar imagen:', error);
-      // En caso de error, revertir el mensaje temporal
+      // En caso de error, actualizar el estado del mensaje
       runInAction(() => {
-        this.messages = this.messages.filter(m => m.id !== Date.now().toString());
-      });
-    } finally {
-      runInAction(() => {
-        this.uploadingImage = false;
+        const messageIndex = this.messages.findIndex(m => m.id === Date.now().toString());
+        if (messageIndex !== -1) {
+          this.messages[messageIndex] = {
+            ...this.messages[messageIndex],
+            status: 'error'
+          };
+        }
       });
     }
   }
