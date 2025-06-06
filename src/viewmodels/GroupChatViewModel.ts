@@ -244,7 +244,8 @@ export class GroupChatViewModel {
         senderId: currentUser.uid,
         createdAt: new Date(),
         fromName: userName,
-        groupId: this.groupId
+        groupId: this.groupId,
+        status: 'sending'
       };
 
       // Actualizar estado inmediatamente
@@ -260,11 +261,28 @@ export class GroupChatViewModel {
         this.participants,
         userName
       );
+
+      // Actualizar el estado del mensaje a enviado
+      runInAction(() => {
+        const messageIndex = this.messages.findIndex(m => m.id === tempMessage.id);
+        if (messageIndex !== -1) {
+          this.messages[messageIndex] = {
+            ...this.messages[messageIndex],
+            status: 'sent'
+          };
+        }
+      });
     } catch (error) {
       console.error('Error al enviar mensaje:', error);
-      // En caso de error, revertir el mensaje temporal
+      // En caso de error, actualizar el estado del mensaje
       runInAction(() => {
-        this.messages = this.messages.filter(m => m.id !== Date.now().toString());
+        const messageIndex = this.messages.findIndex(m => m.id === Date.now().toString());
+        if (messageIndex !== -1) {
+          this.messages[messageIndex] = {
+            ...this.messages[messageIndex],
+            status: 'error'
+          };
+        }
       });
     }
   }
@@ -313,12 +331,26 @@ export class GroupChatViewModel {
     if (!currentUser) return;
 
     try {
-      runInAction(() => {
-        this.uploadingImage = true;
-      });
-
       const userDoc = await getUser(currentUser.uid);
       const userName = userDoc?.name || 'Usuario';
+
+      // Crear mensaje temporal para actualización inmediata con la imagen local
+      const tempMessage: Message = {
+        id: Date.now().toString(),
+        type: 'image',
+        imageUrl: imageAsset.uri || imageAsset.path,
+        senderId: currentUser.uid,
+        createdAt: new Date(),
+        fromName: userName,
+        groupId: this.groupId,
+        text: '',
+        status: 'sending'
+      };
+
+      // Actualizar estado inmediatamente
+      runInAction(() => {
+        this.messages = [tempMessage, ...this.messages];
+      });
 
       // Subir imagen a Firebase Storage
       const imageUrl = await uploadChatImage(this.groupId, {
@@ -329,23 +361,6 @@ export class GroupChatViewModel {
 
       // Guardar imagen localmente
       const localPath = await CacheService.saveImageLocally(imageUrl, this.groupId);
-      
-      // Crear mensaje temporal para actualización inmediata
-      const tempMessage: Message = {
-        id: Date.now().toString(),
-        type: 'image',
-        imageUrl: localPath || imageUrl,
-        senderId: currentUser.uid,
-        createdAt: new Date(),
-        fromName: userName,
-        groupId: this.groupId,
-        text: ''
-      };
-
-      // Actualizar estado inmediatamente
-      runInAction(() => {
-        this.messages = [tempMessage, ...this.messages];
-      });
       
       // Enviar mensaje con la URL de Firebase
       await sendGroupImage(
@@ -359,15 +374,28 @@ export class GroupChatViewModel {
         }
       );
 
+      // Actualizar el estado del mensaje a enviado
+      runInAction(() => {
+        const messageIndex = this.messages.findIndex(m => m.id === tempMessage.id);
+        if (messageIndex !== -1) {
+          this.messages[messageIndex] = {
+            ...this.messages[messageIndex],
+            status: 'sent'
+          };
+        }
+      });
+
     } catch (error) {
       console.error('Error al enviar imagen:', error);
-      // En caso de error, revertir el mensaje temporal
+      // En caso de error, actualizar el estado del mensaje
       runInAction(() => {
-        this.messages = this.messages.filter(m => m.id !== Date.now().toString());
-      });
-    } finally {
-      runInAction(() => {
-        this.uploadingImage = false;
+        const messageIndex = this.messages.findIndex(m => m.id === Date.now().toString());
+        if (messageIndex !== -1) {
+          this.messages[messageIndex] = {
+            ...this.messages[messageIndex],
+            status: 'error'
+          };
+        }
       });
     }
   }

@@ -230,6 +230,14 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
               >
                 {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
               </Text>
+              {isOwnMessage && (
+                <Icon 
+                  name={item.status === 'sending' ? 'time-outline' : 'checkmark-done'} 
+                  size={16} 
+                  color={isOwnMessage ? currentTheme.background : currentTheme.secondary}
+                  style={styles.messageStatus}
+                />
+              )}
             </View>
           </View>
         </View>
@@ -404,15 +412,6 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
           </Animated.View>
         </TouchableOpacity>
       </Modal>
-
-      {viewModel.uploadingImage && (
-        <View style={styles.uploadingOverlay}>
-          <ActivityIndicator size="large" color={primaryColor} />
-          <Text style={[styles.uploadingText, { color: currentTheme.text }]}>
-            Subiendo imagen...
-          </Text>
-        </View>
-      )}
 
       <Modal
         visible={!!selectedImage}
@@ -681,6 +680,9 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     minWidth: 150,
+  },
+  messageStatus: {
+    marginLeft: 8,
   },
 });
 
