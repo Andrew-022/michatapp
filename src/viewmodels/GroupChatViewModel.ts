@@ -103,14 +103,27 @@ export class GroupChatViewModel {
             return;
           }
 
-          // Filtrar solo mensajes nuevos que no están en caché
-          const uniqueNewMessages = newMessages.filter(
-            newMsg => !cachedMessages.some(cachedMsg => cachedMsg.id === newMsg.id)
+          // Filtrar mensajes propios de los nuevos mensajes
+          const auth = getAuth();
+          const currentUserId = auth.currentUser?.uid;
+          const filteredNewMessages = newMessages.filter(msg => msg.senderId !== currentUserId);
+
+          // Obtener mensajes propios del estado actual
+          const ownMessages = this.messages.filter(msg => msg.senderId === currentUserId);
+
+          // Crear un Set para mantener IDs únicos
+          const messageIds = new Set<string>();
+          ownMessages.forEach(msg => messageIds.add(msg.id));
+
+          // Filtrar solo mensajes nuevos que no están en caché ni en mensajes propios
+          const uniqueNewMessages = filteredNewMessages.filter(
+            newMsg => !cachedMessages.some(cachedMsg => cachedMsg.id === newMsg.id) && 
+                     !messageIds.has(newMsg.id)
           );
 
           if (uniqueNewMessages.length === 0) {
             runInAction(() => {
-              this.messages = cachedMessages;
+              this.messages = [...ownMessages, ...cachedMessages.filter(msg => !messageIds.has(msg.id))];
               this.loading = false;
             });
             return;
@@ -129,11 +142,6 @@ export class GroupChatViewModel {
                 ...data,
                 createdAt: data.createdAt instanceof Date ? data.createdAt : new Date()
               };
-
-              // Si es un mensaje propio, no procesar la imagen
-              if (this.isOwnMessage(data) && data.type === 'image') {
-                return messageData;
-              }
 
               if (data.type === 'image' && data.imageUrl) {
                 // Guardar imagen localmente
@@ -172,7 +180,19 @@ export class GroupChatViewModel {
 
           // Filtrar mensajes nulos y combinar con los existentes
           const validNewMessages = processedNewMessages.filter((msg): msg is Message => msg !== null);
-          const allMessages = [...cachedMessages, ...validNewMessages].sort((a, b) => {
+          
+          // Filtrar mensajes en caché que no sean propios
+          const otherCachedMessages = cachedMessages.filter(msg => !messageIds.has(msg.id));
+          
+          // Combinar mensajes de otros usuarios
+          const otherMessages = [...otherCachedMessages, ...validNewMessages].sort((a, b) => {
+            const dateA = a.createdAt?.getTime() || 0;
+            const dateB = b.createdAt?.getTime() || 0;
+            return dateB - dateA;
+          });
+
+          // Combinar mensajes propios con los demás mensajes
+          const allMessages = [...ownMessages, ...otherMessages].sort((a, b) => {
             const dateA = a.createdAt?.getTime() || 0;
             const dateB = b.createdAt?.getTime() || 0;
             return dateB - dateA;
@@ -180,18 +200,6 @@ export class GroupChatViewModel {
 
           // Guardar todos los mensajes en caché
           await CacheService.saveChatMessages(this.groupId, allMessages);
-
-          // Eliminar mensajes y sus imágenes de Firebase solo para mensajes nuevos
-          /*const auth = getAuth();
-          const currentUserId = auth.currentUser?.uid;
-          
-          for (const message of uniqueNewMessages) {
-            try {
-              await processAndDeleteGroupMessage(message, this.groupId, currentUserId || '');
-            } catch (error) {
-              console.error('Error al procesar mensaje:', error);
-            }
-          }*/
 
           runInAction(() => {
             this.messages = allMessages;
@@ -234,6 +242,7 @@ export class GroupChatViewModel {
     });
 
     try {
+      // Obtener el nombre del usuario desde Firestore
       const userDoc = await getUser(currentUser.uid);
       const userName = userDoc?.name || 'Usuario';
 
@@ -244,7 +253,7 @@ export class GroupChatViewModel {
         senderId: currentUser.uid,
         createdAt: new Date(),
         fromName: userName,
-        groupId: this.groupId,
+        to: this.groupId,
         status: 'sending'
       };
 
@@ -266,22 +275,30 @@ export class GroupChatViewModel {
       runInAction(() => {
         const messageIndex = this.messages.findIndex(m => m.id === tempMessage.id);
         if (messageIndex !== -1) {
-          this.messages[messageIndex] = {
-            ...this.messages[messageIndex],
+          const updatedMessages = [...this.messages];
+          updatedMessages[messageIndex] = {
+            ...updatedMessages[messageIndex],
             status: 'sent'
           };
+          this.messages = updatedMessages;
         }
       });
+
+      // Guardar mensajes actualizados en caché
+      await CacheService.saveChatMessages(this.groupId, this.messages);
+
     } catch (error) {
       console.error('Error al enviar mensaje:', error);
       // En caso de error, actualizar el estado del mensaje
       runInAction(() => {
         const messageIndex = this.messages.findIndex(m => m.id === Date.now().toString());
         if (messageIndex !== -1) {
-          this.messages[messageIndex] = {
-            ...this.messages[messageIndex],
+          const updatedMessages = [...this.messages];
+          updatedMessages[messageIndex] = {
+            ...updatedMessages[messageIndex],
             status: 'error'
           };
+          this.messages = updatedMessages;
         }
       });
     }
