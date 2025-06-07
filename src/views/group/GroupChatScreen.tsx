@@ -28,6 +28,7 @@ import { CacheService } from '../../services/cache';
 import * as ImagePicker from 'react-native-image-picker';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 import { Message } from '../../models/Message';
+import { runInAction } from 'mobx';
 
 type GroupChatNavigationProp = NativeStackNavigationProp<RootStackParamList, 'GroupChat'>;
 
@@ -56,6 +57,10 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [imageToSend, setImageToSend] = useState<{uri: string; type?: string; fileName?: string} | null>(null);
   const [imageText, setImageText] = useState('');
+  const [selectedMessagePosition, setSelectedMessagePosition] = useState({ x: 0, y: 0 });
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const highlightAnimation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     return () => {
@@ -207,10 +212,59 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
     );
   };
 
+  const scrollToMessage = (messageId: string) => {
+    const index = viewModel.messages.findIndex(m => m.id === messageId);
+    if (index !== -1) {
+      flatListRef.current?.scrollToIndex({
+        index,
+        animated: true,
+        viewPosition: 0.5
+      });
+
+      // Iniciar animación de resaltado
+      setHighlightedMessageId(messageId);
+      highlightAnimation.setValue(0);
+      Animated.sequence([
+        Animated.timing(highlightAnimation, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(highlightAnimation, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setHighlightedMessageId(null);
+      });
+    }
+  };
+
+  const handleReplyPress = (messageId: string) => {
+    if (selectedMessages.length === 0) {
+      scrollToMessage(messageId);
+    }
+  };
+
   const renderMessage = ({ item }: { item: any }) => {
     const isOwnMessage = viewModel.isOwnMessage(item);
     const senderName = viewModel.getParticipantName(item.senderId);
     const isSelected = selectedMessages.includes(item.id);
+    const isHighlighted = item.id === highlightedMessageId;
+
+    const highlightStyle = {
+      transform: [{
+        scale: highlightAnimation.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 1.05]
+        })
+      }],
+      opacity: highlightAnimation.interpolate({
+        inputRange: [0, 1],
+        outputRange: [1, 0.8]
+      })
+    };
 
     return (
       <Swipeable
@@ -224,7 +278,7 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
             }
           }}
           delayLongPress={200}>
-          <View
+          <Animated.View
             style={[
               styles.messageContainer,
               isOwnMessage ? styles.ownMessage : styles.otherMessage,
@@ -232,18 +286,21 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
                 backgroundColor: isOwnMessage ? secondaryColor : currentTheme.card,
                 borderWidth: isSelected ? 2 : 0,
                 borderColor: primaryColor,
-              }
+              },
+              isHighlighted && highlightStyle
             ]}>
             {item.replyTo && (
-              <View style={[styles.replyContainer, { 
-                borderLeftColor: isOwnMessage ? currentTheme.background : primaryColor 
-              }]}>
+              <TouchableOpacity 
+                style={[styles.replyContainer, { 
+                  borderLeftColor: isOwnMessage ? currentTheme.background : primaryColor 
+                }]}
+                onPress={() => handleReplyPress(item.replyTo)}>
                 <Text style={[styles.replyToText, { 
                   color: isOwnMessage ? currentTheme.background : currentTheme.secondary 
                 }]}>
                   {item.replyToType === 'image' ? 'Imagen' : item.replyToText}
                 </Text>
-              </View>
+              </TouchableOpacity>
             )}
             <View style={styles.messageContentColumn}>
               {!isOwnMessage && (
@@ -268,14 +325,21 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
                         source={{ uri: item.imageUrl }}
                         style={styles.messageImage}
                         resizeMode="cover"
-                        onLoadStart={() => {
-                          CacheService.getLocalImage(item.imageUrl, groupId)
-                            .then(localPath => {
-                              if (localPath) {
-                                item.imageUrl = localPath;
+                        onError={async (error) => {
+                          console.error('Error al cargar imagen:', error.nativeEvent);
+                          // Intentar cargar la imagen local si falla la carga remota
+                          const localPath = await CacheService.getLocalImage(item.imageUrl, groupId);
+                          if (localPath) {
+                            runInAction(() => {
+                              const messageIndex = viewModel.messages.findIndex(m => m.id === item.id);
+                              if (messageIndex !== -1) {
+                                viewModel.messages[messageIndex] = {
+                                  ...viewModel.messages[messageIndex],
+                                  imageUrl: localPath
+                                };
                               }
-                            })
-                            .catch(console.error);
+                            });
+                          }
                         }}
                       />
                     </TouchableOpacity>
@@ -338,7 +402,7 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
                 )}
               </View>
             </View>
-          </View>
+          </Animated.View>
         </TouchableOpacity>
       </Swipeable>
     );

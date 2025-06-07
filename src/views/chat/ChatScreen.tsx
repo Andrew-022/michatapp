@@ -60,6 +60,8 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [imageToSend, setImageToSend] = useState<{uri: string; type?: string; fileName?: string} | null>(null);
   const [imageText, setImageText] = useState('');
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const highlightAnimation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     return () => {
@@ -211,9 +213,58 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
     );
   };
 
+  const scrollToMessage = (messageId: string) => {
+    const index = viewModel.messages.findIndex(m => m.id === messageId);
+    if (index !== -1) {
+      flatListRef.current?.scrollToIndex({
+        index,
+        animated: true,
+        viewPosition: 0.5
+      });
+
+      // Iniciar animación de resaltado
+      setHighlightedMessageId(messageId);
+      highlightAnimation.setValue(0);
+      Animated.sequence([
+        Animated.timing(highlightAnimation, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(highlightAnimation, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setHighlightedMessageId(null);
+      });
+    }
+  };
+
+  const handleReplyPress = (messageId: string) => {
+    if (selectedMessages.length === 0) {
+      scrollToMessage(messageId);
+    }
+  };
+
   const renderMessage = ({item}: {item: any}) => {
     const isOwnMessage = viewModel.isOwnMessage(item);
     const isSelected = selectedMessages.includes(item.id);
+    const isHighlighted = item.id === highlightedMessageId;
+
+    const highlightStyle = {
+      transform: [{
+        scale: highlightAnimation.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 1.05]
+        })
+      }],
+      opacity: highlightAnimation.interpolate({
+        inputRange: [0, 1],
+        outputRange: [1, 0.8]
+      })
+    };
 
     return (
       <Swipeable
@@ -227,7 +278,7 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
             }
           }}
           delayLongPress={200}>
-          <View
+          <Animated.View
             style={[
               styles.messageContainer,
               isOwnMessage ? styles.ownMessage : styles.otherMessage,
@@ -235,18 +286,21 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
                 backgroundColor: isOwnMessage ? secondaryColor : currentTheme.card,
                 borderWidth: isSelected ? 2 : 0,
                 borderColor: primaryColor,
-              }
+              },
+              isHighlighted && highlightStyle
             ]}>
             {item.replyTo && (
-              <View style={[styles.replyContainer, { 
-                borderLeftColor: isOwnMessage ? currentTheme.background : primaryColor 
-              }]}>
+              <TouchableOpacity 
+                style={[styles.replyContainer, { 
+                  borderLeftColor: isOwnMessage ? currentTheme.background : primaryColor 
+                }]}
+                onPress={() => handleReplyPress(item.replyTo)}>
                 <Text style={[styles.replyToText, { 
                   color: isOwnMessage ? currentTheme.background : currentTheme.secondary 
                 }]}>
                   {item.replyToType === 'image' ? 'Imagen' : item.replyToText}
                 </Text>
-              </View>
+              </TouchableOpacity>
             )}
             <View style={styles.messageContent}>
               {item.type === 'image' ? (
@@ -339,7 +393,7 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
                 </>
               )}
             </View>
-          </View>
+          </Animated.View>
         </TouchableOpacity>
       </Swipeable>
     );
