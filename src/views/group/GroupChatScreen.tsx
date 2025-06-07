@@ -61,6 +61,7 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const highlightAnimation = useRef(new Animated.Value(0)).current;
+  const swipeableRefs = useRef(new Map<string, any>()).current;
 
   useEffect(() => {
     return () => {
@@ -268,7 +269,25 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
 
     return (
       <Swipeable
-        renderRightActions={() => !isSelected && renderRightActions(item)}
+        ref={(ref) => {
+          if (ref) {
+            swipeableRefs.set(item.id, ref);
+          } else {
+            swipeableRefs.delete(item.id);
+          }
+        }}
+        renderLeftActions={() => (
+          <View style={{ width: 80 }} />
+        )}
+        leftThreshold={40}
+        onSwipeableWillOpen={() => {
+          if (!isSelected) {
+            handleSwipeRight(item);
+            swipeableRefs.get(item.id)?.close();
+          }
+        }}
+        overshootLeft={false}
+        friction={2}
         enabled={!isSelected}>
         <TouchableOpacity
           onLongPress={() => handleLongPress(item.id)}

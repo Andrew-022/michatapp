@@ -62,6 +62,7 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
   const [imageText, setImageText] = useState('');
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const highlightAnimation = useRef(new Animated.Value(0)).current;
+  const swipeableRefs = useRef(new Map<string, Swipeable>()).current;
 
   useEffect(() => {
     return () => {
@@ -213,6 +214,16 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
     );
   };
 
+  const renderLeftActions = (message: Message) => {
+    return (
+      <TouchableOpacity
+        style={[styles.selectAction, { backgroundColor: secondaryColor }]}
+        onPress={() => handleMessageSelect(message.id)}>
+        <Icon name="checkmark-circle" size={24} color="white" />
+      </TouchableOpacity>
+    );
+  };
+
   const scrollToMessage = (messageId: string) => {
     const index = viewModel.messages.findIndex(m => m.id === messageId);
     if (index !== -1) {
@@ -268,7 +279,25 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
 
     return (
       <Swipeable
-        renderRightActions={() => !isSelected && renderRightActions(item)}
+        ref={(ref) => {
+          if (ref) {
+            swipeableRefs.set(item.id, ref);
+          } else {
+            swipeableRefs.delete(item.id);
+          }
+        }}
+        renderLeftActions={() => (
+          <View style={{ width: 80 }} />
+        )}
+        leftThreshold={40}
+        onSwipeableWillOpen={() => {
+          if (!isSelected) {
+            handleSwipeRight(item);
+            swipeableRefs.get(item.id)?.close();
+          }
+        }}
+        overshootLeft={false}
+        friction={2}
         enabled={!isSelected}>
         <TouchableOpacity
           onLongPress={() => handleLongPress(item.id)}
@@ -942,6 +971,12 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   replyAction: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    height: '100%',
+  },
+  selectAction: {
     justifyContent: 'center',
     alignItems: 'center',
     width: 80,
