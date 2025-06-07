@@ -583,13 +583,18 @@ export const sendGroupMessage = async (
   messageText: string,
   senderId: string,
   participants: { id: string }[],
-  senderName: string
-) => {
+  senderName: string,
+  replyData?: {
+    replyTo?: string;
+    replyToText?: string;
+    replyToType?: 'text' | 'image';
+  }
+): Promise<string> => {
   try {
     const db = getFirestore();
     const encryptedText = CryptoJS.AES.encrypt(messageText, groupId).toString();
     
-    const messageData = {
+    const messageData: any = {
       text: encryptedText,
       senderId: senderId,
       fromName: senderName,
@@ -598,8 +603,19 @@ export const sendGroupMessage = async (
       groupId: groupId
     };
 
+    // Solo añadir los campos de respuesta si existen y no son undefined
+    if (replyData?.replyTo) {
+      messageData.replyTo = replyData.replyTo;
+    }
+    if (replyData?.replyToText) {
+      messageData.replyToText = replyData.replyToText;
+    }
+    if (replyData?.replyToType) {
+      messageData.replyToType = replyData.replyToType;
+    }
+
     const messagesRef = collection(db, COLLECTIONS.GROUP_CHATS, groupId, COLLECTIONS.MESSAGES);
-    await addDoc(messagesRef, messageData);
+    const messageRef = await addDoc(messagesRef, messageData);
 
     const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
     
@@ -614,6 +630,17 @@ export const sendGroupMessage = async (
       updatedAt: serverTimestamp(),
     };
 
+    // Solo añadir los campos de respuesta al lastMessage si existen y no son undefined
+    if (replyData?.replyTo) {
+      updates.lastMessage.replyTo = replyData.replyTo;
+    }
+    if (replyData?.replyToText) {
+      updates.lastMessage.replyToText = replyData.replyToText;
+    }
+    if (replyData?.replyToType) {
+      updates.lastMessage.replyToType = replyData.replyToType;
+    }
+
     participants.forEach(participant => {
       if (participant.id !== senderId) {
         updates[`unreadCount.${participant.id}`] = increment(1);
@@ -622,7 +649,7 @@ export const sendGroupMessage = async (
 
     await updateDoc(groupRef, updates);
 
-    return true;
+    return messageRef.id;
   } catch (error) {
     console.error('Error al enviar mensaje:', error);
     throw error;
@@ -1307,8 +1334,11 @@ export const sendGroupImage = async (
     fromName: string;
     to: string;
     text?: string;
+    replyTo?: string;
+    replyToText?: string;
+    replyToType?: 'text' | 'image';
   }
-) => {
+): Promise<string> => {
   try {
     const db = getFirestore();
     
@@ -1320,11 +1350,14 @@ export const sendGroupImage = async (
       fromName: notificationData.fromName,
       to: notificationData.to,
       groupId: groupId,
-      text: notificationData.text || ''
+      text: notificationData.text || '',
+      replyTo: notificationData.replyTo,
+      replyToText: notificationData.replyToText,
+      replyToType: notificationData.replyToType
     };
 
     const messagesRef = collection(db, COLLECTIONS.GROUP_CHATS, groupId, COLLECTIONS.MESSAGES);
-    await addDoc(messagesRef, messageData);
+    const messageRef = await addDoc(messagesRef, messageData);
 
     const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
     const updates: any = {
@@ -1332,7 +1365,10 @@ export const sendGroupImage = async (
         type: 'image',
         text: notificationData.text ? '📷 Imagen con texto' : '📷 Imagen',
         createdAt: serverTimestamp(),
-        senderId: senderId
+        senderId: senderId,
+        replyTo: notificationData.replyTo,
+        replyToText: notificationData.replyToText,
+        replyToType: notificationData.replyToType
       },
       updatedAt: serverTimestamp()
     };
@@ -1346,7 +1382,7 @@ export const sendGroupImage = async (
 
     await updateDoc(groupRef, updates);
 
-    return true;
+    return messageRef.id;
   } catch (error) {
     console.error('Error al enviar imagen al grupo:', error);
     throw error;

@@ -32,6 +32,7 @@ export class GroupChatViewModel {
   private unsubscribe: (() => void) | null = null;
   private lastSyncTime: Date | null = null;
   uploadingImage: boolean = false;
+  replyingTo: Message | null = null;
 
   constructor(groupId: string) {
     this.groupId = groupId;
@@ -251,6 +252,14 @@ export class GroupChatViewModel {
     this.newMessage = text;
   }
 
+  setReplyingTo = (message: Message | null) => {
+    this.replyingTo = message;
+  }
+
+  cancelReply = () => {
+    this.replyingTo = null;
+  }
+
   async sendMessage() {
     if (!this.newMessage.trim()) return;
 
@@ -276,7 +285,10 @@ export class GroupChatViewModel {
         createdAt: new Date(),
         fromName: userName,
         to: this.groupId,
-        status: 'sending'
+        status: 'sending',
+        replyTo: this.replyingTo?.id,
+        replyToText: this.replyingTo?.text,
+        replyToType: this.replyingTo?.type
       };
 
       // Actualizar estado inmediatamente
@@ -284,22 +296,36 @@ export class GroupChatViewModel {
         this.messages = [tempMessage, ...this.messages];
       });
 
+      // Guardar una referencia al mensaje al que estamos respondiendo
+      const replyingToMessage = this.replyingTo;
+
       // Enviar mensaje a Firestore
-      await sendGroupMessage(
+      const firestoreMessageId = await sendGroupMessage(
         this.groupId,
         messageToSend,
         currentUser.uid,
         this.participants,
-        userName
+        userName,
+        replyingToMessage ? {
+          replyTo: replyingToMessage.id,
+          replyToText: replyingToMessage.text,
+          replyToType: replyingToMessage.type
+        } : undefined
       );
 
-      // Actualizar el estado del mensaje a enviado
+      // Limpiar el mensaje al que se está respondiendo después de enviar
+      runInAction(() => {
+        this.replyingTo = null;
+      });
+
+      // Actualizar el estado del mensaje a enviado y actualizar el ID
       runInAction(() => {
         const messageIndex = this.messages.findIndex(m => m.id === tempMessage.id);
         if (messageIndex !== -1) {
           const updatedMessages = [...this.messages];
           updatedMessages[messageIndex] = {
             ...updatedMessages[messageIndex],
+            id: firestoreMessageId,
             status: 'sent'
           };
           this.messages = updatedMessages;
@@ -394,13 +420,19 @@ export class GroupChatViewModel {
         fromName: userName,
         groupId: this.groupId,
         text: message.trim(), // Guardamos el texto sin cifrar en el mensaje temporal
-        status: 'sending'
+        status: 'sending',
+        replyTo: this.replyingTo?.id,
+        replyToText: this.replyingTo?.text,
+        replyToType: this.replyingTo?.type
       };
 
       // Actualizar estado inmediatamente
       runInAction(() => {
         this.messages = [tempMessage, ...this.messages];
       });
+
+      // Guardar una referencia al mensaje al que estamos respondiendo
+      const replyingToMessage = this.replyingTo;
 
       // Continuar con el proceso de envío en segundo plano
       (async () => {
@@ -416,7 +448,7 @@ export class GroupChatViewModel {
           const localPath = await CacheService.saveImageLocally(imageUrl, this.groupId);
           
           // Enviar mensaje con la URL de Firebase
-          await sendGroupImage(
+          const firestoreMessageId = await sendGroupImage(
             this.groupId,
             imageUrl,
             currentUser.uid,
@@ -424,17 +456,28 @@ export class GroupChatViewModel {
             {
               fromName: userName,
               to: this.groupId,
-              text: encryptedText // Enviamos el texto cifrado
+              text: encryptedText, // Enviamos el texto cifrado
+              ...(replyingToMessage ? {
+                replyTo: replyingToMessage.id,
+                replyToText: replyingToMessage.text,
+                replyToType: replyingToMessage.type
+              } : {})
             }
           );
 
-          // Actualizar el estado del mensaje a enviado
+          // Limpiar el mensaje al que se está respondiendo después de enviar
+          runInAction(() => {
+            this.replyingTo = null;
+          });
+
+          // Actualizar el estado del mensaje a enviado y actualizar el ID
           runInAction(() => {
             const messageIndex = this.messages.findIndex(m => m.id === tempMessage.id);
             if (messageIndex !== -1) {
               const updatedMessages = [...this.messages];
               updatedMessages[messageIndex] = {
                 ...updatedMessages[messageIndex],
+                id: firestoreMessageId,
                 status: 'sent'
               };
               this.messages = updatedMessages;

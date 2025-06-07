@@ -26,6 +26,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { lightTheme, darkTheme } from '../../constants/theme';
 import { CacheService } from '../../services/cache';
 import * as ImagePicker from 'react-native-image-picker';
+import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
+import { Message } from '../../models/Message';
 
 type GroupChatNavigationProp = NativeStackNavigationProp<RootStackParamList, 'GroupChat'>;
 
@@ -191,126 +193,154 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
     setImageToSend(null);
   };
 
+  const handleSwipeRight = (message: Message) => {
+    viewModel.setReplyingTo(message);
+  };
+
+  const renderRightActions = (message: Message) => {
+    return (
+      <TouchableOpacity
+        style={[styles.replyAction, { backgroundColor: primaryColor }]}
+        onPress={() => handleSwipeRight(message)}>
+        <Icon name="arrow-undo" size={24} color="white" />
+      </TouchableOpacity>
+    );
+  };
+
   const renderMessage = ({ item }: { item: any }) => {
     const isOwnMessage = viewModel.isOwnMessage(item);
     const senderName = viewModel.getParticipantName(item.senderId);
     const isSelected = selectedMessages.includes(item.id);
 
     return (
-      <TouchableOpacity
-        onLongPress={() => handleLongPress(item.id)}
-        onPress={() => {
-          if (selectedMessages.length > 0) {
-            handleMessageSelect(item.id);
-          }
-        }}
-        delayLongPress={200}>
-        <View
-          style={[
-            styles.messageContainer,
-            isOwnMessage ? styles.ownMessage : styles.otherMessage,
-            {
-              backgroundColor: isOwnMessage ? secondaryColor : currentTheme.card,
-              borderWidth: isSelected ? 2 : 0,
-              borderColor: primaryColor,
+      <Swipeable
+        renderRightActions={() => !isSelected && renderRightActions(item)}
+        enabled={!isSelected}>
+        <TouchableOpacity
+          onLongPress={() => handleLongPress(item.id)}
+          onPress={() => {
+            if (selectedMessages.length > 0) {
+              handleMessageSelect(item.id);
             }
-          ]}
-        >
-          <View style={styles.messageContentColumn}>
-            {!isOwnMessage && (
-              <Text style={[styles.senderName, { color: primaryColor }]}>
-                {senderName}
-              </Text>
+          }}
+          delayLongPress={200}>
+          <View
+            style={[
+              styles.messageContainer,
+              isOwnMessage ? styles.ownMessage : styles.otherMessage,
+              {
+                backgroundColor: isOwnMessage ? secondaryColor : currentTheme.card,
+                borderWidth: isSelected ? 2 : 0,
+                borderColor: primaryColor,
+              }
+            ]}>
+            {item.replyTo && (
+              <View style={[styles.replyContainer, { 
+                borderLeftColor: isOwnMessage ? currentTheme.background : primaryColor 
+              }]}>
+                <Text style={[styles.replyToText, { 
+                  color: isOwnMessage ? currentTheme.background : currentTheme.secondary 
+                }]}>
+                  {item.replyToType === 'image' ? 'Imagen' : item.replyToText}
+                </Text>
+              </View>
             )}
-            <View style={styles.messageContentRow}>
-              {item.type === 'image' ? (
-                <View>
-                  <TouchableOpacity 
-                    onPress={() => {
-                      if (selectedMessages.length > 0) {
-                        handleMessageSelect(item.id);
-                      } else {
-                        setSelectedImage(item.imageUrl);
-                      }
-                    }}
-                    onLongPress={() => handleLongPress(item.id)}
-                    delayLongPress={200}>
-                    <Image
-                      source={{ uri: item.imageUrl }}
-                      style={styles.messageImage}
-                      resizeMode="cover"
-                      onLoadStart={() => {
-                        CacheService.getLocalImage(item.imageUrl, groupId)
-                          .then(localPath => {
-                            if (localPath) {
-                              item.imageUrl = localPath;
-                            }
-                          })
-                          .catch(console.error);
+            <View style={styles.messageContentColumn}>
+              {!isOwnMessage && (
+                <Text style={[styles.senderName, { color: primaryColor }]}>
+                  {senderName}
+                </Text>
+              )}
+              <View style={styles.messageContentRow}>
+                {item.type === 'image' ? (
+                  <View>
+                    <TouchableOpacity 
+                      onPress={() => {
+                        if (selectedMessages.length > 0) {
+                          handleMessageSelect(item.id);
+                        } else {
+                          setSelectedImage(item.imageUrl);
+                        }
                       }}
-                    />
-                  </TouchableOpacity>
-                  {item.text && (
-                    <Text 
-                      selectable={true}
+                      onLongPress={() => handleLongPress(item.id)}
+                      delayLongPress={200}>
+                      <Image
+                        source={{ uri: item.imageUrl }}
+                        style={styles.messageImage}
+                        resizeMode="cover"
+                        onLoadStart={() => {
+                          CacheService.getLocalImage(item.imageUrl, groupId)
+                            .then(localPath => {
+                              if (localPath) {
+                                item.imageUrl = localPath;
+                              }
+                            })
+                            .catch(console.error);
+                        }}
+                      />
+                    </TouchableOpacity>
+                    {item.text && (
+                      <Text 
+                        selectable={true}
+                        style={[
+                          styles.messageText,
+                          { color: isOwnMessage ? currentTheme.background : currentTheme.text }
+                        ]}>
+                        {item.text}
+                      </Text>
+                    )}
+                    <View style={[styles.messageFooter, { alignSelf: 'flex-end' }]}>
+                      <Text style={[
+                        styles.messageTime,
+                        { color: isOwnMessage ? currentTheme.background : currentTheme.secondary }
+                      ]}>
+                        {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
+                      </Text>
+                      {isOwnMessage && (
+                        <Icon 
+                          name={item.status === 'sending' ? 'time-outline' : 'checkmark-done'} 
+                          size={16} 
+                          color={isOwnMessage ? currentTheme.background : currentTheme.secondary}
+                          style={styles.messageStatus}
+                        />
+                      )}
+                    </View>
+                  </View>
+                ) : (
+                  <>
+                    <Text
                       style={[
                         styles.messageText,
                         { color: isOwnMessage ? currentTheme.background : currentTheme.text }
-                      ]}>
-                      {item.text}
-                    </Text>
-                  )}
-                  <View style={[styles.messageFooter, { alignSelf: 'flex-end' }]}>
-                    <Text style={[
-                      styles.messageTime,
-                      { color: isOwnMessage ? currentTheme.background : currentTheme.secondary }
-                    ]}>
-                      {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
-                    </Text>
-                    {isOwnMessage && (
-                      <Icon 
-                        name={item.status === 'sending' ? 'time-outline' : 'checkmark-done'} 
-                        size={16} 
-                        color={isOwnMessage ? currentTheme.background : currentTheme.secondary}
-                        style={styles.messageStatus}
-                      />
-                    )}
-                  </View>
-                </View>
-              ) : (
-                <>
-                  <Text
-                    style={[
-                      styles.messageText,
-                      { color: isOwnMessage ? currentTheme.background : currentTheme.text }
-                    ]}
-                  >
-                    {item.text}
-                  </Text>
-                  <View style={styles.messageFooter}>
-                    <Text
-                      style={[
-                        styles.messageTime,
-                        { color: isOwnMessage ? currentTheme.background : currentTheme.secondary }
                       ]}
                     >
-                      {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
+                      {item.text}
                     </Text>
-                    {isOwnMessage && (
-                      <Icon 
-                        name={item.status === 'sending' ? 'time-outline' : 'checkmark-done'} 
-                        size={16} 
-                        color={isOwnMessage ? currentTheme.background : currentTheme.secondary}
-                        style={styles.messageStatus}
-                      />
-                    )}
-                  </View>
-                </>
-              )}
+                    <View style={styles.messageFooter}>
+                      <Text
+                        style={[
+                          styles.messageTime,
+                          { color: isOwnMessage ? currentTheme.background : currentTheme.secondary }
+                        ]}
+                      >
+                        {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
+                      </Text>
+                      {isOwnMessage && (
+                        <Icon 
+                          name={item.status === 'sending' ? 'time-outline' : 'checkmark-done'} 
+                          size={16} 
+                          color={isOwnMessage ? currentTheme.background : currentTheme.secondary}
+                          style={styles.messageStatus}
+                        />
+                      )}
+                    </View>
+                  </>
+                )}
+              </View>
             </View>
           </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </Swipeable>
     );
   };
 
@@ -403,6 +433,25 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
         inverted
         contentContainerStyle={styles.messageList}
       />
+      {viewModel.replyingTo && (
+        <View style={[styles.replyingToContainer, { 
+          backgroundColor: currentTheme.card,
+          borderTopColor: currentTheme.border 
+        }]}>
+          <View style={[styles.replyingToContent, { 
+            borderLeftColor: primaryColor 
+          }]}>
+            <Text style={[styles.replyingToText, { color: currentTheme.text }]}>
+              Respondiendo a: {viewModel.replyingTo.type === 'image' ? 'Imagen' : viewModel.replyingTo.text}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.cancelReplyButton}
+            onPress={viewModel.cancelReply}>
+            <Icon name="close" size={24} color={primaryColor} />
+          </TouchableOpacity>
+        </View>
+      )}
       <View style={[styles.inputContainer, { 
         backgroundColor: currentTheme.card,
         borderTopColor: currentTheme.border 
@@ -789,6 +838,40 @@ const styles = StyleSheet.create({
     right: -8,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
+  },
+  replyContainer: {
+    borderLeftWidth: 3,
+    paddingLeft: 8,
+    marginBottom: 4,
+    opacity: 0.7,
+  },
+  replyToText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
+  replyingToContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    borderTopWidth: 1,
+  },
+  replyingToContent: {
+    flex: 1,
+    borderLeftWidth: 3,
+    paddingLeft: 8,
+    marginRight: 8,
+  },
+  replyingToText: {
+    fontSize: 14,
+  },
+  cancelReplyButton: {
+    padding: 8,
+  },
+  replyAction: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    height: '100%',
   },
 });
 
