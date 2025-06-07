@@ -33,7 +33,6 @@ export class ChatViewModel {
   otherParticipantPhoto: string | undefined;
   private readonly encryptionKey: string;
   private unsubscribe: (() => void) | null = null;
-  private lastSyncTime: Date | null = null;
 
   constructor(chatId: string, otherParticipantId: string) {
     this.chatId = chatId;
@@ -124,14 +123,10 @@ export class ChatViewModel {
               metadata: message.metadata
             });
           }
-          // Filtrar solo mensajes nuevos (createdAt > lastSyncTime)
+          // Filtrar solo mensajes nuevos
           const auth = getAuth();
           const currentUserId = auth.currentUser?.uid;
-          const filteredNewMessages = newMessages.filter(msg => {
-            const isNewMessage = !this.lastSyncTime || 
-              (msg.createdAt && msg.createdAt.toDate() > this.lastSyncTime);
-            return isNewMessage && msg.senderId !== currentUserId;
-          });
+          const filteredNewMessages = newMessages.filter(msg => msg.senderId !== currentUserId);
 
           if (filteredNewMessages.length === 0) {
             runInAction(() => {
@@ -238,12 +233,6 @@ export class ChatViewModel {
             } catch (error) {
               console.error('Error al procesar mensaje:', error);
             }
-          }
-
-          // Actualizar lastSyncTime con la fecha más reciente
-          const latestMessage = allMessages[0];
-          if (latestMessage && latestMessage.createdAt) {
-            this.lastSyncTime = latestMessage.createdAt;
           }
 
           console.log('Mensajes cargados', allMessages);
