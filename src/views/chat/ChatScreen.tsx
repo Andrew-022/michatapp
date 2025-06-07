@@ -27,6 +27,7 @@ import { lightTheme, darkTheme } from '../../constants/theme';
 import { Message } from '../../models/Message';
 import { CacheService } from '../../services/cache';
 import { runInAction } from 'mobx';
+import * as ImagePicker from 'react-native-image-picker';
 
 type ChatNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Chat'>;
 
@@ -56,6 +57,8 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   const [selectedMessagePosition, setSelectedMessagePosition] = useState({ x: 0, y: 0 });
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+  const [imageToSend, setImageToSend] = useState<{uri: string; type?: string; fileName?: string} | null>(null);
+  const [imageText, setImageText] = useState('');
 
   useEffect(() => {
     return () => {
@@ -88,10 +91,44 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
   const handleImageOption = (option: 'gallery' | 'camera') => {
     toggleImageMenu();
     if (option === 'gallery') {
-      viewModel.pickAndSendImage();
+      ImagePicker.launchImageLibrary({
+        mediaType: 'photo',
+        quality: 0.8,
+      }).then(result => {
+        if (result.assets && result.assets[0]) {
+          setImageToSend({
+            uri: result.assets[0].uri || '',
+            type: result.assets[0].type,
+            fileName: result.assets[0].fileName
+          });
+        }
+      });
     } else {
-      viewModel.takeAndSendPhoto();
+      ImagePicker.launchCamera({
+        mediaType: 'photo',
+        quality: 0.8,
+      }).then(result => {
+        if (result.assets && result.assets[0]) {
+          setImageToSend({
+            uri: result.assets[0].uri || '',
+            type: result.assets[0].type,
+            fileName: result.assets[0].fileName
+          });
+        }
+      });
     }
+  };
+
+  const handleSendImage = async () => {
+    if (imageToSend) {
+      setImageToSend(null);
+      setImageText('');
+      await viewModel.sendImage(imageToSend, imageText);
+    }
+  };
+
+  const handleCancelImage = () => {
+    setImageToSend(null);
   };
 
   const handleLongPress = (messageId: string) => {
@@ -184,64 +221,94 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
           ]}>
           <View style={styles.messageContent}>
             {item.type === 'image' ? (
-              <TouchableOpacity 
-                onPress={() => {
-                  if (selectedMessages.length > 0) {
-                    handleMessageSelect(item.id);
-                  } else {
-                    setSelectedImage(item.imageUrl);
-                  }
-                }}
-                onLongPress={() => handleLongPress(item.id)}
-                delayLongPress={200}>
-                <Image
-                  source={{ uri: item.imageUrl }} 
-                  style={styles.messageImage}
-                  resizeMode="cover"
-                  onError={async (error) => {
-                    console.error('Error al cargar imagen:', error.nativeEvent);
-                    // Intentar cargar la imagen local si falla la carga remota
-                    const localPath = await CacheService.getLocalImage(item.imageUrl, chatId);
-                    if (localPath) {
-                      runInAction(() => {
-                        const messageIndex = viewModel.messages.findIndex(m => m.id === item.id);
-                        if (messageIndex !== -1) {
-                          viewModel.messages[messageIndex] = {
-                            ...viewModel.messages[messageIndex],
-                            imageUrl: localPath
-                          };
-                        }
-                      });
+              <View>
+                <TouchableOpacity 
+                  onPress={() => {
+                    if (selectedMessages.length > 0) {
+                      handleMessageSelect(item.id);
+                    } else {
+                      setSelectedImage(item.imageUrl);
                     }
                   }}
-                />
-              </TouchableOpacity>
+                  onLongPress={() => handleLongPress(item.id)}
+                  delayLongPress={200}>
+                  <Image
+                    source={{ uri: item.imageUrl }} 
+                    style={styles.messageImage}
+                    resizeMode="cover"
+                    onError={async (error) => {
+                      console.error('Error al cargar imagen:', error.nativeEvent);
+                      // Intentar cargar la imagen local si falla la carga remota
+                      const localPath = await CacheService.getLocalImage(item.imageUrl, chatId);
+                      if (localPath) {
+                        runInAction(() => {
+                          const messageIndex = viewModel.messages.findIndex(m => m.id === item.id);
+                          if (messageIndex !== -1) {
+                            viewModel.messages[messageIndex] = {
+                              ...viewModel.messages[messageIndex],
+                              imageUrl: localPath
+                            };
+                          }
+                        });
+                      }
+                    }}
+                  />
+                </TouchableOpacity>
+                {item.text && (
+                  <Text 
+                    selectable={true}
+                    style={[
+                      styles.messageText,
+                      { color: isOwnMessage ? currentTheme.background : currentTheme.text }
+                    ]}>
+                    {item.text}
+                  </Text>
+                )}
+                <View style={[styles.messageFooter, { alignSelf: 'flex-end' }]}>
+                  <Text style={[
+                    styles.messageTime,
+                    { color: isOwnMessage ? currentTheme.background : currentTheme.secondary }
+                  ]}>
+                    {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
+                  </Text>
+                  {isOwnMessage && (
+                    <Icon 
+                      name={item.status === 'sending' ? 'time-outline' : 'checkmark-done'} 
+                      size={16} 
+                      color={isOwnMessage ? currentTheme.background : currentTheme.secondary}
+                      style={styles.messageStatus}
+                    />
+                  )}
+                </View>
+              </View>
             ) : (
-              <Text 
-                selectable={true}
-                style={[
-                  styles.messageText,
-                  { color: isOwnMessage ? currentTheme.background : currentTheme.text }
-                ]}>
-                {item.text}
-              </Text>
+              <>
+                <Text 
+                  selectable={true}
+                  style={[
+                    styles.messageText,
+                    { color: isOwnMessage ? currentTheme.background : currentTheme.text }
+                  ]}>
+                  {item.text}
+                </Text>
+                <View style={styles.messageFooter}>
+                  <Text style={[
+                    styles.messageTime,
+                    { color: isOwnMessage ? currentTheme.background : currentTheme.secondary }
+                  ]}>
+                    {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
+                  </Text>
+                  {isOwnMessage && (
+                    <Icon 
+                      name={item.status === 'sending' ? 'time-outline' : 'checkmark-done'} 
+                      size={16} 
+                      color={isOwnMessage ? currentTheme.background : currentTheme.secondary}
+                      style={styles.messageStatus}
+                    />
+                  )}
+                </View>
+              </>
             )}
-            <View style={styles.messageFooter}>
-              <Text style={[
-                styles.messageTime,
-                { color: isOwnMessage ? currentTheme.background : currentTheme.secondary }
-              ]}>
-                {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
-              </Text>
-              {isOwnMessage && (
-                <Icon 
-                  name={item.status === 'sending' ? 'time-outline' : 'checkmark-done'} 
-                  size={16} 
-                  color={isOwnMessage ? currentTheme.background : currentTheme.secondary}
-                  style={styles.messageStatus}
-                />
-              )}
-            </View>
           </View>
         </View>
       </TouchableOpacity>
@@ -338,29 +405,44 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
         backgroundColor: currentTheme.card,
         borderTopColor: currentTheme.border 
       }]}>
-        <TouchableOpacity
-          style={styles.attachButton}
-          onPress={toggleImageMenu}>
-          <Icon name="attach" size={24} color={primaryColor} />
-        </TouchableOpacity>
+        {imageToSend ? (
+          <View style={styles.imagePreviewContainer}>
+            <Image 
+              source={{ uri: imageToSend.uri }} 
+              style={styles.imagePreview}
+              resizeMode="cover"
+            />
+            <TouchableOpacity
+              style={styles.cancelImageButton}
+              onPress={handleCancelImage}>
+              <Icon name="close-circle" size={24} color={primaryColor} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.attachButton}
+            onPress={toggleImageMenu}>
+            <Icon name="attach" size={24} color={primaryColor} />
+          </TouchableOpacity>
+        )}
         <TextInput
           style={[styles.input, { 
             backgroundColor: currentTheme.background,
             color: currentTheme.text
           }]}
-          value={viewModel.newMessage}
-          onChangeText={viewModel.setNewMessage}
-          placeholder="Escribe un mensaje..."
+          value={imageToSend ? imageText : viewModel.newMessage}
+          onChangeText={imageToSend ? setImageText : viewModel.setNewMessage}
+          placeholder={imageToSend ? "Añade un mensaje..." : "Escribe un mensaje..."}
           placeholderTextColor={currentTheme.secondary}
           multiline
         />
         <TouchableOpacity
           style={[
             styles.sendButton,
-            { backgroundColor: viewModel.newMessage.trim() ? secondaryColor : currentTheme.border }
+            { backgroundColor: (imageToSend ? (imageText.trim() || true) : viewModel.newMessage.trim()) ? secondaryColor : currentTheme.border }
           ]}
-          onPress={() => viewModel.sendMessage()}
-          disabled={!viewModel.newMessage.trim()}>
+          onPress={imageToSend ? handleSendImage : () => viewModel.sendMessage()}
+          disabled={!imageToSend && !viewModel.newMessage.trim()}>
           <Text style={[styles.sendButtonText, { color: currentTheme.background }]}>
             Enviar
           </Text>
@@ -532,6 +614,7 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 16,
     flexShrink: 1,
+    marginBottom: 4,
   },
   messageTime: {
     fontSize: 10,
@@ -563,6 +646,7 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 10,
+    marginBottom: 4,
   },
   attachButton: {
     padding: 8,
@@ -691,6 +775,36 @@ const styles = StyleSheet.create({
   },
   messageStatus: {
     marginLeft: 4,
+  },
+  imageMessageText: {
+    marginTop: 8,
+    marginBottom: 4,
+    paddingHorizontal: 4,
+  },
+  imageMessageFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    alignSelf: 'flex-end',
+  },
+  imagePreviewContainer: {
+    position: 'relative',
+    width: 40,
+    height: 40,
+    marginRight: 8,
+  },
+  imagePreview: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+  },
+  cancelImageButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
   },
 });
 

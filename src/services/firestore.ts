@@ -1205,6 +1205,7 @@ export const sendChatImage = async (
   notificationData: {
     fromName: string;
     to: string;
+    text?: string;
   }
 ) => {
   try {
@@ -1216,7 +1217,8 @@ export const sendChatImage = async (
       senderId: senderId,
       createdAt: serverTimestamp(),
       fromName: notificationData.fromName,
-      to: notificationData.to
+      to: notificationData.to,
+      text: notificationData.text || ''
     };
 
     const messagesRef = collection(db, COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES);
@@ -1226,7 +1228,7 @@ export const sendChatImage = async (
     await updateDoc(chatRef, {
       lastMessage: {
         type: 'image',
-        text: '📷 Imagen',
+        text: notificationData.text ? '📷 Imagen con texto' : '📷 Imagen',
         createdAt: serverTimestamp(),
       },
       updatedAt: serverTimestamp(),

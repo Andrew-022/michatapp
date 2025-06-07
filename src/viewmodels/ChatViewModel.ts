@@ -20,8 +20,6 @@ import {
 import { setCurrentChatId } from '../../App';
 import * as ImagePicker from 'react-native-image-picker';
 import { CacheService } from '../services/cache';
-import storage from '@react-native-firebase/storage';
-import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 
 export class ChatViewModel {
   messages: Message[] = [];
@@ -174,13 +172,33 @@ export class ChatViewModel {
                 const localPath = await CacheService.saveImageLocally(data.imageUrl, this.chatId);
                 if (localPath) {
                   // Crear mensaje con la URL local
+                  let decryptedText = '';
+                  if (data.text) {
+                    try {
+                      decryptedText = decryptMessage(data.text, this.encryptionKey);
+                    } catch (error) {
+                      console.error('Error al descifrar mensaje:', error);
+                    }
+                  }
                   processedMessage = MessageModel.fromFirestore(doc.id, {
                     ...data,
-                    imageUrl: localPath
+                    imageUrl: localPath,
+                    text: decryptedText
                   });
                 } else {
                   // Si no se pudo guardar localmente, usar la URL de Firebase
-                  processedMessage = MessageModel.fromFirestore(doc.id, data);
+                  let decryptedText = '';
+                  if (data.text) {
+                    try {
+                      decryptedText = decryptMessage(data.text, this.encryptionKey);
+                    } catch (error) {
+                      console.error('Error al descifrar mensaje:', error);
+                    }
+                  }
+                  processedMessage = MessageModel.fromFirestore(doc.id, {
+                    ...data,
+                    text: decryptedText
+                  });
                 }
               } else if (data.text) {
                 try {
@@ -336,6 +354,100 @@ export class ChatViewModel {
     }
   }
 
+  async sendImage(imageAsset: any, message: string = '') {
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+    const id_temp = Date.now().toString();
+    if (!currentUser) return;
+    
+    const userDoc = await getUser(currentUser.uid);
+    const userName = userDoc?.name || 'Usuario';
+
+    // Cifrar el mensaje si existe
+    let encryptedText = '';
+    if (message && message.trim()) {
+      try {
+        encryptedText = CryptoJS.AES.encrypt(message.trim(), this.encryptionKey).toString();
+      } catch (error) {
+        console.error('Error al cifrar mensaje:', error);
+      }
+    }
+
+    // Crear mensaje temporal para actualización inmediata
+    const tempMessage: Message = {
+      id: id_temp,
+      type: 'image',
+      imageUrl: imageAsset.uri || imageAsset.path,
+      senderId: currentUser.uid,
+      createdAt: new Date(),
+      fromName: userName,
+      to: this.otherParticipantId,
+      text: message.trim(), // Guardamos el texto sin cifrar en el mensaje temporal
+      status: 'sending'
+    };
+
+    // Actualizar estado inmediatamente
+    runInAction(() => {
+      this.messages = [tempMessage, ...this.messages];
+    });
+
+    // Continuar con el proceso de envío en segundo plano
+    (async () => {
+      try {
+        // Subir imagen a Firebase Storage
+        const imageUrl = await uploadChatImage(this.chatId, {
+          path: imageAsset.uri || imageAsset.path,
+          type: imageAsset.type,
+          fileName: imageAsset.fileName
+        });
+
+        // Enviar mensaje con la URL de Firebase
+        await sendChatImage(
+          this.chatId,
+          imageUrl,
+          currentUser.uid,
+          this.otherParticipantId,
+          {
+            fromName: userName,
+            to: this.otherParticipantId,
+            text: encryptedText // Enviamos el texto cifrado
+          }
+        );
+
+        // Actualizar el mensaje con la URL final y el estado de enviado
+        runInAction(() => {
+          const messageIndex = this.messages.findIndex(m => m.id === tempMessage.id);
+          if (messageIndex !== -1) {
+            const updatedMessages = [...this.messages];
+            updatedMessages[messageIndex] = {
+              ...updatedMessages[messageIndex],
+              status: 'sent'
+            };
+            this.messages = updatedMessages;
+          }
+        });
+
+        // Guardar mensajes actualizados en caché
+        await CacheService.saveChatMessages(this.chatId, this.messages);
+
+      } catch (error) {
+        console.error('Error al enviar imagen:', error);
+        // En caso de error, actualizar el estado del mensaje
+        runInAction(() => {
+          const messageIndex = this.messages.findIndex(m => m.id === id_temp);
+          if (messageIndex !== -1) {
+            const updatedMessages = [...this.messages];
+            updatedMessages[messageIndex] = {
+              ...updatedMessages[messageIndex],
+              status: 'error'
+            };
+            this.messages = updatedMessages;
+          }
+        });
+      }
+    })();
+  }
+
   async pickAndSendImage() {
     try {
       const result = await ImagePicker.launchImageLibrary({
@@ -371,89 +483,6 @@ export class ChatViewModel {
       }
     } catch (error) {
       console.error('Error al tomar foto:', error);
-    }
-  }
-
-  private async sendImage(imageAsset: any) {
-    const auth = getAuth();
-    const currentUser = auth.currentUser;
-    const id_temp = Date.now().toString();
-    if (!currentUser) return;
-    try {
-      const userDoc = await getUser(currentUser.uid);
-      const userName = userDoc?.name || 'Usuario';
-
-      // Crear mensaje temporal para actualización inmediata
-      
-      const tempMessage: Message = {
-        id: id_temp,
-        type: 'image',
-        imageUrl: imageAsset.uri || imageAsset.path,
-        senderId: currentUser.uid,
-        createdAt: new Date(),
-        fromName: userName,
-        to: this.otherParticipantId,
-        text: '', // Campo requerido por Message
-        status: 'sending'
-      };
-
-      // Actualizar estado inmediatamente
-      runInAction(() => {
-        this.messages = [tempMessage, ...this.messages];
-      });
-
-      // Subir imagen a Firebase Storage
-      const imageUrl = await uploadChatImage(this.chatId, {
-        path: imageAsset.uri || imageAsset.path,
-        type: imageAsset.type,
-        fileName: imageAsset.fileName
-      });
-
-      // Enviar mensaje con la URL de Firebase
-      await sendChatImage(
-        this.chatId,
-        imageUrl,
-        currentUser.uid,
-        this.otherParticipantId,
-        {
-          fromName: userName,
-          to: this.otherParticipantId
-        }
-      );
-
-      // Actualizar el mensaje con la URL final y el estado de enviado
-      runInAction(() => {
-        const messageIndex = this.messages.findIndex(m => m.id === tempMessage.id);
-        if (messageIndex !== -1) {
-          const updatedMessages = [...this.messages];
-          updatedMessages[messageIndex] = {
-            ...updatedMessages[messageIndex],
-            status: 'sent'
-          };
-          this.messages = updatedMessages;
-        }
-      });
-
-      // Guardar imagen localmente después de enviar el mensaje
-      //await CacheService.saveChatImage(this.chatId, imageUrl);
-      
-      // Guardar mensajes actualizados en caché
-      await CacheService.saveChatMessages(this.chatId, this.messages);
-
-    } catch (error) {
-      console.error('Error al enviar imagen:', error);
-      // En caso de error, actualizar el estado del mensaje
-      runInAction(() => {
-        const messageIndex = this.messages.findIndex(m => m.id === id_temp);
-        if (messageIndex !== -1) {
-          const updatedMessages = [...this.messages];
-          updatedMessages[messageIndex] = {
-            ...updatedMessages[messageIndex],
-            status: 'error'
-          };
-          this.messages = updatedMessages;
-        }
-      });
     }
   }
 
