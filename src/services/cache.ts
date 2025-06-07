@@ -46,9 +46,9 @@ export class CacheService {
         begin: (res) => {
           console.log('Iniciando descarga:', res);
         },
-        progress: (res) => {
-          console.log('Progreso:', res);
-        }
+        //progress: (res) => {
+          //console.log('Progreso:', res);
+        //}
       }).promise;
 
       if (downloadResult.statusCode === 200) {

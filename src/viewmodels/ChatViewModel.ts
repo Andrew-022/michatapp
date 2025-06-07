@@ -101,37 +101,60 @@ export class ChatViewModel {
   }
 
   private subscribeToMessages() {
+    let isProcessing = false;
+
     this.unsubscribe = subscribeToChatMessages(
       this.chatId,
       async (newMessages) => {
+        // Evitar procesamiento simultáneo
+        if (isProcessing) {
+          console.log('Ya hay un proceso en curso, ignorando nuevos mensajes');
+          return;
+        }
+
         try {
-          // Obtener mensajes del caché
-          const cachedMessages = await CacheService.getChatMessages(this.chatId) || [];
-          
-          // Si no hay mensajes nuevos ni en caché, actualizar el estado de carga
-          if (newMessages.length === 0 && cachedMessages.length === 0) {
+          isProcessing = true;
+          console.log('Empezando a cargar mensajes', newMessages.length);
+          for (const message of newMessages) {
+            console.log('Documento:', {
+              id: message.id,
+              path: message.ref?.path,
+              data: message.data,
+              exists: message.exists,
+              metadata: message.metadata
+            });
+          }
+          // Filtrar solo mensajes nuevos (createdAt > lastSyncTime)
+          const auth = getAuth();
+          const currentUserId = auth.currentUser?.uid;
+          const filteredNewMessages = newMessages.filter(msg => {
+            const isNewMessage = !this.lastSyncTime || 
+              (msg.createdAt && msg.createdAt.toDate() > this.lastSyncTime);
+            return isNewMessage && msg.senderId !== currentUserId;
+          });
+
+          if (filteredNewMessages.length === 0) {
             runInAction(() => {
               this.loading = false;
             });
             return;
           }
 
-          // Filtrar mensajes propios de los nuevos mensajes
-          const auth = getAuth();
-          const currentUserId = auth.currentUser?.uid;
-          const filteredNewMessages = newMessages.filter(msg => msg.senderId !== currentUserId);
-
+          // Obtener mensajes del caché
+          const cachedMessages = await CacheService.getChatMessages(this.chatId) || [];
+          
           // Crear un Set para mantener IDs únicos
           const messageIds = new Set<string>();
           this.messages.forEach(msg => messageIds.add(msg.id));
 
-          // Filtrar solo mensajes nuevos que no están en caché ni en mensajes actuales
-          const uniqueNewMessages = filteredNewMessages.filter(
-            newMsg => !cachedMessages.some(cachedMsg => cachedMsg.id === newMsg.id) && 
-                     !messageIds.has(newMsg.id)
-          );
+          // Verificar qué mensajes nuevos no están en caché
+          const messagesToProcess = filteredNewMessages.filter(newMsg => {
+            const existsInCache = cachedMessages.some(cachedMsg => cachedMsg.id === newMsg.id);
+            const existsInCurrent = messageIds.has(newMsg.id);
+            return !existsInCache && !existsInCurrent;
+          });
 
-          if (uniqueNewMessages.length === 0) {
+          if (messagesToProcess.length === 0) {
             runInAction(() => {
               this.messages = [...this.messages, ...cachedMessages.filter(msg => !messageIds.has(msg.id))];
               this.loading = false;
@@ -139,64 +162,63 @@ export class ChatViewModel {
             return;
           }
 
-          // Procesar solo los mensajes nuevos
-          const processedNewMessages = await Promise.all(uniqueNewMessages.map(async doc => {
+          // Procesar mensajes secuencialmente
+          const processedNewMessages: MessageModel[] = [];
+          for (const doc of messagesToProcess) {
             try {
               const data = doc;
               if (!data) {
                 console.log('Mensaje no encontrado en Firestore, probablemente ya fue leído y eliminado');
-                return null;
+                continue;
               }
 
-              // Si es un mensaje propio, no procesar la imagen
-              //if (this.isOwnMessage(data) && data.type === 'image') {
-              //  return MessageModel.fromFirestore(doc.id, data);
-              //}
+              let processedMessage;
 
               if (data.type === 'image') {
                 // Guardar imagen localmente
                 const localPath = await CacheService.saveImageLocally(data.imageUrl, this.chatId);
                 if (localPath) {
-                  // Actualizar la URL de la imagen a la local
-                  return MessageModel.fromFirestore(doc.id, {
+                  // Crear mensaje con la URL local
+                  processedMessage = MessageModel.fromFirestore(doc.id, {
                     ...data,
                     imageUrl: localPath
                   });
+                } else {
+                  // Si no se pudo guardar localmente, usar la URL de Firebase
+                  processedMessage = MessageModel.fromFirestore(doc.id, data);
                 }
-              }
-
-              // Solo intentar descifrar si hay texto
-              if (data.text) {
+              } else if (data.text) {
                 try {
                   const decryptedText = decryptMessage(data.text, this.encryptionKey);
-                  return MessageModel.fromFirestore(doc.id, {
+                  processedMessage = MessageModel.fromFirestore(doc.id, {
                     ...data,
                     text: decryptedText
                   });
                 } catch (error) {
                   console.error('Error al descifrar mensaje:', error);
-                  // Si falla el descifrado, devolver el mensaje sin descifrar
-                  return MessageModel.fromFirestore(doc.id, data);
+                  processedMessage = MessageModel.fromFirestore(doc.id, data);
                 }
+              } else {
+                processedMessage = MessageModel.fromFirestore(doc.id, data);
               }
 
-              // Si no hay texto ni imagen, devolver el mensaje tal cual
-              return MessageModel.fromFirestore(doc.id, data);
+              if (processedMessage) {
+                processedNewMessages.push(processedMessage);
+                // Actualizar caché después de cada mensaje procesado
+                const currentMessages = [...this.messages, ...cachedMessages.filter(msg => !messageIds.has(msg.id)), ...processedNewMessages];
+                await CacheService.saveChatMessages(this.chatId, currentMessages);
+              }
             } catch (error) {
               console.error('Error al procesar mensaje:', error);
-              return null;
             }
-          }));
-
-          // Filtrar mensajes nulos
-          const validNewMessages = processedNewMessages.filter((msg): msg is MessageModel => msg !== null);
+          }
           
           // Filtrar mensajes en caché que no estén en los mensajes actuales
           const otherCachedMessages = cachedMessages.filter(msg => !messageIds.has(msg.id));
           
           // Combinar todos los mensajes
-          const allMessages = [...this.messages, ...otherCachedMessages, ...validNewMessages];
-
+          const allMessages = [...this.messages, ...otherCachedMessages, ...processedNewMessages];
+          
           // Ordenar mensajes por fecha de creación (más recientes primero)
           allMessages.sort((a, b) => {
             const dateA = a.createdAt?.getTime() || 0;
@@ -204,11 +226,11 @@ export class ChatViewModel {
             return dateB - dateA;
           });
 
-          // Guardar todos los mensajes en caché
+          // Guardar mensajes en caché
           await CacheService.saveChatMessages(this.chatId, allMessages);
 
           // Eliminar mensajes y sus imágenes de Firebase solo para mensajes nuevos
-          for (const message of uniqueNewMessages) {
+          for (const message of messagesToProcess) {
             try {
               if (message) {
                 await processAndDeleteMessage(message, this.chatId, currentUserId || '');
@@ -218,6 +240,13 @@ export class ChatViewModel {
             }
           }
 
+          // Actualizar lastSyncTime con la fecha más reciente
+          const latestMessage = allMessages[0];
+          if (latestMessage && latestMessage.createdAt) {
+            this.lastSyncTime = latestMessage.createdAt;
+          }
+
+          console.log('Mensajes cargados', allMessages);
           runInAction(() => {
             this.messages = allMessages;
             this.loading = false;
@@ -227,6 +256,8 @@ export class ChatViewModel {
           runInAction(() => {
             this.loading = false;
           });
+        } finally {
+          isProcessing = false;
         }
       },
       (error) => {
@@ -234,6 +265,7 @@ export class ChatViewModel {
         runInAction(() => {
           this.loading = false;
         });
+        isProcessing = false;
       }
     );
   }
@@ -356,15 +388,16 @@ export class ChatViewModel {
   private async sendImage(imageAsset: any) {
     const auth = getAuth();
     const currentUser = auth.currentUser;
+    const id_temp = Date.now().toString();
     if (!currentUser) return;
-
     try {
       const userDoc = await getUser(currentUser.uid);
       const userName = userDoc?.name || 'Usuario';
 
       // Crear mensaje temporal para actualización inmediata
+      
       const tempMessage: Message = {
-        id: Date.now().toString(),
+        id: id_temp,
         type: 'image',
         imageUrl: imageAsset.uri || imageAsset.path,
         senderId: currentUser.uid,
@@ -422,7 +455,7 @@ export class ChatViewModel {
       console.error('Error al enviar imagen:', error);
       // En caso de error, actualizar el estado del mensaje
       runInAction(() => {
-        const messageIndex = this.messages.findIndex(m => m.id === Date.now().toString());
+        const messageIndex = this.messages.findIndex(m => m.id === id_temp);
         if (messageIndex !== -1) {
           const updatedMessages = [...this.messages];
           updatedMessages[messageIndex] = {
