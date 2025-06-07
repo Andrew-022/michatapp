@@ -1292,6 +1292,7 @@ export const sendGroupImage = async (
   notificationData: {
     fromName: string;
     to: string;
+    text?: string;
   }
 ) => {
   try {
@@ -1304,7 +1305,8 @@ export const sendGroupImage = async (
       createdAt: serverTimestamp(),
       fromName: notificationData.fromName,
       to: notificationData.to,
-      groupId: groupId
+      groupId: groupId,
+      text: notificationData.text || ''
     };
 
     const messagesRef = collection(db, COLLECTIONS.GROUP_CHATS, groupId, COLLECTIONS.MESSAGES);
@@ -1314,7 +1316,7 @@ export const sendGroupImage = async (
     const updates: any = {
       lastMessage: {
         type: 'image',
-        text: '📷 Imagen',
+        text: notificationData.text ? '📷 Imagen con texto' : '📷 Imagen',
         createdAt: serverTimestamp(),
         senderId: senderId
       },

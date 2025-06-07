@@ -156,10 +156,25 @@ export class GroupChatViewModel {
                 const localPath = await CacheService.saveImageLocally(data.imageUrl, this.groupId);
                 if (localPath) {
                   // Actualizar la URL de la imagen a la local
-                  return {
+                  let processedMessage = {
                     ...messageData,
                     imageUrl: localPath
                   };
+
+                  // Si hay texto, intentar descifrarlo
+                  if (data.text) {
+                    try {
+                      const decryptedText = this.decryptMessage(data.text);
+                      processedMessage = {
+                        ...processedMessage,
+                        text: decryptedText
+                      };
+                    } catch (error) {
+                      console.error('Error al descifrar mensaje de imagen:', error);
+                    }
+                  }
+
+                  return processedMessage;
                 }
               }
 
@@ -349,25 +364,36 @@ export class GroupChatViewModel {
     }
   }
 
-  private async sendImage(imageAsset: any) {
+  async sendImage(imageAsset: any, message: string = '') {
     const auth = getAuth();
     const currentUser = auth.currentUser;
+    const id_temp = Date.now().toString();
     if (!currentUser) return;
 
     try {
       const userDoc = await getUser(currentUser.uid);
       const userName = userDoc?.name || 'Usuario';
 
+      // Cifrar el mensaje si existe
+      let encryptedText = '';
+      if (message && message.trim()) {
+        try {
+          encryptedText = CryptoJS.AES.encrypt(message.trim(), this.encryptionKey).toString();
+        } catch (error) {
+          console.error('Error al cifrar mensaje:', error);
+        }
+      }
+
       // Crear mensaje temporal para actualización inmediata con la imagen local
       const tempMessage: Message = {
-        id: Date.now().toString(),
+        id: id_temp,
         type: 'image',
         imageUrl: imageAsset.uri || imageAsset.path,
         senderId: currentUser.uid,
         createdAt: new Date(),
         fromName: userName,
         groupId: this.groupId,
-        text: '',
+        text: message.trim(), // Guardamos el texto sin cifrar en el mensaje temporal
         status: 'sending'
       };
 
@@ -376,49 +402,76 @@ export class GroupChatViewModel {
         this.messages = [tempMessage, ...this.messages];
       });
 
-      // Subir imagen a Firebase Storage
-      const imageUrl = await uploadChatImage(this.groupId, {
-        path: imageAsset.uri || imageAsset.path,
-        type: imageAsset.type,
-        fileName: imageAsset.fileName
-      }, true);
+      // Continuar con el proceso de envío en segundo plano
+      (async () => {
+        try {
+          // Subir imagen a Firebase Storage
+          const imageUrl = await uploadChatImage(this.groupId, {
+            path: imageAsset.uri || imageAsset.path,
+            type: imageAsset.type,
+            fileName: imageAsset.fileName
+          }, true);
 
-      // Guardar imagen localmente
-      const localPath = await CacheService.saveImageLocally(imageUrl, this.groupId);
-      
-      // Enviar mensaje con la URL de Firebase
-      await sendGroupImage(
-        this.groupId,
-        imageUrl,
-        currentUser.uid,
-        this.participants,
-        {
-          fromName: userName,
-          to: this.groupId
+          // Guardar imagen localmente
+          const localPath = await CacheService.saveImageLocally(imageUrl, this.groupId);
+          
+          // Enviar mensaje con la URL de Firebase
+          await sendGroupImage(
+            this.groupId,
+            imageUrl,
+            currentUser.uid,
+            this.participants,
+            {
+              fromName: userName,
+              to: this.groupId,
+              text: encryptedText // Enviamos el texto cifrado
+            }
+          );
+
+          // Actualizar el estado del mensaje a enviado
+          runInAction(() => {
+            const messageIndex = this.messages.findIndex(m => m.id === tempMessage.id);
+            if (messageIndex !== -1) {
+              const updatedMessages = [...this.messages];
+              updatedMessages[messageIndex] = {
+                ...updatedMessages[messageIndex],
+                status: 'sent'
+              };
+              this.messages = updatedMessages;
+            }
+          });
+
+          // Guardar mensajes actualizados en caché
+          await CacheService.saveChatMessages(this.groupId, this.messages);
+
+        } catch (error) {
+          console.error('Error al enviar imagen:', error);
+          // En caso de error, actualizar el estado del mensaje
+          runInAction(() => {
+            const messageIndex = this.messages.findIndex(m => m.id === id_temp);
+            if (messageIndex !== -1) {
+              const updatedMessages = [...this.messages];
+              updatedMessages[messageIndex] = {
+                ...updatedMessages[messageIndex],
+                status: 'error'
+              };
+              this.messages = updatedMessages;
+            }
+          });
         }
-      );
-
-      // Actualizar el estado del mensaje a enviado
-      runInAction(() => {
-        const messageIndex = this.messages.findIndex(m => m.id === tempMessage.id);
-        if (messageIndex !== -1) {
-          this.messages[messageIndex] = {
-            ...this.messages[messageIndex],
-            status: 'sent'
-          };
-        }
-      });
-
+      })();
     } catch (error) {
       console.error('Error al enviar imagen:', error);
       // En caso de error, actualizar el estado del mensaje
       runInAction(() => {
-        const messageIndex = this.messages.findIndex(m => m.id === Date.now().toString());
+        const messageIndex = this.messages.findIndex(m => m.id === id_temp);
         if (messageIndex !== -1) {
-          this.messages[messageIndex] = {
-            ...this.messages[messageIndex],
+          const updatedMessages = [...this.messages];
+          updatedMessages[messageIndex] = {
+            ...updatedMessages[messageIndex],
             status: 'error'
           };
+          this.messages = updatedMessages;
         }
       });
     }

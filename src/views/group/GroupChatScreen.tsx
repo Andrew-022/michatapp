@@ -25,6 +25,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../context/ThemeContext';
 import { lightTheme, darkTheme } from '../../constants/theme';
 import { CacheService } from '../../services/cache';
+import * as ImagePicker from 'react-native-image-picker';
 
 type GroupChatNavigationProp = NativeStackNavigationProp<RootStackParamList, 'GroupChat'>;
 
@@ -51,6 +52,8 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
   const menuAnimation = useRef(new Animated.Value(0)).current;
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [imageToSend, setImageToSend] = useState<{uri: string; type?: string; fileName?: string} | null>(null);
+  const [imageText, setImageText] = useState('');
 
   useEffect(() => {
     return () => {
@@ -148,10 +151,44 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
   const handleImageOption = (option: 'gallery' | 'camera') => {
     toggleImageMenu();
     if (option === 'gallery') {
-      viewModel.pickAndSendImage();
+      ImagePicker.launchImageLibrary({
+        mediaType: 'photo',
+        quality: 0.8,
+      }).then(result => {
+        if (result.assets && result.assets[0]) {
+          setImageToSend({
+            uri: result.assets[0].uri || '',
+            type: result.assets[0].type,
+            fileName: result.assets[0].fileName
+          });
+        }
+      });
     } else {
-      viewModel.takeAndSendPhoto();
+      ImagePicker.launchCamera({
+        mediaType: 'photo',
+        quality: 0.8,
+      }).then(result => {
+        if (result.assets && result.assets[0]) {
+          setImageToSend({
+            uri: result.assets[0].uri || '',
+            type: result.assets[0].type,
+            fileName: result.assets[0].fileName
+          });
+        }
+      });
     }
+  };
+
+  const handleSendImage = async () => {
+    if (imageToSend) {
+      setImageToSend(null);
+      setImageText('');
+      await viewModel.sendImage(imageToSend, imageText);
+    }
+  };
+
+  const handleCancelImage = () => {
+    setImageToSend(null);
   };
 
   const renderMessage = ({ item }: { item: any }) => {
@@ -187,56 +224,88 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
             )}
             <View style={styles.messageContentRow}>
               {item.type === 'image' ? (
-                <TouchableOpacity 
-                  onPress={() => {
-                    if (selectedMessages.length > 0) {
-                      handleMessageSelect(item.id);
-                    } else {
-                      setSelectedImage(item.imageUrl);
-                    }
-                  }}
-                  onLongPress={() => handleLongPress(item.id)}
-                  delayLongPress={200}>
-                  <Image
-                    source={{ uri: item.imageUrl }}
-                    style={styles.messageImage}
-                    resizeMode="cover"
-                    onLoadStart={() => {
-                      CacheService.getLocalImage(item.imageUrl, groupId)
-                        .then(localPath => {
-                          if (localPath) {
-                            item.imageUrl = localPath;
-                          }
-                        })
-                        .catch(console.error);
+                <View>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      if (selectedMessages.length > 0) {
+                        handleMessageSelect(item.id);
+                      } else {
+                        setSelectedImage(item.imageUrl);
+                      }
                     }}
-                  />
-                </TouchableOpacity>
+                    onLongPress={() => handleLongPress(item.id)}
+                    delayLongPress={200}>
+                    <Image
+                      source={{ uri: item.imageUrl }}
+                      style={styles.messageImage}
+                      resizeMode="cover"
+                      onLoadStart={() => {
+                        CacheService.getLocalImage(item.imageUrl, groupId)
+                          .then(localPath => {
+                            if (localPath) {
+                              item.imageUrl = localPath;
+                            }
+                          })
+                          .catch(console.error);
+                      }}
+                    />
+                  </TouchableOpacity>
+                  {item.text && (
+                    <Text 
+                      selectable={true}
+                      style={[
+                        styles.messageText,
+                        { color: isOwnMessage ? currentTheme.background : currentTheme.text }
+                      ]}>
+                      {item.text}
+                    </Text>
+                  )}
+                  <View style={[styles.messageFooter, { alignSelf: 'flex-end' }]}>
+                    <Text style={[
+                      styles.messageTime,
+                      { color: isOwnMessage ? currentTheme.background : currentTheme.secondary }
+                    ]}>
+                      {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
+                    </Text>
+                    {isOwnMessage && (
+                      <Icon 
+                        name={item.status === 'sending' ? 'time-outline' : 'checkmark-done'} 
+                        size={16} 
+                        color={isOwnMessage ? currentTheme.background : currentTheme.secondary}
+                        style={styles.messageStatus}
+                      />
+                    )}
+                  </View>
+                </View>
               ) : (
-                <Text
-                  style={[
-                    styles.messageText,
-                    { color: isOwnMessage ? currentTheme.background : currentTheme.text }
-                  ]}
-                >
-                  {item.text}
-                </Text>
-              )}
-              <Text
-                style={[
-                  styles.messageTime,
-                  { color: isOwnMessage ? currentTheme.background : currentTheme.secondary }
-                ]}
-              >
-                {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
-              </Text>
-              {isOwnMessage && (
-                <Icon 
-                  name={item.status === 'sending' ? 'time-outline' : 'checkmark-done'} 
-                  size={16} 
-                  color={isOwnMessage ? currentTheme.background : currentTheme.secondary}
-                  style={styles.messageStatus}
-                />
+                <>
+                  <Text
+                    style={[
+                      styles.messageText,
+                      { color: isOwnMessage ? currentTheme.background : currentTheme.text }
+                    ]}
+                  >
+                    {item.text}
+                  </Text>
+                  <View style={styles.messageFooter}>
+                    <Text
+                      style={[
+                        styles.messageTime,
+                        { color: isOwnMessage ? currentTheme.background : currentTheme.secondary }
+                      ]}
+                    >
+                      {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
+                    </Text>
+                    {isOwnMessage && (
+                      <Icon 
+                        name={item.status === 'sending' ? 'time-outline' : 'checkmark-done'} 
+                        size={16} 
+                        color={isOwnMessage ? currentTheme.background : currentTheme.secondary}
+                        style={styles.messageStatus}
+                      />
+                    )}
+                  </View>
+                </>
               )}
             </View>
           </View>
@@ -338,30 +407,44 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
         backgroundColor: currentTheme.card,
         borderTopColor: currentTheme.border 
       }]}>
-        <TouchableOpacity
-          style={styles.attachButton}
-          onPress={toggleImageMenu}>
-          <Icon name="attach" size={24} color={primaryColor} />
-        </TouchableOpacity>
+        {imageToSend ? (
+          <View style={styles.imagePreviewContainer}>
+            <Image 
+              source={{ uri: imageToSend.uri }} 
+              style={styles.imagePreview}
+              resizeMode="cover"
+            />
+            <TouchableOpacity
+              style={styles.cancelImageButton}
+              onPress={handleCancelImage}>
+              <Icon name="close-circle" size={24} color={primaryColor} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.attachButton}
+            onPress={toggleImageMenu}>
+            <Icon name="attach" size={24} color={primaryColor} />
+          </TouchableOpacity>
+        )}
         <TextInput
           style={[styles.input, { 
             backgroundColor: currentTheme.background,
             color: currentTheme.text
           }]}
-          value={viewModel.newMessage}
-          onChangeText={viewModel.setNewMessage}
-          placeholder="Escribe un mensaje..."
+          value={imageToSend ? imageText : viewModel.newMessage}
+          onChangeText={imageToSend ? setImageText : viewModel.setNewMessage}
+          placeholder={imageToSend ? "Añade un mensaje..." : "Escribe un mensaje..."}
           placeholderTextColor={currentTheme.secondary}
           multiline
         />
         <TouchableOpacity
           style={[
             styles.sendButton,
-            { backgroundColor: viewModel.newMessage.trim() ? secondaryColor : currentTheme.border }
+            { backgroundColor: (imageToSend ? (imageText.trim() || true) : viewModel.newMessage.trim()) ? secondaryColor : currentTheme.border }
           ]}
-          onPress={() => viewModel.sendMessage()}
-          disabled={!viewModel.newMessage.trim()}
-        >
+          onPress={imageToSend ? handleSendImage : () => viewModel.sendMessage()}
+          disabled={!imageToSend && !viewModel.newMessage.trim()}>
           <Text style={[styles.sendButtonText, { color: currentTheme.background }]}>
             Enviar
           </Text>
@@ -681,8 +764,31 @@ const styles = StyleSheet.create({
     elevation: 5,
     minWidth: 150,
   },
+  messageFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   messageStatus: {
-    marginLeft: 8,
+    marginLeft: 4,
+  },
+  imagePreviewContainer: {
+    position: 'relative',
+    width: 40,
+    height: 40,
+    marginRight: 8,
+  },
+  imagePreview: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+  },
+  cancelImageButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
   },
 });
 
