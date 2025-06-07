@@ -149,9 +149,9 @@ export class ChatViewModel {
               }
 
               // Si es un mensaje propio, no procesar la imagen
-              if (this.isOwnMessage(data) && data.type === 'image') {
-                return MessageModel.fromFirestore(doc.id, data);
-              }
+              //if (this.isOwnMessage(data) && data.type === 'image') {
+              //  return MessageModel.fromFirestore(doc.id, data);
+              //}
 
               if (data.type === 'image') {
                 // Guardar imagen localmente
@@ -406,7 +406,6 @@ export class ChatViewModel {
           const updatedMessages = [...this.messages];
           updatedMessages[messageIndex] = {
             ...updatedMessages[messageIndex],
-            imageUrl,
             status: 'sent'
           };
           this.messages = updatedMessages;
@@ -414,7 +413,7 @@ export class ChatViewModel {
       });
 
       // Guardar imagen localmente después de enviar el mensaje
-      await CacheService.saveChatImage(this.chatId, imageUrl);
+      //await CacheService.saveChatImage(this.chatId, imageUrl);
       
       // Guardar mensajes actualizados en caché
       await CacheService.saveChatMessages(this.chatId, this.messages);
