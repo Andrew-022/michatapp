@@ -9,6 +9,9 @@ export interface Message {
   groupId?: string;
   to?: string;
   status?: 'sending' | 'sent' | 'error';
+  replyTo?: string;
+  replyToText?: string;
+  replyToType?: 'text' | 'image';
 }
 
 export class MessageModel implements Message {
@@ -22,6 +25,9 @@ export class MessageModel implements Message {
   groupId?: string;
   to?: string;
   status?: 'sending' | 'sent' | 'error';
+  replyTo?: string;
+  replyToText?: string;
+  replyToType?: 'text' | 'image';
 
   constructor(data: Partial<Message>) {
     this.id = data.id || '';
@@ -34,6 +40,9 @@ export class MessageModel implements Message {
     this.groupId = data.groupId;
     this.to = data.to;
     this.status = data.status;
+    this.replyTo = data.replyTo;
+    this.replyToText = data.replyToText;
+    this.replyToType = data.replyToType;
   }
 
   toFirestore() {
@@ -46,7 +55,10 @@ export class MessageModel implements Message {
       fromName: this.fromName,
       groupId: this.groupId,
       to: this.to,
-      status: this.status
+      status: this.status,
+      replyTo: this.replyTo,
+      replyToText: this.replyToText,
+      replyToType: this.replyToType
     };
   }
 
@@ -61,7 +73,10 @@ export class MessageModel implements Message {
       fromName: data.fromName,
       groupId: data.groupId,
       to: data.to,
-      status: data.status
+      status: data.status,
+      replyTo: data.replyTo,
+      replyToText: data.replyToText,
+      replyToType: data.replyToType
     });
   }
 } 

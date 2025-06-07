@@ -28,6 +28,7 @@ import { Message } from '../../models/Message';
 import { CacheService } from '../../services/cache';
 import { runInAction } from 'mobx';
 import * as ImagePicker from 'react-native-image-picker';
+import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 
 type ChatNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Chat'>;
 
@@ -135,6 +136,10 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
     handleMessageSelect(messageId);
   };
 
+  const handleSwipeRight = (message: Message) => {
+    viewModel.setReplyingTo(message);
+  };
+
   const handleMessageSelect = (messageId: string) => {
     setSelectedMessages(prev => {
       if (prev.includes(messageId)) {
@@ -196,65 +201,117 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
     );
   };
 
+  const renderRightActions = (message: Message) => {
+    return (
+      <TouchableOpacity
+        style={[styles.replyAction, { backgroundColor: primaryColor }]}
+        onPress={() => handleSwipeRight(message)}>
+        <Icon name="arrow-undo" size={24} color="white" />
+      </TouchableOpacity>
+    );
+  };
+
   const renderMessage = ({item}: {item: any}) => {
     const isOwnMessage = viewModel.isOwnMessage(item);
     const isSelected = selectedMessages.includes(item.id);
 
     return (
-      <TouchableOpacity
-        onLongPress={() => handleLongPress(item.id)}
-        onPress={() => {
-          if (selectedMessages.length > 0) {
-            handleMessageSelect(item.id);
-          }
-        }}
-        delayLongPress={200}>
-        <View
-          style={[
-            styles.messageContainer,
-            isOwnMessage ? styles.ownMessage : styles.otherMessage,
-            {
-              backgroundColor: isOwnMessage ? secondaryColor : currentTheme.card,
-              borderWidth: isSelected ? 2 : 0,
-              borderColor: primaryColor,
+      <Swipeable
+        renderRightActions={() => !isSelected && renderRightActions(item)}
+        enabled={!isSelected}>
+        <TouchableOpacity
+          onLongPress={() => handleLongPress(item.id)}
+          onPress={() => {
+            if (selectedMessages.length > 0) {
+              handleMessageSelect(item.id);
             }
-          ]}>
-          <View style={styles.messageContent}>
-            {item.type === 'image' ? (
-              <View>
-                <TouchableOpacity 
-                  onPress={() => {
-                    if (selectedMessages.length > 0) {
-                      handleMessageSelect(item.id);
-                    } else {
-                      setSelectedImage(item.imageUrl);
-                    }
-                  }}
-                  onLongPress={() => handleLongPress(item.id)}
-                  delayLongPress={200}>
-                  <Image
-                    source={{ uri: item.imageUrl }} 
-                    style={styles.messageImage}
-                    resizeMode="cover"
-                    onError={async (error) => {
-                      console.error('Error al cargar imagen:', error.nativeEvent);
-                      // Intentar cargar la imagen local si falla la carga remota
-                      const localPath = await CacheService.getLocalImage(item.imageUrl, chatId);
-                      if (localPath) {
-                        runInAction(() => {
-                          const messageIndex = viewModel.messages.findIndex(m => m.id === item.id);
-                          if (messageIndex !== -1) {
-                            viewModel.messages[messageIndex] = {
-                              ...viewModel.messages[messageIndex],
-                              imageUrl: localPath
-                            };
-                          }
-                        });
+          }}
+          delayLongPress={200}>
+          <View
+            style={[
+              styles.messageContainer,
+              isOwnMessage ? styles.ownMessage : styles.otherMessage,
+              {
+                backgroundColor: isOwnMessage ? secondaryColor : currentTheme.card,
+                borderWidth: isSelected ? 2 : 0,
+                borderColor: primaryColor,
+              }
+            ]}>
+            {item.replyTo && (
+              <View style={[styles.replyContainer, { 
+                borderLeftColor: isOwnMessage ? currentTheme.background : primaryColor 
+              }]}>
+                <Text style={[styles.replyToText, { 
+                  color: isOwnMessage ? currentTheme.background : currentTheme.secondary 
+                }]}>
+                  {item.replyToType === 'image' ? 'Imagen' : item.replyToText}
+                </Text>
+              </View>
+            )}
+            <View style={styles.messageContent}>
+              {item.type === 'image' ? (
+                <View>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      if (selectedMessages.length > 0) {
+                        handleMessageSelect(item.id);
+                      } else {
+                        setSelectedImage(item.imageUrl);
                       }
                     }}
-                  />
-                </TouchableOpacity>
-                {item.text && (
+                    onLongPress={() => handleLongPress(item.id)}
+                    delayLongPress={200}>
+                    <Image
+                      source={{ uri: item.imageUrl }} 
+                      style={styles.messageImage}
+                      resizeMode="cover"
+                      onError={async (error) => {
+                        console.error('Error al cargar imagen:', error.nativeEvent);
+                        // Intentar cargar la imagen local si falla la carga remota
+                        const localPath = await CacheService.getLocalImage(item.imageUrl, chatId);
+                        if (localPath) {
+                          runInAction(() => {
+                            const messageIndex = viewModel.messages.findIndex(m => m.id === item.id);
+                            if (messageIndex !== -1) {
+                              viewModel.messages[messageIndex] = {
+                                ...viewModel.messages[messageIndex],
+                                imageUrl: localPath
+                              };
+                            }
+                          });
+                        }
+                      }}
+                    />
+                  </TouchableOpacity>
+                  {item.text && (
+                    <Text 
+                      selectable={true}
+                      style={[
+                        styles.messageText,
+                        { color: isOwnMessage ? currentTheme.background : currentTheme.text }
+                      ]}>
+                      {item.text}
+                    </Text>
+                  )}
+                  <View style={[styles.messageFooter, { alignSelf: 'flex-end' }]}>
+                    <Text style={[
+                      styles.messageTime,
+                      { color: isOwnMessage ? currentTheme.background : currentTheme.secondary }
+                    ]}>
+                      {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
+                    </Text>
+                    {isOwnMessage && (
+                      <Icon 
+                        name={item.status === 'sending' ? 'time-outline' : 'checkmark-done'} 
+                        size={16} 
+                        color={isOwnMessage ? currentTheme.background : currentTheme.secondary}
+                        style={styles.messageStatus}
+                      />
+                    )}
+                  </View>
+                </View>
+              ) : (
+                <>
                   <Text 
                     selectable={true}
                     style={[
@@ -263,55 +320,28 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
                     ]}>
                     {item.text}
                   </Text>
-                )}
-                <View style={[styles.messageFooter, { alignSelf: 'flex-end' }]}>
-                  <Text style={[
-                    styles.messageTime,
-                    { color: isOwnMessage ? currentTheme.background : currentTheme.secondary }
-                  ]}>
-                    {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
-                  </Text>
-                  {isOwnMessage && (
-                    <Icon 
-                      name={item.status === 'sending' ? 'time-outline' : 'checkmark-done'} 
-                      size={16} 
-                      color={isOwnMessage ? currentTheme.background : currentTheme.secondary}
-                      style={styles.messageStatus}
-                    />
-                  )}
-                </View>
-              </View>
-            ) : (
-              <>
-                <Text 
-                  selectable={true}
-                  style={[
-                    styles.messageText,
-                    { color: isOwnMessage ? currentTheme.background : currentTheme.text }
-                  ]}>
-                  {item.text}
-                </Text>
-                <View style={styles.messageFooter}>
-                  <Text style={[
-                    styles.messageTime,
-                    { color: isOwnMessage ? currentTheme.background : currentTheme.secondary }
-                  ]}>
-                    {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
-                  </Text>
-                  {isOwnMessage && (
-                    <Icon 
-                      name={item.status === 'sending' ? 'time-outline' : 'checkmark-done'} 
-                      size={16} 
-                      color={isOwnMessage ? currentTheme.background : currentTheme.secondary}
-                      style={styles.messageStatus}
-                    />
-                  )}
-                </View>
-              </>
-            )}
+                  <View style={styles.messageFooter}>
+                    <Text style={[
+                      styles.messageTime,
+                      { color: isOwnMessage ? currentTheme.background : currentTheme.secondary }
+                    ]}>
+                      {item.createdAt?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Enviando...'}
+                    </Text>
+                    {isOwnMessage && (
+                      <Icon 
+                        name={item.status === 'sending' ? 'time-outline' : 'checkmark-done'} 
+                        size={16} 
+                        color={isOwnMessage ? currentTheme.background : currentTheme.secondary}
+                        style={styles.messageStatus}
+                      />
+                    )}
+                  </View>
+                </>
+              )}
+            </View>
           </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </Swipeable>
     );
   };
 
@@ -324,221 +354,244 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: currentTheme.background }]}
-      behavior={'padding'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 20}
-      enabled={true}>
-      <View style={[styles.header, { 
-        backgroundColor: currentTheme.card,
-        borderBottomColor: currentTheme.border 
-      }]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => {
-            if (selectedMessages.length > 0) {
-              setSelectedMessages([]);
-            } else {
-              navigation.goBack();
-            }
-          }}>
-          <Icon 
-            name={selectedMessages.length > 0 ? "close" : "arrow-back"} 
-            size={24} 
-            color={primaryColor} 
-          />
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          {selectedMessages.length > 0 ? (
-            <View style={styles.selectionHeader}>
-              <Text style={[styles.selectionText, { color: currentTheme.text }]}>
-                {selectedMessages.length} mensaje{selectedMessages.length > 1 ? 's' : ''} seleccionado{selectedMessages.length > 1 ? 's' : ''}
-              </Text>
-              <View style={styles.headerActions}>
-                <TouchableOpacity
-                  style={[styles.headerButton, { backgroundColor: '#ff4444' }]}
-                  onPress={handleDeleteMessages}>
-                  <Icon name="trash" size={24} color="white" />
-                </TouchableOpacity>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        style={[styles.container, { backgroundColor: currentTheme.background }]}
+        behavior={'padding'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 20}
+        enabled={true}>
+        <View style={[styles.header, { 
+          backgroundColor: currentTheme.card,
+          borderBottomColor: currentTheme.border 
+        }]}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => {
+              if (selectedMessages.length > 0) {
+                setSelectedMessages([]);
+              } else {
+                navigation.goBack();
+              }
+            }}>
+            <Icon 
+              name={selectedMessages.length > 0 ? "close" : "arrow-back"} 
+              size={24} 
+              color={primaryColor} 
+            />
+          </TouchableOpacity>
+          <View style={styles.headerContent}>
+            {selectedMessages.length > 0 ? (
+              <View style={styles.selectionHeader}>
+                <Text style={[styles.selectionText, { color: currentTheme.text }]}>
+                  {selectedMessages.length} mensaje{selectedMessages.length > 1 ? 's' : ''} seleccionado{selectedMessages.length > 1 ? 's' : ''}
+                </Text>
+                <View style={styles.headerActions}>
+                  <TouchableOpacity
+                    style={[styles.headerButton, { backgroundColor: '#ff4444' }]}
+                    onPress={handleDeleteMessages}>
+                    <Icon name="trash" size={24} color="white" />
+                  </TouchableOpacity>
+                </View>
               </View>
+            ) : (
+              <>
+                {viewModel.otherParticipantPhoto ? (
+                  <Image 
+                    source={{ uri: viewModel.otherParticipantPhoto }} 
+                    style={styles.headerPhoto}
+                  />
+                ) : (
+                  <View style={[styles.headerPhotoPlaceholder, { backgroundColor: primaryColor }]}>
+                    <Text style={[styles.headerPhotoText, { color: currentTheme.background }]}>
+                      {viewModel.otherParticipantName?.charAt(0).toUpperCase() || '?'}
+                    </Text>
+                  </View>
+                )}
+                <TouchableOpacity 
+                  onPress={() => navigation.navigate('UserProfile', { userId: otherParticipantId })}
+                  style={styles.headerTitleContainer}>
+                  <Text style={[styles.headerTitle, { color: currentTheme.text }]}>
+                    {viewModel.otherParticipantName}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.menuButton}
+                  onPress={() => setShowOptionsMenu(true)}>
+                  <Icon name="ellipsis-vertical" size={24} color={primaryColor} />
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+
+        <FlatList
+          ref={flatListRef}
+          data={viewModel.messages}
+          renderItem={renderMessage}
+          keyExtractor={item => item.id}
+          inverted
+          contentContainerStyle={styles.messageList}
+        />
+
+        {viewModel.replyingTo && (
+          <View style={[styles.replyingToContainer, { 
+            backgroundColor: currentTheme.card,
+            borderTopColor: currentTheme.border 
+          }]}>
+            <View style={[styles.replyingToContent, { 
+              borderLeftColor: primaryColor 
+            }]}>
+              <Text style={[styles.replyingToText, { color: currentTheme.text }]}>
+                Respondiendo a: {viewModel.replyingTo.type === 'image' ? 'Imagen' : viewModel.replyingTo.text}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.cancelReplyButton}
+              onPress={viewModel.cancelReply}>
+              <Icon name="close" size={24} color={primaryColor} />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <View style={[styles.inputContainer, { 
+          backgroundColor: currentTheme.card,
+          borderTopColor: currentTheme.border 
+        }]}>
+          {imageToSend ? (
+            <View style={styles.imagePreviewContainer}>
+              <Image 
+                source={{ uri: imageToSend.uri }} 
+                style={styles.imagePreview}
+                resizeMode="cover"
+              />
+              <TouchableOpacity
+                style={styles.cancelImageButton}
+                onPress={handleCancelImage}>
+                <Icon name="close-circle" size={24} color={primaryColor} />
+              </TouchableOpacity>
             </View>
           ) : (
-            <>
-              {viewModel.otherParticipantPhoto ? (
-                <Image 
-                  source={{ uri: viewModel.otherParticipantPhoto }} 
-                  style={styles.headerPhoto}
-                />
-              ) : (
-                <View style={[styles.headerPhotoPlaceholder, { backgroundColor: primaryColor }]}>
-                  <Text style={[styles.headerPhotoText, { color: currentTheme.background }]}>
-                    {viewModel.otherParticipantName?.charAt(0).toUpperCase() || '?'}
-                  </Text>
-                </View>
-              )}
-              <TouchableOpacity 
-                onPress={() => navigation.navigate('UserProfile', { userId: otherParticipantId })}
-                style={styles.headerTitleContainer}>
-                <Text style={[styles.headerTitle, { color: currentTheme.text }]}>
-                  {viewModel.otherParticipantName}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.menuButton}
-                onPress={() => setShowOptionsMenu(true)}>
-                <Icon name="ellipsis-vertical" size={24} color={primaryColor} />
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </View>
-
-      <FlatList
-        ref={flatListRef}
-        data={viewModel.messages}
-        renderItem={renderMessage}
-        keyExtractor={item => item.id}
-        inverted
-        contentContainerStyle={styles.messageList}
-      />
-      <View style={[styles.inputContainer, { 
-        backgroundColor: currentTheme.card,
-        borderTopColor: currentTheme.border 
-      }]}>
-        {imageToSend ? (
-          <View style={styles.imagePreviewContainer}>
-            <Image 
-              source={{ uri: imageToSend.uri }} 
-              style={styles.imagePreview}
-              resizeMode="cover"
-            />
             <TouchableOpacity
-              style={styles.cancelImageButton}
-              onPress={handleCancelImage}>
-              <Icon name="close-circle" size={24} color={primaryColor} />
+              style={styles.attachButton}
+              onPress={toggleImageMenu}>
+              <Icon name="attach" size={24} color={primaryColor} />
+            </TouchableOpacity>
+          )}
+          <TextInput
+            style={[styles.input, { 
+              backgroundColor: currentTheme.background,
+              color: currentTheme.text
+            }]}
+            value={imageToSend ? imageText : viewModel.newMessage}
+            onChangeText={imageToSend ? setImageText : viewModel.setNewMessage}
+            placeholder={imageToSend ? "Añade un mensaje..." : "Escribe un mensaje..."}
+            placeholderTextColor={currentTheme.secondary}
+            multiline
+          />
+          <TouchableOpacity
+            style={[
+              styles.sendButton,
+              { backgroundColor: (imageToSend ? (imageText.trim() || true) : viewModel.newMessage.trim()) ? secondaryColor : currentTheme.border }
+            ]}
+            onPress={imageToSend ? handleSendImage : () => viewModel.sendMessage()}
+            disabled={!imageToSend && !viewModel.newMessage.trim()}>
+            <Text style={[styles.sendButtonText, { color: currentTheme.background }]}>
+              Enviar
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Menú de opciones de imagen */}
+        <Modal
+          visible={showImageMenu}
+          transparent={true}
+          animationType="none"
+          onRequestClose={toggleImageMenu}>
+          <TouchableOpacity 
+            style={styles.menuOverlay}
+            activeOpacity={1}
+            onPress={toggleImageMenu}>
+            <Animated.View 
+              style={[
+                styles.menuContainer,
+                {
+                  backgroundColor: currentTheme.card,
+                  transform: [{
+                    translateY: menuAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [100, 0]
+                    })
+                  }]
+                }
+              ]}>
+              <View style={styles.menuContent}>
+                <TouchableOpacity 
+                  style={[styles.menuOption, { borderBottomColor: currentTheme.border }]}
+                  onPress={() => handleImageOption('gallery')}>
+                  <Icon name="images" size={24} color={primaryColor} />
+                  <Text style={[styles.menuOptionText, { color: currentTheme.text }]}>
+                    Galería
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.menuOption}
+                  onPress={() => handleImageOption('camera')}>
+                  <Icon name="camera" size={24} color={primaryColor} />
+                  <Text style={[styles.menuOptionText, { color: currentTheme.text }]}>
+                    Cámara
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </TouchableOpacity>
+        </Modal>
+
+        <Modal
+          visible={!!selectedImage}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setSelectedImage(null)}>
+          <View style={styles.modalContainer}>
+            <Image
+              source={{ uri: selectedImage || '' }}
+              style={styles.fullScreenImage}
+              resizeMode="contain"
+            />
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={() => setSelectedImage(null)}>
+              <Icon name="close" size={30} color="white" />
             </TouchableOpacity>
           </View>
-        ) : (
-          <TouchableOpacity
-            style={styles.attachButton}
-            onPress={toggleImageMenu}>
-            <Icon name="attach" size={24} color={primaryColor} />
-          </TouchableOpacity>
-        )}
-        <TextInput
-          style={[styles.input, { 
-            backgroundColor: currentTheme.background,
-            color: currentTheme.text
-          }]}
-          value={imageToSend ? imageText : viewModel.newMessage}
-          onChangeText={imageToSend ? setImageText : viewModel.setNewMessage}
-          placeholder={imageToSend ? "Añade un mensaje..." : "Escribe un mensaje..."}
-          placeholderTextColor={currentTheme.secondary}
-          multiline
-        />
-        <TouchableOpacity
-          style={[
-            styles.sendButton,
-            { backgroundColor: (imageToSend ? (imageText.trim() || true) : viewModel.newMessage.trim()) ? secondaryColor : currentTheme.border }
-          ]}
-          onPress={imageToSend ? handleSendImage : () => viewModel.sendMessage()}
-          disabled={!imageToSend && !viewModel.newMessage.trim()}>
-          <Text style={[styles.sendButtonText, { color: currentTheme.background }]}>
-            Enviar
-          </Text>
-        </TouchableOpacity>
-      </View>
+        </Modal>
 
-      {/* Menú de opciones de imagen */}
-      <Modal
-        visible={showImageMenu}
-        transparent={true}
-        animationType="none"
-        onRequestClose={toggleImageMenu}>
-        <TouchableOpacity 
-          style={styles.menuOverlay}
-          activeOpacity={1}
-          onPress={toggleImageMenu}>
-          <Animated.View 
-            style={[
-              styles.menuContainer,
-              {
-                backgroundColor: currentTheme.card,
-                transform: [{
-                  translateY: menuAnimation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [100, 0]
-                  })
-                }]
-              }
-            ]}>
-            <View style={styles.menuContent}>
+        {/* Menú de opciones */}
+        <Modal
+          visible={showOptionsMenu}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowOptionsMenu(false)}>
+          <TouchableOpacity 
+            style={styles.menuOverlay}
+            activeOpacity={1}
+            onPress={() => setShowOptionsMenu(false)}>
+            <View style={[styles.optionsMenuContainer, { backgroundColor: currentTheme.card }]}>
               <TouchableOpacity 
                 style={[styles.menuOption, { borderBottomColor: currentTheme.border }]}
-                onPress={() => handleImageOption('gallery')}>
-                <Icon name="images" size={24} color={primaryColor} />
-                <Text style={[styles.menuOptionText, { color: currentTheme.text }]}>
-                  Galería
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.menuOption}
-                onPress={() => handleImageOption('camera')}>
-                <Icon name="camera" size={24} color={primaryColor} />
-                <Text style={[styles.menuOptionText, { color: currentTheme.text }]}>
-                  Cámara
+                onPress={() => {
+                  setShowOptionsMenu(false);
+                  handleDeleteAllMessages();
+                }}>
+                <Icon name="trash-outline" size={24} color="#ff4444" />
+                <Text style={[styles.menuOptionText, { color: '#ff4444' }]}>
+                  Vaciar chat
                 </Text>
               </TouchableOpacity>
             </View>
-          </Animated.View>
-        </TouchableOpacity>
-      </Modal>
-
-      <Modal
-        visible={!!selectedImage}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setSelectedImage(null)}>
-        <View style={styles.modalContainer}>
-          <Image
-            source={{ uri: selectedImage || '' }}
-            style={styles.fullScreenImage}
-            resizeMode="contain"
-          />
-          <TouchableOpacity 
-            style={styles.closeButton}
-            onPress={() => setSelectedImage(null)}>
-            <Icon name="close" size={30} color="white" />
           </TouchableOpacity>
-        </View>
-      </Modal>
-
-      {/* Menú de opciones */}
-      <Modal
-        visible={showOptionsMenu}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowOptionsMenu(false)}>
-        <TouchableOpacity 
-          style={styles.menuOverlay}
-          activeOpacity={1}
-          onPress={() => setShowOptionsMenu(false)}>
-          <View style={[styles.optionsMenuContainer, { backgroundColor: currentTheme.card }]}>
-            <TouchableOpacity 
-              style={[styles.menuOption, { borderBottomColor: currentTheme.border }]}
-              onPress={() => {
-                setShowOptionsMenu(false);
-                handleDeleteAllMessages();
-              }}>
-              <Icon name="trash-outline" size={24} color="#ff4444" />
-              <Text style={[styles.menuOptionText, { color: '#ff4444' }]}>
-                Vaciar chat
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-    </KeyboardAvoidingView>
+        </Modal>
+      </KeyboardAvoidingView>
+    </GestureHandlerRootView>
   );
 });
 
@@ -805,6 +858,40 @@ const styles = StyleSheet.create({
     right: -8,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
+  },
+  replyContainer: {
+    borderLeftWidth: 3,
+    paddingLeft: 8,
+    marginBottom: 4,
+    opacity: 0.7,
+  },
+  replyToText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
+  replyingToContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    borderTopWidth: 1,
+  },
+  replyingToContent: {
+    flex: 1,
+    borderLeftWidth: 3,
+    paddingLeft: 8,
+    marginRight: 8,
+  },
+  replyingToText: {
+    fontSize: 14,
+  },
+  cancelReplyButton: {
+    padding: 8,
+  },
+  replyAction: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    height: '100%',
   },
 });
 

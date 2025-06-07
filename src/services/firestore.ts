@@ -291,13 +291,16 @@ export const sendChatMessage = async (
   notificationData: {
     fromName: string;
     to: string;
+    replyTo?: string;
+    replyToText?: string;
+    replyToType?: 'text' | 'image';
   }
-) => {
+): Promise<string> => {
   try {
     const db = getFirestore();
     const encryptedText = CryptoJS.AES.encrypt(messageText, chatId).toString();
     
-    const messageData = {
+    const messageData: any = {
       text: encryptedText,
       senderId: senderId,
       createdAt: serverTimestamp(),
@@ -305,8 +308,19 @@ export const sendChatMessage = async (
       to: notificationData.to
     };
 
+    // Solo añadir los campos de respuesta si existen
+    if (notificationData.replyTo) {
+      messageData.replyTo = notificationData.replyTo;
+    }
+    if (notificationData.replyToText) {
+      messageData.replyToText = notificationData.replyToText;
+    }
+    if (notificationData.replyToType) {
+      messageData.replyToType = notificationData.replyToType;
+    }
+
     const messagesRef = collection(db, COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES);
-    await addDoc(messagesRef, messageData);
+    const messageRef = await addDoc(messagesRef, messageData);
 
     const chatRef = doc(db, COLLECTIONS.CHATS, chatId);
     await updateDoc(chatRef, {
@@ -318,7 +332,7 @@ export const sendChatMessage = async (
       [`unreadCount.${otherParticipantId}`]: increment(1)
     });
 
-    return true;
+    return messageRef.id;
   } catch (error) {
     console.error('Error al enviar mensaje:', error);
     throw error;
@@ -1207,7 +1221,7 @@ export const sendChatImage = async (
     to: string;
     text?: string;
   }
-) => {
+): Promise<string> => {
   try {
     const db = getFirestore();
     
@@ -1222,7 +1236,7 @@ export const sendChatImage = async (
     };
 
     const messagesRef = collection(db, COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES);
-    await addDoc(messagesRef, messageData);
+    const messageRef = await addDoc(messagesRef, messageData);
 
     const chatRef = doc(db, COLLECTIONS.CHATS, chatId);
     await updateDoc(chatRef, {
@@ -1235,7 +1249,7 @@ export const sendChatImage = async (
       [`unreadCount.${otherParticipantId}`]: increment(1)
     });
 
-    return true;
+    return messageRef.id;
   } catch (error) {
     console.error('Error al enviar imagen:', error);
     throw error;

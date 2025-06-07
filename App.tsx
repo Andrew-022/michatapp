@@ -14,6 +14,7 @@ import { getMessaging } from '@react-native-firebase/messaging';
 import Toast from 'react-native-toast-message';
 import { getAuth } from '@react-native-firebase/auth';
 import { getNavigation } from './src/services/navigation';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Variable global para rastrear el chat actual
 let currentChatId: string | null = null;
@@ -151,8 +152,10 @@ const styles = StyleSheet.create({
 
 export default function App(): React.JSX.Element {
   return (
-    <ThemeProvider>
-      <AppContent />
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

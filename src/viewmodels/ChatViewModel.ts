@@ -31,6 +31,7 @@ export class ChatViewModel {
   otherParticipantPhoto: string | undefined;
   private readonly encryptionKey: string;
   private unsubscribe: (() => void) | null = null;
+  replyingTo: Message | null = null;
 
   constructor(chatId: string, otherParticipantId: string) {
     this.chatId = chatId;
@@ -302,7 +303,10 @@ export class ChatViewModel {
         createdAt: new Date(),
         fromName: userName,
         to: this.otherParticipantId,
-        status: 'sending'
+        status: 'sending',
+        replyTo: this.replyingTo?.id,
+        replyToText: this.replyingTo?.text,
+        replyToType: this.replyingTo?.type
       };
 
       // Actualizar estado inmediatamente
@@ -310,24 +314,37 @@ export class ChatViewModel {
         this.messages = [tempMessage, ...this.messages];
       });
 
-      await sendChatMessage(
+      // Guardar una referencia al mensaje al que estamos respondiendo
+      const replyingToMessage = this.replyingTo;
+
+      // Enviar mensaje y obtener la ID de Firestore
+      const firestoreMessageId = await sendChatMessage(
         this.chatId,
         messageToSend,
         currentUser.uid,
         this.otherParticipantId,
         {
           fromName: userName,
-          to: this.otherParticipantId
+          to: this.otherParticipantId,
+          replyTo: replyingToMessage?.id,
+          replyToText: replyingToMessage?.text,
+          replyToType: replyingToMessage?.type
         }
       );
 
-      // Actualizar el estado del mensaje a enviado
+      // Limpiar el mensaje al que se está respondiendo después de enviar
+      runInAction(() => {
+        this.replyingTo = null;
+      });
+
+      // Actualizar el mensaje con la ID de Firestore y el estado de enviado
       runInAction(() => {
         const messageIndex = this.messages.findIndex(m => m.id === tempMessage.id);
         if (messageIndex !== -1) {
           const updatedMessages = [...this.messages];
           updatedMessages[messageIndex] = {
             ...updatedMessages[messageIndex],
+            id: firestoreMessageId,
             status: 'sent'
           };
           this.messages = updatedMessages;
@@ -401,8 +418,8 @@ export class ChatViewModel {
           fileName: imageAsset.fileName
         });
 
-        // Enviar mensaje con la URL de Firebase
-        await sendChatImage(
+        // Enviar mensaje con la URL de Firebase y obtener la ID
+        const firestoreMessageId = await sendChatImage(
           this.chatId,
           imageUrl,
           currentUser.uid,
@@ -414,13 +431,14 @@ export class ChatViewModel {
           }
         );
 
-        // Actualizar el mensaje con la URL final y el estado de enviado
+        // Actualizar el mensaje con la ID de Firestore y el estado de enviado
         runInAction(() => {
           const messageIndex = this.messages.findIndex(m => m.id === tempMessage.id);
           if (messageIndex !== -1) {
             const updatedMessages = [...this.messages];
             updatedMessages[messageIndex] = {
               ...updatedMessages[messageIndex],
+              id: firestoreMessageId,
               status: 'sent'
             };
             this.messages = updatedMessages;
@@ -511,5 +529,13 @@ export class ChatViewModel {
   isOwnMessage(message: Message): boolean {
     const auth = getAuth();
     return message.senderId === auth.currentUser?.uid;
+  }
+
+  setReplyingTo = (message: Message | null) => {
+    this.replyingTo = message;
+  }
+
+  cancelReply = () => {
+    this.replyingTo = null;
   }
 } 
