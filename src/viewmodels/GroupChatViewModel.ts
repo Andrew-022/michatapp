@@ -88,10 +88,21 @@ export class GroupChatViewModel {
   }
 
   private loadMessages() {
+    let isProcessing = false;
+
     this.unsubscribe = loadGroupMessages(
       this.groupId,
       async (newMessages) => {
+        // Evitar procesamiento simultáneo
+        if (isProcessing) {
+          console.log('Ya hay un proceso en curso, ignorando nuevos mensajes');
+          return;
+        }
+
         try {
+          isProcessing = true;
+          console.log('Empezando a cargar mensajes del grupo', newMessages.length);
+          
           // Obtener mensajes del caché
           const cachedMessages = await CacheService.getChatMessages(this.groupId) || [];
           
@@ -203,6 +214,8 @@ export class GroupChatViewModel {
           runInAction(() => {
             this.loading = false;
           });
+        } finally {
+          isProcessing = false;
         }
       },
       (error) => {
@@ -210,6 +223,7 @@ export class GroupChatViewModel {
         runInAction(() => {
           this.loading = false;
         });
+        isProcessing = false;
       }
     );
   }
