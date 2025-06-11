@@ -9,6 +9,7 @@ import {
   Image,
   Modal,
   Dimensions,
+  Alert,
 } from 'react-native';
 import {observer} from 'mobx-react-lite';
 import {ProfileViewModel} from '../../viewmodels/ProfileViewModel';
@@ -33,6 +34,7 @@ const ProfileScreen = observer(() => {
   const [newStatus, setNewStatus] = useState('');
   const { isDark, primaryColor } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   const handleSave = async () => {
     if (newName.trim()) {
@@ -47,6 +49,14 @@ const ProfileScreen = observer(() => {
       await viewModel.updateStatus(newStatus.trim());
       setIsEditingStatus(false);
       setNewStatus('');
+    }
+  };
+
+  const handleTogglePhoneVisibility = async () => {
+    try {
+      await viewModel.updatePhoneNumberVisibility(!viewModel.userData?.isPhoneNumberPublic);
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo actualizar la visibilidad del número');
     }
   };
 
@@ -129,7 +139,7 @@ const ProfileScreen = observer(() => {
             </View>
           ) : (
             <View style={styles.nameContainer}>
-              <Text style={[styles.name, { color: currentTheme.text }]}>
+              <Text style={[styles.name, { color: currentTheme.text }]} numberOfLines={1} adjustsFontSizeToFit>
                 {viewModel.userData?.name || 'Sin nombre'}
               </Text>
               <TouchableOpacity
@@ -142,9 +152,11 @@ const ProfileScreen = observer(() => {
               </TouchableOpacity>
             </View>
           )}
-          <Text style={[styles.phoneNumber, { color: currentTheme.secondary }]}>
-            {viewModel.userData?.phoneNumber || 'Sin número'}
-          </Text>
+          <View style={styles.phoneContainer}>
+            <Text style={[styles.phoneNumber, { color: currentTheme.secondary }]}>
+              {viewModel.userData?.phoneNumber || 'Sin número'}
+            </Text>
+          </View>
 
           <View style={styles.statusContainer}>
             <Text style={[styles.statusLabel, { color: currentTheme.secondary }]}>
@@ -202,6 +214,40 @@ const ProfileScreen = observer(() => {
               </View>
             )}
           </View>
+          
+
+          <View style={styles.privacySection}>
+            <Text style={[styles.sectionTitle, { color: currentTheme.text }]}>
+              Privacidad
+            </Text>
+            <TouchableOpacity
+              style={[styles.privacyOption, { 
+                backgroundColor: currentTheme.card,
+                borderColor: currentTheme.border
+              }]}
+              onPress={() => setShowPrivacyModal(true)}>
+              <View style={styles.privacyOptionContent}>
+                <View style={styles.privacyOptionLeft}>
+                  <Icon name="phone" size={24} color={primaryColor} style={styles.privacyIcon} />
+                  <View>
+                    <Text style={[styles.privacyOptionTitle, { color: currentTheme.text }]}>
+                      Visibilidad del número
+                    </Text>
+                    <Text style={[styles.privacyOptionDescription, { color: currentTheme.secondary }]}>
+                      {viewModel.userData?.isPhoneNumberPublic 
+                        ? 'Tu número es público'
+                        : 'Tu número es privado'}
+                    </Text>
+                  </View>
+                </View>
+                <Icon 
+                  name={viewModel.userData?.isPhoneNumberPublic ? "visibility" : "visibility-off"} 
+                  size={24} 
+                  color={primaryColor} 
+                />
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -246,6 +292,55 @@ const ProfileScreen = observer(() => {
             )}
           </View>
         </TouchableOpacity>
+      </Modal>
+
+      <Modal
+        visible={showPrivacyModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPrivacyModal(false)}>
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+          <View style={[styles.modalContent, { 
+            backgroundColor: currentTheme.card,
+            borderColor: currentTheme.border
+          }]}>
+            <Text style={[styles.modalTitle, { color: currentTheme.text }]}>
+              Cambiar visibilidad del número
+            </Text>
+            <Text style={[styles.modalDescription, { color: currentTheme.secondary }]}>
+              {viewModel.userData?.isPhoneNumberPublic
+                ? '¿Estás seguro de que quieres hacer tu número privado?'
+                : '¿Estás seguro de que quieres hacer tu número público?'}
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton, { 
+                  backgroundColor: currentTheme.border 
+                }]}
+                onPress={() => setShowPrivacyModal(false)}>
+                <Text style={[styles.modalButtonText, { color: currentTheme.text }]}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton, { 
+                  backgroundColor: primaryColor 
+                }]}
+                onPress={async () => {
+                  try {
+                    await viewModel.updatePhoneNumberVisibility(!viewModel.userData?.isPhoneNumberPublic);
+                    setShowPrivacyModal(false);
+                  } catch (error) {
+                    Alert.alert('Error', 'No se pudo actualizar la visibilidad del número');
+                  }
+                }}>
+                <Text style={[styles.modalButtonText, { color: currentTheme.background }]}>
+                  Confirmar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -320,18 +415,29 @@ const styles = StyleSheet.create({
   nameContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 8,
+    paddingHorizontal: 16,
   },
   name: {
     fontSize: 24,
     fontWeight: 'bold',
     marginRight: 8,
+    textAlign: 'center',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   editIcon: {
     padding: 4,
   },
+  phoneContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   phoneNumber: {
     fontSize: 16,
+    marginRight: 8,
   },
   editContainer: {
     width: '100%',
@@ -437,6 +543,83 @@ const styles = StyleSheet.create({
     fontSize: 16,
     flex: 1,
     marginRight: 8,
+  },
+  privacySection: {
+    width: '100%',
+    marginTop: 24,
+    paddingHorizontal: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  privacyOption: {
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  privacyOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+  },
+  privacyOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  privacyIcon: {
+    marginRight: 12,
+  },
+  privacyOptionTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  privacyOptionDescription: {
+    fontSize: 14,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 1,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalDescription: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  modalButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    marginHorizontal: 4,
+  },
+  confirmButton: {
+    backgroundColor: '#007AFF',
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
 

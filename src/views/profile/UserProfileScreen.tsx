@@ -98,10 +98,11 @@ const UserProfileScreen = observer(() => {
         </TouchableOpacity>
 
         <Text style={[styles.name, { color: currentTheme.text }]}>{viewModel.userData.name}</Text>
-        <Text style={[styles.phoneNumber, { color: currentTheme.secondary }]}>
-          {viewModel.userData.phoneNumber}
-        </Text>
-
+        {viewModel.userData.isPhoneNumberPublic && (
+          <Text style={[styles.phoneNumber, { color: currentTheme.secondary }]}>
+            {viewModel.userData.phoneNumber}
+          </Text>
+        )}
         <TouchableOpacity
           style={[styles.chatButton, { backgroundColor: primaryColor }]}
           onPress={handleStartChat}>

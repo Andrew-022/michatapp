@@ -7,6 +7,7 @@ export interface UserData {
   phoneNumber: string;
   photoURL?: string;
   status?: string;
+  isPhoneNumberPublic: boolean;
 }
 
 export class UserProfileViewModel {
@@ -46,7 +47,12 @@ export class UserProfileViewModel {
       this.unsubscribe = subscribeToUserProfile(
         this.userId,
         (data) => {
-          this.setUserData(data);
+          // Asegurar que isPhoneNumberPublic tenga un valor por defecto
+          const userData: UserData = {
+            ...data,
+            isPhoneNumberPublic: data.isPhoneNumberPublic ?? false
+          };
+          this.setUserData(userData);
           this.setLoading(false);
         },
         (error) => {

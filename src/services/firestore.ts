@@ -1076,20 +1076,24 @@ const toRad = (value: number): number => {
 export const loadUserProfile = async (userId: string) => {
   try {
     const db = getFirestore();
-    const userDocRef = doc(db, 'users', userId);
-    const userDoc = await getDoc(userDocRef);
-    const userData = userDoc.data();
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
     
-    return {
-      id: userId,
-      phoneNumber: userData?.phoneNumber || '',
-      name: userData?.name || 'Usuario',
-      photoURL: userData?.photoURL,
-      lastLogin: new Date(),
-      status: userData?.status || '¡Hola! Estoy usando MichatApp',
-    };
+    if (userDoc.exists()) {
+      const data = userDoc.data();
+      return {
+        id: userDoc.id,
+        name: data.name || 'Usuario',
+        phoneNumber: data.phoneNumber || '',
+        photoURL: data.photoURL,
+        status: data.status === undefined ? '¡Hola! Estoy usando MichatApp' : data.status,
+        lastLogin: data.lastLogin?.toDate() || new Date(),
+        isPhoneNumberPublic: data.isPhoneNumberPublic === undefined ? false : data.isPhoneNumberPublic
+      };
+    }
+    throw new Error('Usuario no encontrado');
   } catch (error) {
-    console.error('Error loading user data:', error);
+    console.error('Error loading user profile:', error);
     throw error;
   }
 };
@@ -1141,6 +1145,7 @@ export const uploadUserPhoto = async (userId: string, image: Image): Promise<str
     const userRef = doc(db, 'users', userId);
     await updateDoc(userRef, {
       photoURL: downloadURL,
+      updatedAt: new Date()
     });
 
     return downloadURL;
@@ -1157,6 +1162,7 @@ export const subscribeToUserProfile = (
     phoneNumber: string;
     photoURL?: string;
     status?: string;
+    isPhoneNumberPublic: boolean;
   }) => void,
   onError: (error: any) => void
 ) => {
@@ -1172,7 +1178,8 @@ export const subscribeToUserProfile = (
             name: data.name || 'Usuario',
             phoneNumber: data.phoneNumber || '',
             photoURL: data.photoURL,
-            status: data.status === undefined ? '¡Hola! Estoy usando MichatApp' : data.status
+            status: data.status === undefined ? '¡Hola! Estoy usando MichatApp' : data.status,
+            isPhoneNumberPublic: data.isPhoneNumberPublic === undefined ? false : data.isPhoneNumberPublic
           });
         } else {
           onError('Usuario no encontrado');
@@ -1416,6 +1423,21 @@ export const processAndDeleteGroupMessage = async (
     }
   } catch (error) {
     console.error('Error al procesar y eliminar mensaje del grupo:', error);
+    throw error;
+  }
+};
+
+export const updatePhoneNumberVisibility = async (userId: string, isPublic: boolean) => {
+  try {
+    const db = getFirestore();
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
+      isPhoneNumberPublic: isPublic,
+      updatedAt: serverTimestamp(),
+    });
+    return true;
+  } catch (error) {
+    console.error('Error al actualizar visibilidad del número:', error);
     throw error;
   }
 };

@@ -3,7 +3,13 @@ import { User } from '../models/User';
 import { getAuth } from '@react-native-firebase/auth';
 import { Platform } from 'react-native';
 import ImagePicker, { Image } from 'react-native-image-crop-picker';
-import { loadUserProfile, updateUserName, updateUserStatus, uploadUserPhoto } from '../services/firestore';
+import { 
+  loadUserProfile, 
+  updateUserName, 
+  updateUserStatus, 
+  uploadUserPhoto,
+  updatePhoneNumberVisibility 
+} from '../services/firestore';
 import storage from '@react-native-firebase/storage';
 import { getFirestore, doc, updateDoc } from '@react-native-firebase/firestore';
 
@@ -25,7 +31,10 @@ export class ProfileViewModel {
         const userData = await loadUserProfile(currentUser.uid);
         
         runInAction(() => {
-          this.userData = userData;
+          this.userData = {
+            ...userData,
+            isPhoneNumberPublic: userData.isPhoneNumberPublic ?? false
+          };
           this.loading = false;
         });
       }
@@ -126,11 +135,15 @@ export class ProfileViewModel {
       const userRef = doc(db, 'users', currentUser.uid);
       await updateDoc(userRef, {
         photoURL: downloadURL,
+        updatedAt: new Date()
       });
 
       runInAction(() => {
         if (this.userData) {
-          this.userData.photoURL = downloadURL;
+          this.userData = {
+            ...this.userData,
+            photoURL: downloadURL
+          };
         }
         this.uploadingPhoto = false;
       });
@@ -139,6 +152,25 @@ export class ProfileViewModel {
       runInAction(() => {
         this.uploadingPhoto = false;
       });
+      throw error;
+    }
+  }
+
+  async updatePhoneNumberVisibility(isPublic: boolean) {
+    try {
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        await updatePhoneNumberVisibility(currentUser.uid, isPublic);
+        
+        runInAction(() => {
+          if (this.userData) {
+            this.userData.isPhoneNumberPublic = isPublic;
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error updating phone number visibility:', error);
       throw error;
     }
   }
