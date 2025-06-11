@@ -1,5 +1,6 @@
 import {makeAutoObservable, action} from 'mobx';
-import {subscribeToUserProfile} from '../services/firestore';
+import {subscribeToUserProfile, startChatWithContact} from '../services/firestore';
+import auth from '@react-native-firebase/auth';
 
 export interface UserData {
   name: string;
@@ -57,6 +58,21 @@ export class UserProfileViewModel {
       console.error('Error al cargar datos del usuario:', error);
       this.setError('Error al cargar los datos del usuario');
       this.setLoading(false);
+    }
+  }
+
+  async startChat(): Promise<{ chatId: string; otherParticipantId: string | null }> {
+    try {
+      const currentUser = auth().currentUser;
+      if (!currentUser || !this.userData) {
+        throw new Error('Usuario no autenticado o datos no disponibles');
+      }
+
+      const result = await startChatWithContact(currentUser.uid, [this.userData.phoneNumber]);
+      return result;
+    } catch (error) {
+      console.error('Error al iniciar chat:', error);
+      throw error;
     }
   }
 

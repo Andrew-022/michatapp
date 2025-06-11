@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Modal,
   Dimensions,
+  Alert,
 } from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -34,6 +35,22 @@ const UserProfileScreen = observer(() => {
       viewModel.cleanup();
     };
   }, [viewModel]);
+
+  const handleStartChat = async () => {
+    try {
+      const result = await viewModel.startChat();
+      if (result.chatId && result.otherParticipantId) {
+        navigation.navigate('Chat', {
+          chatId: result.chatId,
+          otherParticipantId: result.otherParticipantId,
+        });
+      } else {
+        Alert.alert('Error', 'No se pudo iniciar el chat');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo iniciar el chat');
+    }
+  };
 
   if (viewModel.loading) {
     return (
@@ -84,6 +101,14 @@ const UserProfileScreen = observer(() => {
         <Text style={[styles.phoneNumber, { color: currentTheme.secondary }]}>
           {viewModel.userData.phoneNumber}
         </Text>
+
+        <TouchableOpacity
+          style={[styles.chatButton, { backgroundColor: primaryColor }]}
+          onPress={handleStartChat}>
+          <Icon name="chatbubble-outline" size={20} color="white" style={styles.chatButtonIcon} />
+          <Text style={styles.chatButtonText}>Iniciar Chat</Text>
+        </TouchableOpacity>
+
         <View style={styles.statusContainer}>
           <Text style={[styles.statusLabel, { color: currentTheme.secondary }]}>
             Estado
@@ -221,6 +246,24 @@ const styles = StyleSheet.create({
   status: {
     fontSize: 16,
     textAlign: 'left',
+  },
+  chatButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 25,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  chatButtonIcon: {
+    marginRight: 8,
+  },
+  chatButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 
