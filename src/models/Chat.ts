@@ -8,6 +8,7 @@ export interface Chat {
     type: string;
   };
   unreadCount?: { [userId: string]: number };
+  otherParticipantName?: string;
 }
 
 export class ChatModel implements Chat {
@@ -20,6 +21,7 @@ export class ChatModel implements Chat {
     type: string;
   };
   unreadCount?: { [userId: string]: number };
+  otherParticipantName?: string;
 
   constructor(data: Partial<Chat>) {
     this.id = data.id || '';
@@ -27,6 +29,7 @@ export class ChatModel implements Chat {
     this.updatedAt = data.updatedAt;
     this.lastMessage = data.lastMessage;
     this.unreadCount = data.unreadCount || {};
+    this.otherParticipantName = data.otherParticipantName;
   }
 
   toFirestore() {

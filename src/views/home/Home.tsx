@@ -12,6 +12,7 @@ import {
   Image,
   Platform,
   PermissionsAndroid,
+  TextInput,
 } from 'react-native';
 import { getAuth, onAuthStateChanged } from '@react-native-firebase/auth';
 import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
@@ -185,6 +186,22 @@ const Home = observer(() => {
           <Text style={[styles.title, { color: currentTheme.text }]}>Chats</Text>
         </View>
         <View style={styles.menuButton} />
+      </View>
+
+      <View style={[styles.searchContainer, { backgroundColor: currentTheme.card, borderBottomColor: currentTheme.border }]}>
+        <Icon name="search" size={20} color={currentTheme.text} style={styles.searchIcon} />
+        <TextInput
+          style={[styles.searchInput, { color: currentTheme.text }]}
+          placeholder="Buscar chats..."
+          placeholderTextColor={currentTheme.secondary}
+          value={viewModel.searchQuery}
+          onChangeText={viewModel.setSearchQuery}
+        />
+        {viewModel.searchQuery ? (
+          <TouchableOpacity onPress={() => viewModel.setSearchQuery('')}>
+            <Icon name="close" size={20} color={currentTheme.text} />
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       <FlatList
@@ -446,6 +463,21 @@ const styles = StyleSheet.create({
   },
   lastMessageTime: {
     fontSize: 12,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    height: 40,
+    fontSize: 16,
   },
 });
 

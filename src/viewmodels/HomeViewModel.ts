@@ -1,4 +1,4 @@
-import { makeAutoObservable, runInAction } from 'mobx';
+import { makeAutoObservable, runInAction, action } from 'mobx';
 import { getAuth, signOut } from '@react-native-firebase/auth';
 import { Chat, ChatModel } from '../models/Chat';
 import { User, UserModel } from '../models/User';
@@ -20,10 +20,15 @@ export class HomeViewModel {
   userData: User | null = null;
   chats: (Chat | GroupChatModel)[] = [];
   loading: boolean = true;
+  searchQuery: string = '';
   private _unsubscribes: (() => void)[] = [];
+  private _allChats: (Chat | GroupChatModel)[] = [];
 
   constructor() {
-    makeAutoObservable(this);
+    makeAutoObservable(this, {
+      filterChats: action,
+      setSearchQuery: action
+    });
     this.loadUserData();
     this.loadAllChats();
     this.requestNotificationPermission();
@@ -132,12 +137,35 @@ export class HomeViewModel {
     if (groups !== null) this._groups = groups;
 
     runInAction(() => {
-      this.chats = [...this._chats, ...this._groups].sort((a, b) => {
+      this._allChats = [...this._chats, ...this._groups].sort((a, b) => {
         const dateA = a.updatedAt || new Date(0);
         const dateB = b.updatedAt || new Date(0);
         return dateB.getTime() - dateA.getTime();
       });
+      this.filterChats();
       this.loading = false;
+    });
+  }
+
+  setSearchQuery = (query: string) => {
+    this.searchQuery = query;
+    this.filterChats();
+  }
+
+  filterChats = () => {
+    if (!this.searchQuery.trim()) {
+      this.chats = this._allChats;
+      return;
+    }
+
+    const query = this.searchQuery.toLowerCase().trim();
+    this.chats = this._allChats.filter(chat => {
+      if ('adminIds' in chat) {
+        return chat.name.toLowerCase().includes(query);
+      } else {
+        const chatModel = chat as Chat;
+        return (chatModel.otherParticipantName || '').toLowerCase().includes(query);
+      }
     });
   }
 
