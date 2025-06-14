@@ -1254,12 +1254,15 @@ export const sendChatImage = async (
     fromName: string;
     to: string;
     text?: string;
+    replyTo?: string;
+    replyToText?: string;
+    replyToType?: 'text' | 'image';
   }
 ): Promise<string> => {
   try {
     const db = getFirestore();
     
-    const messageData = {
+    const messageData: any = {
       type: 'image',
       imageUrl: imageUrl,
       senderId: senderId,
@@ -1269,16 +1272,32 @@ export const sendChatImage = async (
       text: notificationData.text || ''
     };
 
+    // Solo agregar campos de respuesta si existen
+    if (notificationData.replyTo) {
+      messageData.replyTo = notificationData.replyTo;
+      messageData.replyToText = notificationData.replyToText;
+      messageData.replyToType = notificationData.replyToType;
+    }
+
     const messagesRef = collection(db, COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES);
     const messageRef = await addDoc(messagesRef, messageData);
 
+    const lastMessageData: any = {
+      type: 'image',
+      text: notificationData.text ? '📷 Imagen con texto' : '📷 Imagen',
+      createdAt: serverTimestamp()
+    };
+
+    // Solo agregar campos de respuesta al último mensaje si existen
+    if (notificationData.replyTo) {
+      lastMessageData.replyTo = notificationData.replyTo;
+      lastMessageData.replyToText = notificationData.replyToText;
+      lastMessageData.replyToType = notificationData.replyToType;
+    }
+
     const chatRef = doc(db, COLLECTIONS.CHATS, chatId);
     await updateDoc(chatRef, {
-      lastMessage: {
-        type: 'image',
-        text: notificationData.text ? '📷 Imagen con texto' : '📷 Imagen',
-        createdAt: serverTimestamp(),
-      },
+      lastMessage: lastMessageData,
       updatedAt: serverTimestamp(),
       [`unreadCount.${otherParticipantId}`]: increment(1)
     });

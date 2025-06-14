@@ -128,6 +128,7 @@ const ChatScreen = observer(({route}: ChatScreenProps) => {
       setImageToSend(null);
       setImageText('');
       await viewModel.sendImage(imageToSend, imageText);
+      viewModel.cancelReply();
     }
   };
 

@@ -390,6 +390,9 @@ export class ChatViewModel {
       }
     }
 
+    // Guardar una referencia al mensaje al que estamos respondiendo
+    const replyingToMessage = this.replyingTo;
+
     // Crear mensaje temporal para actualización inmediata
     const tempMessage: Message = {
       id: id_temp,
@@ -400,7 +403,10 @@ export class ChatViewModel {
       fromName: userName,
       to: this.otherParticipantId,
       text: message.trim(), // Guardamos el texto sin cifrar en el mensaje temporal
-      status: 'sending'
+      status: 'sending',
+      replyTo: replyingToMessage?.id,
+      replyToText: replyingToMessage?.text,
+      replyToType: replyingToMessage?.type
     };
 
     // Actualizar estado inmediatamente
@@ -427,9 +433,17 @@ export class ChatViewModel {
           {
             fromName: userName,
             to: this.otherParticipantId,
-            text: encryptedText // Enviamos el texto cifrado
+            text: encryptedText, // Enviamos el texto cifrado
+            replyTo: replyingToMessage?.id,
+            replyToText: replyingToMessage?.text,
+            replyToType: replyingToMessage?.type
           }
         );
+
+        // Limpiar el mensaje al que se está respondiendo después de enviar
+        runInAction(() => {
+          this.replyingTo = null;
+        });
 
         // Actualizar el mensaje con la ID de Firestore y el estado de enviado
         runInAction(() => {
