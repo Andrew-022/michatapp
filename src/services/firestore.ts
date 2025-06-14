@@ -1368,7 +1368,7 @@ export const sendGroupImage = async (
   try {
     const db = getFirestore();
     
-    const messageData = {
+    const messageData: any = {
       type: 'image',
       imageUrl: imageUrl,
       senderId: senderId,
@@ -1376,26 +1376,36 @@ export const sendGroupImage = async (
       fromName: notificationData.fromName,
       to: notificationData.to,
       groupId: groupId,
-      text: notificationData.text || '',
-      replyTo: notificationData.replyTo,
-      replyToText: notificationData.replyToText,
-      replyToType: notificationData.replyToType
+      text: notificationData.text || ''
     };
+
+    // Solo agregar campos de respuesta si existen
+    if (notificationData.replyTo) {
+      messageData.replyTo = notificationData.replyTo;
+      messageData.replyToText = notificationData.replyToText;
+      messageData.replyToType = notificationData.replyToType;
+    }
 
     const messagesRef = collection(db, COLLECTIONS.GROUP_CHATS, groupId, COLLECTIONS.MESSAGES);
     const messageRef = await addDoc(messagesRef, messageData);
 
+    const lastMessageData: any = {
+      type: 'image',
+      text: notificationData.text ? '📷 Imagen con texto' : '📷 Imagen',
+      createdAt: serverTimestamp(),
+      senderId: senderId
+    };
+
+    // Solo agregar campos de respuesta al último mensaje si existen
+    if (notificationData.replyTo) {
+      lastMessageData.replyTo = notificationData.replyTo;
+      lastMessageData.replyToText = notificationData.replyToText;
+      lastMessageData.replyToType = notificationData.replyToType;
+    }
+
     const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
     const updates: any = {
-      lastMessage: {
-        type: 'image',
-        text: notificationData.text ? '📷 Imagen con texto' : '📷 Imagen',
-        createdAt: serverTimestamp(),
-        senderId: senderId,
-        replyTo: notificationData.replyTo,
-        replyToText: notificationData.replyToText,
-        replyToType: notificationData.replyToType
-      },
+      lastMessage: lastMessageData,
       updatedAt: serverTimestamp()
     };
 

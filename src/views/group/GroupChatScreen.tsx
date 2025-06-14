@@ -192,6 +192,7 @@ const GroupChatScreen = observer(({ route }: GroupChatScreenProps) => {
       setImageToSend(null);
       setImageText('');
       await viewModel.sendImage(imageToSend, imageText);
+      viewModel.cancelReply();
     }
   };
 
