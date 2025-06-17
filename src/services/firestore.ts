@@ -695,6 +695,7 @@ export const loadGroupMembers = async (participantIds: string[], adminIds: strin
   photoURL?: string;
   phoneNumber: string;
   isAdmin: boolean;
+  isPhoneNumberPublic: boolean;
 }[]> => {
   try {
     const db = getFirestore();
@@ -711,7 +712,8 @@ export const loadGroupMembers = async (participantIds: string[], adminIds: strin
               name: userData.name || 'Usuario',
               photoURL: userData.photoURL,
               phoneNumber: userData.phoneNumber || 'Sin número',
-              isAdmin: adminIds.includes(participantId)
+              isAdmin: adminIds.includes(participantId),
+              isPhoneNumberPublic: userData.isPhoneNumberPublic || false
             });
           }
         }

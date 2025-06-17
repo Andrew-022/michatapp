@@ -214,7 +214,9 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
             </View>
           )}
         </View>
-        <Text style={[styles.memberPhone, { color: currentTheme.secondary }]}>{item.phoneNumber}</Text>
+        {item.isPhoneNumberPublic && (
+          <Text style={[styles.memberPhone, { color: currentTheme.secondary }]}>{item.phoneNumber}</Text>
+        )}
       </View>
       {viewModel.isAdmin && (
         <TouchableOpacity
