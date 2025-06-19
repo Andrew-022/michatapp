@@ -277,8 +277,11 @@ export class CreateGroupViewModel {
     const nameValidation = this.validateGroupName();
     if (!nameValidation.isValid) return nameValidation;
 
-    const locationValidation = this.validateLocation();
-    if (!locationValidation.isValid) return locationValidation;
+    // Solo validar ubicación si el grupo es público
+    if (this.isPublic) {
+      const locationValidation = this.validateLocation();
+      if (!locationValidation.isValid) return locationValidation;
+    }
 
     return { isValid: true };
   }
@@ -294,7 +297,8 @@ export class CreateGroupViewModel {
         adminIds: [this.currentUserId],
         participants: [this.currentUserId, ...this.selectedUserIds],
         isPublic: this.isPublic,
-        location: this.location,
+        // Para grupos privados, location será null. Para grupos públicos, será la ubicación seleccionada o null
+        location: this.isPublic ? this.location : null,
       };
 
       return await createGroup(groupData);

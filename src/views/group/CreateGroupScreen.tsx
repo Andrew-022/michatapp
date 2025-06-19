@@ -116,61 +116,70 @@ const CreateGroupScreen = observer(() => {
             style={[
               styles.locationButton, 
               { backgroundColor: primaryColor },
-              locationLoading && styles.locationButtonDisabled
+              (locationLoading || !viewModel.isPublic) && styles.locationButtonDisabled
             ]}
             onPress={handleSelectLocation}
-            disabled={locationLoading}
+            disabled={locationLoading || !viewModel.isPublic}
           >
             {locationLoading ? (
               <ActivityIndicator color={currentTheme.background} />
             ) : (
               <Text style={[styles.locationButtonText, { color: currentTheme.background }]}>
-                {viewModel.location ? 'Cambiar ubicación' : 'Seleccionar ubicación actual'}
+                {!viewModel.isPublic ? 'Ubicación no disponible para grupos privados' : 
+                 viewModel.location ? 'Cambiar ubicación' : 'Seleccionar ubicación actual'}
               </Text>
             )}
           </TouchableOpacity>
 
-          {locationError && (
+          {!viewModel.isPublic && (
+            <Text style={[styles.infoText, { color: currentTheme.secondary }]}>
+              Los grupos privados no requieren ubicación
+            </Text>
+          )}
+
+          {locationError && viewModel.isPublic && (
             <Text style={[styles.errorText, { color: currentTheme.error }]}>
               {locationError}
             </Text>
           )}
 
-          <View style={[styles.mapContainer, { borderColor: currentTheme.border }]}>
-            <MapView
-              ref={mapRef}
-              style={styles.map}
-              region={viewModel.mapRegion}
-              provider="google"
-              showsUserLocation={true}
-              showsMyLocationButton={true}
-              showsCompass={true}
-              loadingEnabled={true}
-              loadingIndicatorColor={primaryColor}
-              loadingBackgroundColor={currentTheme.background}
-              onMapReady={() => {
-                if (viewModel.location) {
-                  mapRef.current?.animateToRegion(viewModel.mapRegion, 1000);
-                }
-              }}
-            >
-              {viewModel.location && (
-                <Circle
-                  key={`circle-${viewModel.location.latitude}-${viewModel.location.longitude}`}
-                  center={{
-                    latitude: viewModel.location.latitude,
-                    longitude: viewModel.location.longitude,
-                  }}
-                  radius={100}
-                  strokeColor={primaryColor}
-                  fillColor={`${primaryColor}33`}
-                  strokeWidth={2}
-                />
-              )}
-            </MapView>
-          </View>
+          {viewModel.isPublic && (
+            <View style={[styles.mapContainer, { borderColor: currentTheme.border }]}>
+              <MapView
+                ref={mapRef}
+                style={styles.map}
+                region={viewModel.mapRegion}
+                provider="google"
+                showsUserLocation={true}
+                showsMyLocationButton={true}
+                showsCompass={true}
+                loadingEnabled={true}
+                loadingIndicatorColor={primaryColor}
+                loadingBackgroundColor={currentTheme.background}
+                onMapReady={() => {
+                  if (viewModel.location) {
+                    mapRef.current?.animateToRegion(viewModel.mapRegion, 1000);
+                  }
+                }}
+              >
+                {viewModel.location && (
+                  <Circle
+                    key={`circle-${viewModel.location.latitude}-${viewModel.location.longitude}`}
+                    center={{
+                      latitude: viewModel.location.latitude,
+                      longitude: viewModel.location.longitude,
+                    }}
+                    radius={100}
+                    strokeColor={primaryColor}
+                    fillColor={`${primaryColor}33`}
+                    strokeWidth={2}
+                  />
+                )}
+              </MapView>
+            </View>
+          )}
 
-          {viewModel.location && (
+          {viewModel.location && viewModel.isPublic && (
             <Text style={[styles.locationText, { color: currentTheme.secondary }]}>
               {viewModel.location.address || `Lat: ${viewModel.location.latitude.toFixed(6)}, Long: ${viewModel.location.longitude.toFixed(6)}`}
             </Text>
@@ -180,11 +189,11 @@ const CreateGroupScreen = observer(() => {
             style={[
               styles.nextButton,
               { backgroundColor: primaryColor },
-              (!viewModel.groupName.trim() || !viewModel.location) && 
+              (!viewModel.groupName.trim() || (viewModel.isPublic && !viewModel.location)) && 
                 { backgroundColor: currentTheme.border }
             ]}
             onPress={handleNext}
-            disabled={!viewModel.groupName.trim() || !viewModel.location}>
+            disabled={!viewModel.groupName.trim() || (viewModel.isPublic && !viewModel.location)}>
             <Text style={[styles.nextButtonText, { color: currentTheme.background }]}>
               Siguiente
             </Text>
@@ -376,6 +385,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginRight: 8,
+  },
+  infoText: {
+    fontSize: 14,
+    marginBottom: 8,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });
 
