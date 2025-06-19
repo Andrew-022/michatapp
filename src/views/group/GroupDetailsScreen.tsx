@@ -417,7 +417,7 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
                 <MaterialIcons name="location-on" size={16} color={currentTheme.secondary} style={styles.locationIcon} />
                 <Text style={[styles.locationTitle, { color: currentTheme.text }]}>Ubicación</Text>
               </View>
-              {viewModel.isAdmin ? (
+              {viewModel.isAdmin && viewModel.groupData.isPublic ? (
                 <TouchableOpacity
                   style={[styles.locationButton, { backgroundColor: currentTheme.background }]}
                   onPress={() => viewModel.updateLocation()}>
@@ -434,7 +434,11 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
                 </TouchableOpacity>
               ) : (
                 <View style={styles.locationInfo}>
-                  {viewModel.groupData.location ? (
+                  {!viewModel.groupData.isPublic ? (
+                    <Text style={[styles.locationText, { color: currentTheme.secondary }]}>
+                      No disponible para grupos privados
+                    </Text>
+                  ) : viewModel.groupData.location ? (
                     <Text style={[styles.locationText, { color: currentTheme.text }]}>
                       {viewModel.groupData.location.address || 'Ubicación actual'}
                     </Text>
@@ -442,6 +446,9 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
                     <Text style={[styles.locationText, { color: currentTheme.secondary }]}>
                       Sin ubicación
                     </Text>
+                  )}
+                  {!viewModel.groupData.isPublic && (
+                    <MaterialIcons name="lock" size={20} color={currentTheme.secondary} />
                   )}
                 </View>
               )}

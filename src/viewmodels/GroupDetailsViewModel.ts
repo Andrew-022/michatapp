@@ -579,6 +579,15 @@ export class GroupDetailsViewModel {
       return;
     }
 
+    if (!this.groupData?.isPublic) {
+      Alert.alert(
+        'Ubicación no disponible',
+        'Los grupos privados no pueden tener ubicación',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     try {
       this.setLoading(true);
       const location = await this.getCurrentLocation();
