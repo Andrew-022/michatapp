@@ -12,6 +12,8 @@ import {
 import {useTheme} from '../../context/ThemeContext';
 import {lightTheme, darkTheme} from '../../constants/theme';
 import SettingsViewModel from '../../viewmodels/SettingsViewModel';
+import { useNavigation } from '@react-navigation/native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 const colorOptions = [
   { name: 'Azul', value: '#007AFF' },
@@ -25,6 +27,7 @@ const colorOptions = [
 ];
 
 const SettingsScreen: React.FC = () => {
+  const navigation = useNavigation();
   const {theme, isDark, setTheme, setSecondaryColor, secondaryColor, setPrimaryColor, primaryColor} = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
   const settingsViewModel = SettingsViewModel.getInstance();
@@ -80,6 +83,18 @@ const SettingsScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={[styles.container, {backgroundColor: currentTheme.background}]}>
+      <View style={[styles.header, { 
+        backgroundColor: currentTheme.card,
+        borderBottomColor: currentTheme.border 
+      }]}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color={primaryColor} />
+        </TouchableOpacity>
+        <Text style={[styles.title, { color: currentTheme.text }]}>Configuración</Text>
+      </View>
+
       <ScrollView>
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, {color: currentTheme.text}]}>
@@ -180,6 +195,21 @@ const SettingsScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  header: {
+    padding: 16,
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
     flex: 1,
   },
   section: {

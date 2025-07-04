@@ -7,7 +7,7 @@ admin.initializeApp({
 });
 
 // UID específico que queremos usar
-const uid = 'PSgQvSJ5ZuedhzqQJXKZ5TJyG8M2';
+const uid = 'FOShBLnrF3Y0Df7XK06bWd8sHBo2';
 const uiddocumento = 'gmaTRZUdXYW3fPE9ZP28vyx621A3';
 
 // Generar el token personalizado
