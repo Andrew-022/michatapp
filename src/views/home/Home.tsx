@@ -84,12 +84,18 @@ const Home = observer(() => {
   const renderChatItem = ({item}: {item: any}) => {
     const isGroup = !!item.adminIds;
     let lastMessageText = 'No hay mensajes';
+    
     if (item.lastMessage) {
       if (item.lastMessage.type === 'image') {
         lastMessageText = '📷 Imagen';
       } else if (item.lastMessage.text) {
         lastMessageText = item.lastMessage.text;
       }
+    }
+
+    // Para grupos, agregar el nombre del remitente antes del mensaje
+    if (isGroup && item.lastMessageSenderName && lastMessageText !== 'No hay mensajes') {
+      lastMessageText = `${item.lastMessageSenderName}: ${lastMessageText}`;
     }
 
     return (

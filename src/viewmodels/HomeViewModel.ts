@@ -63,6 +63,19 @@ export class HomeViewModel {
     }
   }
 
+  private async getSenderName(senderId: string): Promise<string> {
+    try {
+      const userData = await getUser(senderId);
+      if (!userData) {
+        return 'Usuario';
+      }
+      return userData.name || userData.phoneNumber || 'Usuario';
+    } catch (error) {
+      console.error('Error al obtener nombre del remitente:', error);
+      return 'Usuario';
+    }
+  }
+
   private loadAllChats() {
     const auth = getAuth();
     const currentUser = auth.currentUser;
@@ -103,24 +116,35 @@ export class HomeViewModel {
       this.updateCombinedChats(processedChats, null);
     });
 
-    const unsubscribeGroups = subscribeToGroupChats(currentUser.uid, (groups) => {
-      const processedGroups = groups.map(group => {
+    const unsubscribeGroups = subscribeToGroupChats(currentUser.uid, async (groups) => {
+      const processedGroups = await Promise.all(groups.map(async group => {
         const groupModel = GroupChatModel.fromFirestore(group.id, group);
         let lastMessage = groupModel.lastMessage;
-        if (lastMessage && lastMessage.text && lastMessage.type !== 'image') {
-          lastMessage = {
-            ...lastMessage,
-            text: decryptMessage(lastMessage.text, group.id),
-          };
+        let senderName = '';
+        
+        if (lastMessage) {
+          if (lastMessage.text && lastMessage.type !== 'image') {
+            lastMessage = {
+              ...lastMessage,
+              text: decryptMessage(lastMessage.text, group.id),
+            };
+          }
+          
+          // Obtener el nombre del remitente del último mensaje
+          if (lastMessage.senderId) {
+            senderName = await this.getSenderName(lastMessage.senderId);
+          }
         }
+        
         return { 
           ...groupModel, 
           lastMessage,
           lastMessageTime: lastMessage?.createdAt,
           photoURL: groupModel.photoURL,
-          unreadCount: group.unreadCount?.[currentUser.uid] || 0
+          unreadCount: group.unreadCount?.[currentUser.uid] || 0,
+          lastMessageSenderName: senderName
         };
-      });
+      }));
       
       this.updateCombinedChats(null, processedGroups);
     });
