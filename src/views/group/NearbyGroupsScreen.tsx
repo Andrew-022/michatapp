@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
+  TextInput,
 } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import { useNavigation } from '@react-navigation/native';
@@ -29,6 +30,7 @@ const NearbyGroupsScreen = observer(() => {
   const [showDistanceModal, setShowDistanceModal] = useState(false);
   const [maxDistance, setMaxDistance] = useState(10);
   const [tempDistance, setTempDistance] = useState(10);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     viewModel.loadNearbyGroups(maxDistance);
@@ -46,6 +48,12 @@ const NearbyGroupsScreen = observer(() => {
     viewModel.loadNearbyGroups(tempDistance);
     setShowDistanceModal(false);
   };
+
+  // Filtrar grupos por búsqueda
+  const filteredGroups = viewModel.groups.filter(group => {
+    const text = (group.name + ' ' + (group.description || '')).toLowerCase();
+    return text.includes(search.toLowerCase());
+  });
 
   const renderGroupItem = ({ item }: { item: any }) => (
     <TouchableOpacity
@@ -167,9 +175,22 @@ const NearbyGroupsScreen = observer(() => {
           <Icon name="filter-list" size={24} color={primaryColor} />
         </TouchableOpacity>
       </View>
+      {/* Buscador */}
+      <View style={{paddingHorizontal: 16, paddingBottom: 0, paddingTop: 15}}>
+        <TextInput
+          style={[
+            styles.searchInput,
+            { backgroundColor: currentTheme.card, color: currentTheme.text, borderColor: currentTheme.border }
+          ]}
+          placeholder="Buscar grupo..."
+          placeholderTextColor={currentTheme.secondary}
+          value={search}
+          onChangeText={setSearch}
+        />
+      </View>
 
       <FlatList
-        data={viewModel.groups}
+        data={filteredGroups}
         renderItem={renderGroupItem}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.list}
@@ -319,6 +340,14 @@ const styles = StyleSheet.create({
   closeButtonText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  searchInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 16,
+    marginBottom: 4,
   },
 });
 
