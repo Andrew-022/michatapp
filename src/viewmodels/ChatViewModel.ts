@@ -171,47 +171,58 @@ export class ChatViewModel {
               if (data.type === 'image') {
                 // Guardar imagen localmente
                 const localPath = await CacheService.saveImageLocally(data.imageUrl, this.chatId);
+                let decryptedText = '';
+                let decryptedReplyToText = '';
+                if (data.text) {
+                  try {
+                    decryptedText = decryptMessage(data.text, this.encryptionKey);
+                  } catch (error) {
+                    console.error('Error al descifrar mensaje:', error);
+                  }
+                }
+                if (data.replyToText) {
+                  try {
+                    decryptedReplyToText = decryptMessage(data.replyToText, this.encryptionKey);
+                  } catch (error) {
+                    console.error('Error al descifrar replyToText:', error);
+                  }
+                }
                 if (localPath) {
                   // Crear mensaje con la URL local
-                  let decryptedText = '';
-                  if (data.text) {
-                    try {
-                      decryptedText = decryptMessage(data.text, this.encryptionKey);
-                    } catch (error) {
-                      console.error('Error al descifrar mensaje:', error);
-                    }
-                  }
                   processedMessage = MessageModel.fromFirestore(doc.id, {
                     ...data,
                     imageUrl: localPath,
-                    text: decryptedText
+                    text: decryptedText,
+                    replyToText: decryptedReplyToText
                   });
                 } else {
                   // Si no se pudo guardar localmente, usar la URL de Firebase
-                  let decryptedText = '';
-                  if (data.text) {
-                    try {
-                      decryptedText = decryptMessage(data.text, this.encryptionKey);
-                    } catch (error) {
-                      console.error('Error al descifrar mensaje:', error);
-                    }
-                  }
                   processedMessage = MessageModel.fromFirestore(doc.id, {
                     ...data,
-                    text: decryptedText
+                    text: decryptedText,
+                    replyToText: decryptedReplyToText
                   });
                 }
               } else if (data.text) {
+                let decryptedText = '';
+                let decryptedReplyToText = '';
                 try {
-                  const decryptedText = decryptMessage(data.text, this.encryptionKey);
-                  processedMessage = MessageModel.fromFirestore(doc.id, {
-                    ...data,
-                    text: decryptedText
-                  });
+                  decryptedText = decryptMessage(data.text, this.encryptionKey);
                 } catch (error) {
                   console.error('Error al descifrar mensaje:', error);
-                  processedMessage = MessageModel.fromFirestore(doc.id, data);
                 }
+                if (data.replyToText) {
+                  try {
+                    decryptedReplyToText = decryptMessage(data.replyToText, this.encryptionKey);
+                  } catch (error) {
+                    console.error('Error al descifrar replyToText:', error);
+                  }
+                }
+                processedMessage = MessageModel.fromFirestore(doc.id, {
+                  ...data,
+                  text: decryptedText,
+                  replyToText: decryptedReplyToText
+                });
               } else {
                 processedMessage = MessageModel.fromFirestore(doc.id, data);
               }

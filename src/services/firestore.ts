@@ -313,7 +313,8 @@ export const sendChatMessage = async (
       messageData.replyTo = notificationData.replyTo;
     }
     if (notificationData.replyToText) {
-      messageData.replyToText = notificationData.replyToText;
+      const encryptedReplyToText = CryptoJS.AES.encrypt(notificationData.replyToText, chatId).toString();
+      messageData.replyToText = encryptedReplyToText;
     }
     if (notificationData.replyToType) {
       messageData.replyToType = notificationData.replyToType;
@@ -733,11 +734,11 @@ export const loadGroupMembers = async (participantIds: string[], adminIds: strin
   }
 };
 
-export const updateGroupDescription = async (groupId: string, newDescription: string) => {
+export const updateGroupDescription = async (groupId: string, newDescription: string, lastModifiedBy: string, lastModifiedByName: string) => {
   try {
     const db = getFirestore();
     const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
-    await updateDoc(groupRef, { description: newDescription });
+    await updateDoc(groupRef, { description: newDescription, lastModifiedBy, lastModifiedByName });
     return true;
   } catch (error) {
     console.error('Error al actualizar la descripción:', error);
@@ -745,11 +746,11 @@ export const updateGroupDescription = async (groupId: string, newDescription: st
   }
 };
 
-export const updateGroupName = async (groupId: string, newName: string) => {
+export const updateGroupName = async (groupId: string, newName: string, lastModifiedBy: string, lastModifiedByName: string) => {
   try {
     const db = getFirestore();
     const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
-    await updateDoc(groupRef, { name: newName });
+    await updateDoc(groupRef, { name: newName, lastModifiedBy, lastModifiedByName });
     return true;
   } catch (error) {
     console.error('Error al actualizar el nombre:', error);
@@ -886,12 +887,14 @@ export const removeGroupAdmin = async (groupId: string, userId: string) => {
   }
 };
 
-export const toggleGroupVisibility = async (groupId: string, currentVisibility: boolean) => {
+export const toggleGroupVisibility = async (groupId: string, currentVisibility: boolean, lastModifiedBy: string, lastModifiedByName: string) => {
   try {
     const db = getFirestore();
     const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
     await updateDoc(groupRef, {
-      isPublic: !currentVisibility
+      isPublic: !currentVisibility,
+      lastModifiedBy,
+      lastModifiedByName
     });
     return true;
   } catch (error) {
@@ -900,16 +903,14 @@ export const toggleGroupVisibility = async (groupId: string, currentVisibility: 
   }
 };
 
-export const updateGroupLocation = async (groupId: string, location: {
-  latitude: number;
-  longitude: number;
-  address?: string;
-}) => {
+export const updateGroupLocation = async (groupId: string, location: { latitude: number; longitude: number; address?: string; }, lastModifiedBy: string, lastModifiedByName: string) => {
   try {
     const db = getFirestore();
     const groupRef = doc(db, COLLECTIONS.GROUP_CHATS, groupId);
     await updateDoc(groupRef, {
-      location
+      location,
+      lastModifiedBy,
+      lastModifiedByName
     });
     return true;
   } catch (error) {

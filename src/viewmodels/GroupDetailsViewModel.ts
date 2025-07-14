@@ -21,7 +21,8 @@ import {
   removeGroupAdmin,
   toggleGroupVisibility,
   updateGroupLocation,
-  uploadGroupPhoto
+  uploadGroupPhoto,
+  getUser
 } from '../services/firestore';
 
 export interface GroupLocation {
@@ -198,7 +199,14 @@ export class GroupDetailsViewModel {
 
     try {
       this.setLoading(true);
-      await updateGroupDescription(this.groupId, newDescription);
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      let userName = '';
+      if (currentUser) {
+        const userData = await getUser(currentUser.uid);
+        userName = userData?.name || 'Usuario';
+      }
+      await updateGroupDescription(this.groupId, newDescription, currentUser?.uid || '', userName);
       
       if (this.groupData) {
         this.setGroupData({
@@ -230,7 +238,14 @@ export class GroupDetailsViewModel {
 
     try {
       this.setLoading(true);
-      await updateGroupName(this.groupId, newName);
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      let userName = '';
+      if (currentUser) {
+        const userData = await getUser(currentUser.uid);
+        userName = userData?.name || 'Usuario';
+      }
+      await updateGroupName(this.groupId, newName, currentUser?.uid || '', userName);
       
       if (this.groupData) {
         this.setGroupData({
@@ -469,7 +484,14 @@ export class GroupDetailsViewModel {
 
     try {
       this.setLoading(true);
-      await toggleGroupVisibility(this.groupId, this.groupData?.isPublic || false);
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      let userName = '';
+      if (currentUser) {
+        const userData = await getUser(currentUser.uid);
+        userName = userData?.name || 'Usuario';
+      }
+      await toggleGroupVisibility(this.groupId, this.groupData?.isPublic || false, currentUser?.uid || '', userName);
       
       if (this.groupData) {
         this.setGroupData({
@@ -598,8 +620,14 @@ export class GroupDetailsViewModel {
 
       const address = await this.getAddressFromCoordinates(location.latitude, location.longitude);
       const locationWithAddress = { ...location, address };
-
-      await updateGroupLocation(this.groupId, locationWithAddress);
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+      let userName = '';
+      if (currentUser) {
+        const userData = await getUser(currentUser.uid);
+        userName = userData?.name || 'Usuario';
+      }
+      await updateGroupLocation(this.groupId, locationWithAddress, currentUser?.uid || '', userName);
 
       if (this.groupData) {
         this.setGroupData({

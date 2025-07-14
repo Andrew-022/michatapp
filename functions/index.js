@@ -162,3 +162,95 @@ exports.sendGroupMessageNotification = functions.firestore
 
     return null;
   }); 
+
+// Función para notificar cambios en la configuración del grupo
+exports.sendGroupConfigUpdateNotification = functions.firestore
+  .document("groupChats/{groupId}")
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+    const groupId = context.params.groupId;
+
+    // Verificar si alguno de los campos relevantes cambió
+    const campos = ["isPublic", "location", "name", "photoURL", "description"];
+    let cambios = [];
+    for (const campo of campos) {
+      if (before[campo] !== after[campo]) {
+        cambios.push(campo);
+      }
+    }
+    if (cambios.length === 0) {
+      // No hay cambios relevantes
+      return null;
+    }
+
+    // Determinar quién hizo el cambio (opcional, si tienes este dato en after.lastModifiedBy)
+    const modificadorId = after.lastModifiedBy || null;
+    let modificadorNombre = after.lastModifiedByName || "Alguien";
+
+    // Obtener participantes
+    if (!after.participants || !Array.isArray(after.participants)) {
+      console.log("No hay participantes en el grupo");
+      return null;
+    }
+    // Excluir al modificador si se conoce
+    const participantes = modificadorId
+      ? after.participants.filter(id => id !== modificadorId)
+      : after.participants;
+
+    // Obtener tokens FCM de los participantes
+    const userDocs = await Promise.all(
+      participantes.map(userId =>
+        admin.firestore().collection("users").doc(userId).get()
+      )
+    );
+    const fcmTokens = userDocs
+      .map(doc => doc.data()?.fcmToken)
+      .filter(token => token);
+    if (fcmTokens.length === 0) {
+      console.log("No hay tokens FCM disponibles para los participantes");
+      return null;
+    }
+
+    // Construir el texto de la notificación
+    const camposTraducidos = {
+      isPublic: "privacidad",
+      location: "ubicación",
+      name: "nombre",
+      photoURL: "foto",
+      description: "descripción"
+    };
+    const cambiosTexto = cambios.map(c => camposTraducidos[c] || c).join(", ");
+    const notificationText = `${modificadorNombre} actualizó la configuración del grupo: ${cambiosTexto}`;
+
+    // Enviar notificaciones
+    const sendPromises = fcmTokens.map(token => {
+      const message = {
+        notification: {
+          title: `Grupo actualizado: ${after.name}`,
+          body: notificationText,
+        },
+        data: {
+          groupId: groupId,
+          type: 'group_config_update',
+          modificadorId: modificadorId || '',
+        },
+        token: token,
+      };
+      return admin.messaging().send(message)
+        .then(() => {
+          console.log(`Notificación de actualización enviada a token: ${token}`);
+        })
+        .catch(error => {
+          console.error(`Error enviando notificación a token ${token}:`, error);
+        });
+    });
+
+    try {
+      await Promise.all(sendPromises);
+      console.log("Todas las notificaciones de actualización han sido procesadas");
+    } catch (error) {
+      console.error("Error en el proceso de envío de notificaciones de actualización:", error);
+    }
+    return null;
+  }); 
