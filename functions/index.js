@@ -175,8 +175,20 @@ exports.sendGroupConfigUpdateNotification = functions.firestore
     const campos = ["isPublic", "location", "name", "photoURL", "description"];
     let cambios = [];
     for (const campo of campos) {
-      if (before[campo] !== after[campo]) {
-        cambios.push(campo);
+      if (campo === "location") {
+        const beforeLoc = before.location || {};
+        const afterLoc = after.location || {};
+        if (
+          beforeLoc.address !== afterLoc.address ||
+          beforeLoc.latitude !== afterLoc.latitude ||
+          beforeLoc.longitude !== afterLoc.longitude
+        ) {
+          cambios.push("location");
+        }
+      } else {
+        if (before[campo] !== after[campo]) {
+          cambios.push(campo);
+        }
       }
     }
     if (cambios.length === 0) {
@@ -220,8 +232,9 @@ exports.sendGroupConfigUpdateNotification = functions.firestore
       photoURL: "foto",
       description: "descripción"
     };
-    const cambiosTexto = cambios.map(c => camposTraducidos[c] || c).join(", ");
-    const notificationText = `${modificadorNombre} actualizó la configuración del grupo: ${cambiosTexto}`;
+    const cambiosTraducidos = cambios.map(c => camposTraducidos[c] || c);
+    const articulo = cambios[0] === 'name' ? 'el' : 'la';
+    const notificationText = `${modificadorNombre} actualizó ${articulo} ${cambiosTraducidos[0]} del grupo`;
 
     // Enviar notificaciones
     const sendPromises = fcmTokens.map(token => {
