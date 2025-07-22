@@ -22,7 +22,8 @@ import {
   toggleGroupVisibility,
   updateGroupLocation,
   uploadGroupPhoto,
-  getUser
+  getUser,
+  updateGroupChat
 } from '../services/firestore';
 
 export interface GroupLocation {
@@ -49,6 +50,7 @@ export interface GroupData {
   createdAt: Date;
   isPublic: boolean;
   location?: GroupLocation;
+  max_distance?: number;
 }
 
 export class GroupDetailsViewModel {
@@ -506,6 +508,32 @@ export class GroupDetailsViewModel {
         'No se pudo cambiar la visibilidad del grupo',
         [{ text: 'OK' }]
       );
+    } finally {
+      this.setLoading(false);
+    }
+  }
+
+  async updateMaxDistance(newDistance: number) {
+    if (!this.isAdmin || !this.groupData?.isPublic) {
+      Alert.alert(
+        'Acceso denegado',
+        'Solo el administrador de un grupo público puede modificar la distancia máxima',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    try {
+      this.setLoading(true);
+      await updateGroupChat(this.groupId, { max_distance: newDistance });
+      if (this.groupData) {
+        this.setGroupData({
+          ...this.groupData,
+          max_distance: newDistance
+        });
+      }
+    } catch (error) {
+      console.error('Error al actualizar la distancia máxima:', error);
+      Alert.alert('Error', 'No se pudo actualizar la distancia máxima', [{ text: 'OK' }]);
     } finally {
       this.setLoading(false);
     }

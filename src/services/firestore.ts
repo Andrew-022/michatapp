@@ -455,6 +455,7 @@ export const createGroup = async (groupData: {
     longitude: number;
     address?: string;
   } | null;
+  max_distance: number | null;
 }): Promise<{ success: boolean; groupId?: string; error?: string }> => {
   try {
     const auth = getAuth();
@@ -1004,7 +1005,27 @@ export const loadNearbyGroups = async (maxDistance: number = 10, currentLocation
   try {
     const db = getFirestore();
     const groupsRef = collection(db, 'groupChats');
-    const q = query(groupsRef, where('isPublic', '==', true));
+
+    // Bounding box
+    const earthRadius = 6371; // km
+    const lat = currentLocation.latitude;
+    const lon = currentLocation.longitude;
+    const radius = maxDistance;
+    const latDelta = radius / 111;
+    const lonDelta = radius / (111 * Math.cos(lat * Math.PI / 180));
+    const minLat = lat - latDelta;
+    const maxLat = lat + latDelta;
+    const minLon = lon - lonDelta;
+    const maxLon = lon + lonDelta;
+
+    const q = query(
+      groupsRef,
+      where('isPublic', '==', true),
+      where('location.latitude', '>=', minLat),
+      where('location.latitude', '<=', maxLat),
+      where('location.longitude', '>=', minLon),
+      where('location.longitude', '<=', maxLon)
+    );
     const querySnapshot = await getDocs(q);
 
     const groups = [];
@@ -1017,9 +1038,9 @@ export const loadNearbyGroups = async (maxDistance: number = 10, currentLocation
           data.location.latitude,
           data.location.longitude
         );
-        
-        // Solo incluir grupos dentro del radio máximo
-        if (distance <= maxDistance) {
+        // Solo incluir grupos dentro del radio máximo del usuario y del grupo
+        const groupMaxDistance = typeof data.max_distance === 'number' ? data.max_distance : 10;
+        if (distance <= maxDistance && distance <= groupMaxDistance) {
           groups.push({
             id: doc.id,
             name: data.name,

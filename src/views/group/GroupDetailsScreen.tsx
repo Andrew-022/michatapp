@@ -24,6 +24,7 @@ import { globalStyles } from '../../styles/globalStyles';
 import MemberOptionsMenu from './MemberOptionsMenu';
 import { useTheme } from '../../context/ThemeContext';
 import { lightTheme, darkTheme } from '../../constants/theme';
+import Slider from '@react-native-community/slider';
 
 type GroupDetailsNavigationProp = NativeStackNavigationProp<RootStackParamList, 'GroupDetails'>;
 
@@ -48,6 +49,7 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
   const [isPhotoExpanded, setIsPhotoExpanded] = useState(false);
   const { isDark, primaryColor } = useTheme();
   const currentTheme = isDark ? darkTheme : lightTheme;
+  const [tempMaxDistance, setTempMaxDistance] = useState<number | null>(null);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -411,6 +413,31 @@ const GroupDetailsScreen = observer(({route}: GroupDetailsScreenProps) => {
                 </View>
               )}
             </View>
+
+            {/* Slider editable para max_distance solo si es admin y grupo público */}
+            {viewModel.groupData.isPublic && (
+              <View style={{ marginVertical: 16 }}>
+                <Text style={{ color: currentTheme.text, fontWeight: 'bold', marginBottom: 8 }}>
+                  Distancia máxima para unirse al grupo: {viewModel.isAdmin ? (tempMaxDistance ?? viewModel.groupData.max_distance ?? 10) : (viewModel.groupData.max_distance ?? 10)} km
+                </Text>
+                {viewModel.isAdmin ? (
+                  <Slider
+                    minimumValue={1}
+                    maximumValue={30}
+                    step={1}
+                    value={tempMaxDistance ?? viewModel.groupData.max_distance ?? 10}
+                    onValueChange={setTempMaxDistance}
+                    onSlidingComplete={(value) => {
+                      viewModel.updateMaxDistance(value);
+                      setTempMaxDistance(null);
+                    }}
+                    minimumTrackTintColor={primaryColor}
+                    maximumTrackTintColor={currentTheme.border}
+                    thumbTintColor={primaryColor}
+                  />
+                ) : null}
+              </View>
+            )}
 
             <View style={[styles.locationContainer, { borderTopColor: currentTheme.border }]}>
               <View style={styles.locationHeader}>

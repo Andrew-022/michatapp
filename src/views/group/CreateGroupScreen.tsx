@@ -28,6 +28,7 @@ import { CreateGroupViewModel } from '../../viewmodels/CreateGroupViewModel';
 import { useTheme } from '../../context/ThemeContext';
 import { lightTheme, darkTheme } from '../../constants/theme';
 import MapView, { Marker, Circle } from 'react-native-maps';
+import Slider from '@react-native-community/slider';
 
 const CreateGroupScreen = observer(() => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -111,6 +112,25 @@ const CreateGroupScreen = observer(() => {
               </Text>
             </TouchableOpacity>
           </View>
+
+          {/* Slider para max_distance solo si es público */}
+          {viewModel.isPublic && (
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ color: currentTheme.text, fontWeight: 'bold', marginBottom: 8 }}>
+                Distancia máxima para unirse al grupo: {viewModel.max_distance} km
+              </Text>
+              <Slider
+                minimumValue={1}
+                maximumValue={30}
+                step={1}
+                value={viewModel.max_distance}
+                onValueChange={viewModel.setMaxDistance.bind(viewModel)}
+                minimumTrackTintColor={primaryColor}
+                maximumTrackTintColor={currentTheme.border}
+                thumbTintColor={primaryColor}
+              />
+            </View>
+          )}
 
           <TouchableOpacity
             style={[

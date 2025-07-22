@@ -12,6 +12,7 @@ export interface GroupChat {
     latitude: number;
     longitude: number;
   };
+  max_distance?: number;
   lastMessage?: {
     text: string;
     createdAt: Date;
@@ -34,6 +35,7 @@ export class GroupChatModel implements GroupChat {
     latitude: number;
     longitude: number;
   };
+  max_distance?: number;
   lastMessage?: {
     text: string;
     createdAt: Date;
@@ -51,6 +53,7 @@ export class GroupChatModel implements GroupChat {
     this.createdAt = data.createdAt || new Date();
     this.updatedAt = data.updatedAt || new Date();
     this.location = data.location;
+    this.max_distance = data.max_distance;
     this.lastMessage = data.lastMessage;
   }
 
@@ -64,6 +67,7 @@ export class GroupChatModel implements GroupChat {
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       location: this.location,
+      max_distance: this.max_distance,
       lastMessage: this.lastMessage,
     };
   }
@@ -79,6 +83,7 @@ export class GroupChatModel implements GroupChat {
       createdAt: data.createdAt?.toDate(),
       updatedAt: data.updatedAt?.toDate(),
       location: data.location,
+      max_distance: data.max_distance,
       lastMessage: data.lastMessage
         ? {
             text: data.lastMessage.text,

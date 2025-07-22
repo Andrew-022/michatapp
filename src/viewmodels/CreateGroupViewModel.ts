@@ -42,6 +42,7 @@ export class CreateGroupViewModel {
     latitudeDelta: 0.01,
     longitudeDelta: 0.01,
   };
+  max_distance: number = 10;
 
   // Añade estas coordenadas de Madrid
   private readonly MADRID_COORDINATES = {
@@ -81,6 +82,10 @@ export class CreateGroupViewModel {
       latitudeDelta: 0.01,
       longitudeDelta: 0.01,
     };
+  }
+
+  setMaxDistance(distance: number) {
+    this.max_distance = distance;
   }
 
   private async requestLocationPermission() {
@@ -277,10 +282,13 @@ export class CreateGroupViewModel {
     const nameValidation = this.validateGroupName();
     if (!nameValidation.isValid) return nameValidation;
 
-    // Solo validar ubicación si el grupo es público
+    // Solo validar ubicación y distancia si el grupo es público
     if (this.isPublic) {
       const locationValidation = this.validateLocation();
       if (!locationValidation.isValid) return locationValidation;
+      if (this.max_distance < 1 || this.max_distance > 30) {
+        return { isValid: false, error: 'La distancia máxima debe estar entre 1 y 30 km' };
+      }
     }
 
     return { isValid: true };
@@ -297,8 +305,9 @@ export class CreateGroupViewModel {
         adminIds: [this.currentUserId],
         participants: [this.currentUserId, ...this.selectedUserIds],
         isPublic: this.isPublic,
-        // Para grupos privados, location será null. Para grupos públicos, será la ubicación seleccionada o null
+        // Para grupos privados, location y max_distance serán null. Para públicos, se envían ambos
         location: this.isPublic ? this.location : null,
+        max_distance: this.isPublic ? this.max_distance : null,
       };
 
       return await createGroup(groupData);
